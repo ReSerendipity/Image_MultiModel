@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>布局对比 · D 全屏画布 + 抽屉</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f5f5f5;--surface:#fff;--surface-2:#f0f0f0;--surface-3:#e6e6e6;--ink:#1a1a1a;--ink-soft:#5f5f5f;--ink-faint:#8f8f8f;--accent:#a78bfa;--accent-strong:#8b7bd8;--accent-soft:#efebfc;--wire:#d9d9d9;--wire-strong:#b3b3b3;--dot:#e5e5e5;--sans:'Inter',system-ui,sans-serif;--radius:8px;--topbar-h:52px}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:13px;line-height:1.5}
+.cmp-bar{position:fixed;top:0;left:0;right:0;height:34px;background:#232326;color:#d9d9e3;display:flex;align-items:center;justify-content:space-between;padding:0 14px;z-index:100;font-size:11.5px}
+.cmp-bar b{font-weight:600;color:#fff}
+.cmp-bar .links{display:flex;gap:4px}
+.cmp-bar a{color:#a9a9b5;text-decoration:none;padding:4px 10px;border-radius:6px}
+.cmp-bar a:hover{color:#fff;background:rgba(255,255,255,.08)}
+.cmp-bar a.cur{background:#8b7bd8;color:#fff;font-weight:600}
+.topbar{position:fixed;top:34px;left:0;right:0;height:var(--topbar-h);background:var(--surface);border-bottom:1px solid var(--wire);display:flex;align-items:center;justify-content:space-between;padding:0 14px;z-index:50}
+.logo{display:flex;align-items:center;gap:9px}
+.figma-logo{display:flex}
+.figma-logo span{width:11px;height:20px}
+.fl-1{background:#f24e1e;border-radius:6px 0 0 6px}.fl-2{background:#ff7262;border-radius:0 6px 6px 0}.fl-3{background:#a259ff;border-radius:6px}
+.logo-text{font-size:12.5px;font-weight:600}.logo-text i{font-style:normal;color:var(--ink-faint)}
+.topbar-right{display:flex;align-items:center;gap:8px}
+.icon-btn{width:30px;height:30px;border:1px solid transparent;background:var(--surface);border-radius:6px;color:var(--ink-soft)}
+.icon-btn:hover{background:var(--surface-2)}
+select,input{font-family:inherit;font-size:12px;color:var(--ink);background:var(--surface-2);border:1px solid transparent;border-radius:6px;padding:5px 9px;height:30px;outline:none}
+select:hover,input:hover{border-color:var(--wire)}
+.share-btn{background:var(--accent-strong);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;height:30px}
+.avatar{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#a259ff,#0acf83)}
+.layout{min-height:100vh;padding-top:calc(34px + var(--topbar-h));padding-bottom:30px}
+/* D 全屏画布 */
+.canvas-stage{padding:18px 20px;max-width:1200px;margin:0 auto}
+.canvas-actions{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.params-btn{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--wire);border-radius:6px;padding:8px 14px;font-size:12px;font-weight:600;color:var(--ink)}
+.params-btn:hover{border-color:var(--accent);color:var(--accent)}
+.canvas-actions .spacer{flex:1}
+.chip{font-size:10.5px;color:var(--ink-soft);border:1px solid var(--wire);border-radius:20px;padding:3px 10px;background:var(--surface)}
+.ph-canvas{width:100%;aspect-ratio:16/9;border:1px solid var(--wire-strong);border-radius:12px;background:repeating-linear-gradient(45deg,#fafafa,#fafafa 12px,var(--surface-2) 12px,var(--surface-2) 24px);display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-size:12px;letter-spacing:.1em}
+.phase-line{display:flex;justify-content:space-between;margin:11px 2px 6px;font-size:10.5px;color:var(--ink-soft)}
+.progress{height:6px;border-radius:6px;background:var(--surface-2);overflow:hidden}
+.progress i{display:block;height:100%;width:38%;background:var(--accent);border-radius:6px}
+.out-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin-top:14px;max-width:860px;margin-left:auto;margin-right:auto}
+.out-card{border:1px solid var(--wire);border-radius:var(--radius);overflow:hidden;background:var(--surface)}
+.ph-img{height:96px;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-size:9px;letter-spacing:.1em;background:var(--surface-2);position:relative}
+.ph-img::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(0,0,0,.03),rgba(0,0,0,.03) 6px,transparent 6px,transparent 12px)}
+.out-meta{padding:6px 9px;border-top:1px solid var(--wire);display:flex;flex-direction:column;gap:1px}
+.out-meta b{font-size:11px}
+.out-meta span{font-size:9px;color:var(--ink-faint)}
+.btn{display:inline-flex;align-items:center;justify-content:center;border:1px solid transparent;background:var(--surface-2);color:var(--ink);border-radius:6px;padding:7px 14px;font-size:12px;font-weight:600}
+.btn-primary{background:var(--accent-strong);color:#fff}
+.gen-bar{display:flex;gap:9px;margin-top:14px;max-width:860px;margin-left:auto;margin-right:auto}
+.gen-bar .btn-primary{flex:1;padding:10px;font-size:13px}
+/* 抽屉 */
+.drawer{position:fixed;top:calc(34px + var(--topbar-h));bottom:30px;right:0;width:320px;background:var(--surface);border-left:1px solid var(--wire);box-shadow:-8px 0 24px rgba(0,0,0,.08);transform:translateX(105%);transition:transform .22s;z-index:80;display:flex;flex-direction:column}
+.drawer.open{transform:none}
+.drawer-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--wire);font-size:12.5px;font-weight:600}
+.drawer-head .no{color:var(--accent);font-weight:700;margin-right:6px}
+.drawer-body{padding:10px 12px;overflow-y:auto;flex:1}
+.drawer-foot{padding:11px 12px;border-top:1px solid var(--wire);display:flex;gap:8px}
+.drawer-foot .btn-primary{flex:1}
+.acc{border:1px solid var(--wire);border-radius:var(--radius);margin-bottom:8px}
+.acc-head{width:100%;display:flex;align-items:center;gap:8px;padding:8px 10px;background:none;border:none;font-size:12px;font-weight:600;text-align:left}
+.acc-head:hover{background:var(--surface-2)}
+.acc-num{font-size:9.5px;font-weight:700;color:var(--accent);width:20px;flex-shrink:0}
+.acc-badge{font-size:9px;padding:1px 6px;border:1px solid var(--wire-strong);border-radius:10px;color:var(--ink-faint)}
+.acc-chev{margin-left:auto;color:var(--ink-faint);font-size:9px}
+.acc-body{display:none;padding:0 10px 10px}
+.acc.open .acc-body{display:block}
+.frow{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.frow input{width:70px;height:26px;padding:3px 6px;font-size:11px}
+.frow textarea{width:100%;height:56px;font-family:inherit;font-size:11.5px;padding:6px 8px;border:1px dashed var(--wire-strong);border-radius:6px;background:var(--surface-2);color:var(--ink)}
+.hint{font-size:9.5px;color:var(--ink-faint)}
+/* 底栏 */
+.statusbar{position:fixed;bottom:0;left:0;right:0;height:30px;background:var(--surface);border-top:1px solid var(--wire);display:flex;align-items:center;gap:16px;padding:0 12px;font-size:10px;color:var(--ink-soft);z-index:90}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+.dot.green{background:#22c55e}
+.sb-right{margin-left:auto;display:flex;gap:12px}
+.zoom{padding:2px 8px;border:1px solid var(--wire);border-radius:5px}
+</style>
+</head>
+<body>
+
+<div class="cmp-bar"><b>布局对比 · D 全屏画布 + 参数抽屉</b><div class="links"><a href="a-creative.html">A 创作台</a><a href="b-split.html">B 上下分屏</a><a href="c-collapsible.html">C 双栏可折叠</a><a href="d-drawer.html" class="cur">D 全屏画布</a></div></div>
+
+<header class="topbar">
+  <div class="logo"><span class="figma-logo"><span class="fl-1"></span><span class="fl-2"></span><span class="fl-3"></span></span><span class="logo-text">Image MultiModel <i>/ txt2img 工作台</i></span></div>
+  <div class="topbar-right">
+    <button class="icon-btn" type="button">◐</button>
+    <button class="icon-btn" type="button">⚙︎</button>
+    <select style="width:160px"><option>FLUX.2 Klein-9B Distilled</option></select>
+    <button class="share-btn" type="button">分享</button>
+    <span class="avatar"></span>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- 主画布区 -->
+  <main class="canvas-stage">
+    <div class="canvas-actions">
+      <button class="params-btn" id="openDrawer" type="button">☰ 参数</button>
+      <span class="chip">FLUX.2 Klein · 已加载</span>
+      <span class="spacer"></span>
+      <span class="chip">分辨率 1024² · 预设 默认</span>
+    </div>
+    <div class="ph-canvas">PREVIEW CANVAS · 16:9 全屏画布</div>
+    <div class="phase-line"><span>空闲 · 引擎已就绪（FLUX.2 Klein）</span><span>chunk 0/0</span></div>
+    <div class="progress"><i></i></div>
+    <div class="out-grid">
+      <div class="out-card"><div class="ph-img">ORIGINAL</div><div class="out-meta"><b>原直通图</b><span>1024×1024 · PNG</span></div></div>
+      <div class="out-card"><div class="ph-img">UPSCALED</div><div class="out-meta"><b>SeedVR2 超分</b><span>2048×2048 · PNG</span></div></div>
+      <div class="out-card"><div class="ph-img">COMPARE</div><div class="out-meta"><b>Eses 对比图</b><span>4096×2048 · PNG</span></div></div>
+    </div>
+    <div class="gen-bar">
+      <button class="btn btn-primary" type="button">▶ 生成</button>
+      <button class="btn" type="button">取消当前</button>
+    </div>
+  </main>
+</div>
+
+<!-- 参数抽屉 -->
+<aside class="drawer" id="drawer">
+  <div class="drawer-head"><span><span class="no">/</span>参数配置</span><button class="icon-btn" id="closeDrawer" type="button">✕</button></div>
+  <div class="drawer-body">
+    <div class="acc open">
+      <button class="acc-head" type="button"><span class="acc-num">01</span><span>Prompt 输入</span><span class="acc-chev">▾</span></button>
+      <div class="acc-body"><div class="frow"><textarea placeholder="正向 Prompt：一位亚洲女性肖像…"></textarea></div><div class="hint">负向（可为空）</div></div>
+    </div>
+    <div class="acc open">
+      <button class="acc-head" type="button"><span class="acc-num">02</span><span>基础参数</span><span class="acc-badge">8 项</span><span class="acc-chev">▾</span></button>
+      <div class="acc-body"><div class="frow"><input value="cfg 1.0"><input value="8"><input value="1024"><input value="1024"></div><div class="frow"><input value="seed -1"><input value="batch 1"></div><div class="hint">≥500 黄 / ≥5000 红 二次确认</div></div>
+    </div>
+    <div class="acc">
+      <button class="acc-head" type="button"><span class="acc-num">03</span><span>LoRA 叠加</span><span class="acc-badge">6 层串联</span><span class="acc-chev">▾</span></button>
+    </div>
+    <div class="acc">
+      <button class="acc-head" type="button"><span class="acc-num">04</span><span>SeedVR2 超分</span><span class="acc-badge">on</span><span class="acc-chev">▾</span></button>
+    </div>
+    <div class="acc">
+      <button class="acc-head" type="button"><span class="acc-num">05</span><span>对比 + 显存</span><span class="acc-chev">▾</span></button>
+    </div>
+    <div class="acc">
+      <button class="acc-head" type="button"><span class="acc-num">06</span><span>输出设置</span><span class="acc-chev">▾</span></button>
+    </div>
+  </div>
+  <div class="drawer-foot">
+    <button class="btn btn-primary" type="button">▶ 生成</button>
+    <button class="btn" type="button">取消</button>
+  </div>
+</aside>
+
+<footer class="statusbar">
+  <span class="dot green"></span>CONN: LOCAL:8188 · 12MS
+  <span>QUEUE 1·0</span>
+  <div class="sb-right"><span>GPU 16.2/24GB</span><span>ENGINE: FLUX.2 KLEIN</span><span class="zoom">− 100% ＋</span></div>
+</footer>
+
+<script>
+document.querySelectorAll('.acc-head').forEach(function(h){h.addEventListener('click',function(){h.parentElement.classList.toggle('open');});});
+var dr=document.getElementById('drawer');
+document.getElementById('openDrawer').addEventListener('click',function(){dr.classList.add('open');});
+document.getElementById('closeDrawer').addEventListener('click',function(){dr.classList.remove('open');});
+</script>
+</body>
+</html>

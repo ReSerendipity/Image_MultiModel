@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Image MultiModel · 预设管理</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --seed-bg:#f5f5f5;--seed-fg:#1a1a1a;--seed-primary:#a78bfa;--seed-accent:#8b7bd8;--seed-surface:#ffffff;--seed-radius:8px;
+  --bg:var(--seed-bg);--surface:var(--seed-surface);
+  --surface-2:color-mix(in srgb,var(--seed-fg) 6%,var(--seed-surface));
+  --surface-3:color-mix(in srgb,var(--seed-fg) 11%,var(--seed-surface));
+  --ink:var(--seed-fg);
+  --ink-soft:color-mix(in srgb,var(--seed-fg) 66%,var(--seed-surface));
+  --ink-faint:color-mix(in srgb,var(--seed-fg) 46%,var(--seed-surface));
+  --ink-3:color-mix(in srgb,var(--seed-fg) 30%,var(--seed-surface));
+  --accent:var(--seed-primary);--accent-strong:var(--seed-accent);
+  --accent-deep:color-mix(in srgb,var(--seed-accent) 80%,#000);
+  --accent-soft:color-mix(in srgb,var(--seed-primary) 12%,var(--seed-surface));
+  --accent-15:color-mix(in srgb,var(--seed-primary) 15%,transparent);
+  --accent-25:color-mix(in srgb,var(--seed-primary) 25%,transparent);
+  --accent-40:color-mix(in srgb,var(--seed-primary) 40%,transparent);
+  --wire:color-mix(in srgb,var(--seed-fg) 15%,var(--seed-surface));
+  --wire-strong:color-mix(in srgb,var(--seed-fg) 30%,var(--seed-surface));
+  --dot:color-mix(in srgb,var(--seed-fg) 8%,var(--seed-surface));
+  --overlay:rgba(255,255,255,.92);
+  --red:#ef4444;--green:#22c55e;--amber:#f59e0b;
+  --on-accent:#fff;
+  --figma-1:#f24e1e;--figma-2:#ff7262;--figma-3:#a259ff;--figma-4:#1abcfe;--figma-5:#0acf83;
+  --sans:'Inter',system-ui,sans-serif;
+  --radius:var(--seed-radius);--radius-sm:calc(var(--seed-radius) - 2px);
+  --ctl-pad:5px 9px;--ctl-h:30px;--gap:12px;--space:20px;--topbar-h:52px;--statusbar-h:30px;
+}
+[data-theme="dark"]{--seed-bg:#17171a;--seed-fg:#ececec;--seed-surface:#232327;--overlay:rgba(24,24,28,.93)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer}
+select,input,textarea{font-family:inherit;font-size:12px;color:var(--ink);background:var(--surface-2);border:1px solid transparent;border-radius:var(--radius-sm);padding:var(--ctl-pad);height:var(--ctl-h);outline:none}
+select:hover,input:hover,textarea:hover{border-color:var(--wire)}
+select:focus,input:focus,textarea:focus{background:var(--surface);border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-15)}
+textarea{height:auto}
+.topbar{position:fixed;top:0;left:0;right:0;height:var(--topbar-h);background:var(--surface);border-bottom:1px solid var(--wire);display:flex;align-items:center;justify-content:space-between;padding:0 14px;z-index:50}
+.logo{display:flex;align-items:center;gap:10px;user-select:none}
+.figma-logo{display:flex;align-items:center}
+.figma-logo .fl{width:13px;height:22px}
+.figma-logo .fl-1{background:var(--figma-1);border-radius:7px 0 0 7px}
+.figma-logo .fl-2{background:var(--figma-2);border-radius:0 7px 7px 0}
+.figma-logo .fl-3{background:var(--figma-3);border-radius:7px}
+.logo-text{font-size:13px;font-weight:600}
+.logo-text i{font-style:normal;color:var(--ink-faint);font-weight:400}
+.topbar-right{display:flex;align-items:center;gap:8px}
+.icon-btn{width:var(--ctl-h);height:var(--ctl-h);border:1px solid transparent;background:var(--surface);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--ink-soft)}
+.icon-btn:hover{background:var(--surface-2);color:var(--ink)}
+.share-btn{background:var(--accent-strong);color:var(--on-accent);border:none;border-radius:var(--radius-sm);padding:6px 14px;font-size:12px;font-weight:500;height:var(--ctl-h);white-space:nowrap}
+.share-btn:hover{background:var(--accent-deep)}
+.avatar{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--figma-3),var(--figma-5));border:2px solid var(--surface);box-shadow:0 0 0 1px var(--wire);flex-shrink:0}
+.layout{min-height:100vh;padding-top:var(--topbar-h);padding-bottom:var(--statusbar-h)}
+.content{max-width:1080px;margin:0 auto;padding:var(--space);position:relative}
+.page-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap}
+.page-head h1{font-size:17px;font-weight:700}
+.page-head h1 .no{color:var(--accent);font-weight:800;margin-right:8px}
+.page-head .hint{font-size:10.5px;color:var(--ink-faint)}
+.toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.search{display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--wire);border-radius:var(--radius-sm);padding:0 9px;height:var(--ctl-h);flex:1;min-width:200px}
+.search span{color:var(--ink-faint);font-size:11px}
+.search input{border:none;background:none;flex:1;height:100%;padding:0;box-shadow:none}
+.search input:focus{box-shadow:none}
+/* 预设卡片 */
+.p-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.p-card{border:1px solid var(--wire);border-radius:var(--radius);background:var(--surface);padding:14px;display:flex;flex-direction:column;gap:9px;position:relative;transition:all .12s}
+.p-card:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.p-card .head{display:flex;align-items:center;gap:9px}
+.p-card .ico{width:30px;height:30px;border-radius:8px;background:var(--accent-soft);border:1px solid var(--accent-25);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--accent-strong);flex-shrink:0}
+.p-card .nm{font-size:13px;font-weight:700}
+.p-card .ds{font-size:10.5px;color:var(--ink-soft);line-height:1.5}
+.p-card .fav{position:absolute;top:12px;right:12px;border:none;background:none;color:var(--ink-3);font-size:14px}
+.p-card .fav.on{color:var(--amber)}
+.param-chips{display:flex;flex-wrap:wrap;gap:5px}
+.param-chips span{font-size:9.5px;padding:2px 8px;border:1px solid var(--wire);border-radius:10px;color:var(--ink-soft);background:var(--surface)}
+.param-chips span.eng{color:var(--accent-strong);border-color:var(--accent-25);background:var(--accent-soft)}
+.p-card .foot{display:flex;align-items:center;justify-content:space-between;margin-top:auto;padding-top:9px;border-top:1px dashed var(--wire)}
+.p-card .last{font-size:9.5px;color:var(--ink-faint)}
+.p-card .acts{display:flex;gap:5px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:var(--radius-sm);border:1px solid transparent;background:var(--surface-2);color:var(--ink);padding:var(--ctl-pad);height:var(--ctl-h);font-size:12px;font-weight:500;transition:all .12s;text-decoration:none;white-space:nowrap}
+.btn:hover{background:var(--surface-3)}
+.btn-primary{background:var(--accent-strong);color:var(--on-accent)}
+.btn-primary:hover{background:var(--accent-deep)}
+.btn-ghost{border:1px solid var(--wire);background:var(--surface)}
+.btn-ghost:hover{background:var(--surface-2)}
+.btn-sm{padding:3px 8px;height:23px;font-size:10.5px;border:1px solid var(--wire);background:var(--surface)}
+/* 抽屉（新建/编辑） */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.28);opacity:0;pointer-events:none;transition:opacity .2s;z-index:78}
+.scrim.show{opacity:1;pointer-events:auto}
+.ed-drawer{position:fixed;top:var(--topbar-h);bottom:var(--statusbar-h);right:0;width:380px;background:var(--surface);border-left:1px solid var(--wire);box-shadow:-10px 0 30px rgba(0,0,0,.1);transform:translateX(105%);transition:transform .22s;z-index:80;display:flex;flex-direction:column}
+.ed-drawer.open{transform:none}
+.ed-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--wire);font-size:12.5px;font-weight:600}
+.ed-head .no{color:var(--accent);font-weight:700;margin-right:6px}
+.ed-body{padding:12px 14px;overflow-y:auto;flex:1}
+.fgroup{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.fgroup label{font-size:10.5px;color:var(--ink-soft)}
+.fgroup input,.fgroup select,.fgroup textarea{width:100%}
+.fgroup textarea{height:64px;resize:vertical;line-height:1.5}
+.ed-foot{padding:11px 14px;border-top:1px solid var(--wire);display:flex;gap:8px}
+.ed-foot .btn{flex:1}
+.ed-foot .btn-primary{flex:2}
+/* 底栏 */
+.statusbar{position:fixed;bottom:0;left:0;right:0;height:var(--statusbar-h);background:var(--surface);border-top:1px solid var(--wire);display:flex;align-items:center;gap:18px;padding:0 12px;font-size:10.5px;color:var(--ink-soft);z-index:90}
+.sb-item{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex-shrink:0}
+.dot.green{background:var(--green)}
+.sb-right{margin-left:auto;display:flex;gap:14px}
+/* 原型导航 */
+.proto-nav{position:fixed;right:16px;top:calc(var(--topbar-h) + 12px);z-index:92;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.proto-btn{background:var(--surface);color:var(--ink-soft);border:1px solid var(--wire);border-radius:var(--radius-sm);padding:7px 13px;font-size:11.5px;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.proto-btn:hover{border-color:var(--accent);color:var(--accent)}
+.proto-panel{display:none;background:var(--surface);border:1px solid var(--wire);border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.14);padding:8px;min-width:196px}
+.proto-panel.show{display:block}
+.proto-panel a{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--radius-sm);color:var(--ink);text-decoration:none;font-size:12.5px}
+.proto-panel a:hover{background:var(--surface-2)}
+.proto-panel a.cur{color:var(--accent-strong);font-weight:600}
+.proto-panel .pt{font-size:10px;color:var(--ink-faint);padding:5px 10px 3px;letter-spacing:.05em}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:10px;font-size:10px;border:1px solid var(--wire-strong);color:var(--ink-soft);background:var(--surface)}
+.chip.ok{color:var(--green);border-color:color-mix(in srgb,var(--green) 45%,var(--surface));background:color-mix(in srgb,var(--green) 8%,var(--surface))}
+.chip.red{color:var(--red);border-color:color-mix(in srgb,var(--red) 45%,var(--surface))}
+/* ============ 顶层浮层：设置(底) / 状态(顶) / 队列(悬浮球) ============ */
+.scrim2{position:fixed;inset:0;background:rgba(0,0,0,.28);opacity:0;pointer-events:none;transition:opacity .2s;z-index:78}
+.scrim2.show{opacity:1;pointer-events:auto}
+.set-drawer{position:fixed;left:50%;bottom:var(--statusbar-h);transform:translate(-50%,115%);width:min(880px,calc(100vw - 32px));max-height:min(640px,calc(100vh - var(--topbar-h) - var(--statusbar-h) - 16px));background:var(--surface);border:1px solid var(--wire);border-radius:14px 14px 0 0;box-shadow:0 -10px 40px rgba(0,0,0,.16);transition:transform .24s;z-index:80;display:flex;flex-direction:column}
+.set-drawer.open{transform:translate(-50%,0)}
+.stat-drawer{position:fixed;top:var(--topbar-h);left:50%;transform:translate(-50%,-115%);width:min(880px,calc(100vw - 32px));background:var(--surface);border:1px solid var(--wire);border-radius:0 0 14px 14px;box-shadow:0 10px 40px rgba(0,0,0,.16);transition:transform .24s;z-index:80;display:none;flex-direction:column}
+.stat-drawer.open{transform:translate(-50%,0);display:flex}
+.ov-head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--wire);font-size:12.5px;font-weight:600}
+.ov-head .no{color:var(--accent);font-weight:700;margin-right:6px}
+.ov-head .hint{font-size:10px;color:var(--ink-faint);font-weight:400;margin-left:8px}
+.ov-body{padding:12px 14px;overflow-y:auto}
+.ov-sec{margin-bottom:12px}
+.ov-sec h4{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:8px}
+.sg{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.sg .lbl{font-size:11px;color:var(--ink-soft);width:110px;flex-shrink:0}
+.sg input[type=text],.sg select{flex:1;min-width:180px}
+.stat-bars{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+.stat-bar{border:1px solid var(--wire);border-radius:8px;padding:9px 11px}
+.stat-bar .k{font-size:10px;color:var(--ink-faint);display:flex;justify-content:space-between}
+.stat-bar .v{font-size:15px;font-weight:700;margin:3px 0 5px}
+.stat-bar .bar{height:5px;border-radius:5px;background:var(--surface-2);overflow:hidden}
+.stat-bar .bar i{display:block;height:100%;background:var(--accent)}
+.back-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px dashed var(--wire);font-size:11.5px}
+.back-row:last-child{border-bottom:none}
+.sb-click{cursor:pointer}
+.sb-click:hover{color:var(--accent)}
+.queue-pill{position:fixed;right:16px;bottom:44px;z-index:85;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--wire);border-radius:20px;padding:7px 14px;font-size:11.5px;font-weight:600;color:var(--ink-soft);box-shadow:0 4px 14px rgba(0,0,0,.12);cursor:pointer}
+.queue-pill:hover{border-color:var(--accent);color:var(--accent)}
+.queue-pill .qd{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0}
+.queue-pill .qd.busy{background:var(--amber)}
+.queue-pill .qd.run{background:var(--accent)}
+.queue-pill .pct{color:var(--accent-strong);font-variant-numeric:tabular-nums}
+.queue-pop{position:fixed;right:16px;bottom:82px;z-index:86;width:300px;background:var(--surface);border:1px solid var(--wire);border-radius:12px;box-shadow:0 10px 36px rgba(0,0,0,.16);padding:10px;display:none}
+.queue-pop.show{display:block}
+.queue-pop .qp-head{display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:700;color:var(--ink-faint);letter-spacing:.05em;margin-bottom:8px;text-transform:uppercase}
+.q-item{display:flex;align-items:center;gap:9px;padding:7px 8px;border:1px solid var(--wire);border-radius:8px;margin-bottom:6px;background:var(--surface)}
+.q-item:last-child{margin-bottom:0}
+.q-item .t{flex:1;min-width:0}
+.q-item .t b{display:block;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.q-item .t span{font-size:9px;color:var(--ink-faint)}
+.q-item .p{font-size:10px;font-weight:600;color:var(--accent-strong)}
+@media (max-width:760px){.stat-bars{grid-template-columns:1fr}.set-drawer{width:min(880px,94vw)}}
+@media (max-width:900px){.p-grid{grid-template-columns:1fr 1fr}}
+@media (max-width:620px){.p-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="proto-nav" data-component="Proto Nav">
+  <div class="proto-panel" id="protoPanel">
+    <div class="pt">Figma 线框原型 · 页面导航</div>
+    <a href="../index.html">首页仪表盘</a>
+    <a href="generate.html">生图工作台</a>
+    <a href="gallery.html">图片展示</a>
+    <a href="history.html">历史记录</a>
+    <a href="batch.html">批量模式</a>
+    <a href="presets.html" class="cur">预设管理</a>
+  </div>
+  <button class="proto-btn" id="protoBtn" type="button">原型导航 ▾</button>
+</div>
+
+<header class="topbar" data-component="Topbar">
+  <div class="logo"><span class="figma-logo"><span class="fl fl-1"></span><span class="fl fl-2"></span><span class="fl fl-3"></span></span><span class="logo-text">Image MultiModel <i>/ 预设管理</i></span></div>
+  <div class="topbar-right">
+    <button class="icon-btn" id="themeToggle" title="主题切换" type="button">◐</button>
+    <button class="icon-btn" id="setOpen" title="设置" type="button">⚙︎</button>
+    <select style="width:172px"><option>全部引擎</option><option>FLUX.2 Klein-9B Distilled</option><option>Z-Image-Turbo</option></select>
+    <button class="share-btn" type="button">分享</button>
+    <span class="avatar"></span>
+  </div>
+</header>
+
+<div class="layout">
+  <main class="content" data-component="Presets Content">
+    <div class="page-head">
+      <h1><span class="no">/</span>预设管理</h1>
+      <span class="hint">与生图主舞台、历史「保存为预设」联动 · 一键复用</span>
+    </div>
+    <div class="toolbar">
+      <div class="search"><span>⌕</span><input placeholder="搜索预设名称 / 标签…"></div>
+      <select style="width:120px"><option>全部引擎</option><option>FLUX.2 Klein</option><option>Z-Image-Turbo</option></select>
+      <button class="btn btn-primary" id="newBtn" type="button">＋ 新建预设</button>
+    </div>
+
+    <div class="p-grid" id="pGrid" data-component="Preset Grid">
+      <div class="p-card">
+        <button class="fav on" type="button">★</button>
+        <div class="head"><span class="ico">▣</span><span class="nm">默认预设（FLUX.2）</span></div>
+        <p class="ds">亚洲人像基线：1.0 cfg · 8 steps · 1024²，LoRA 六层全开，SeedVR2 2048 + Eses h</p>
+        <div class="param-chips"><span class="eng">FLUX.2</span><span>8 steps</span><span>1024²</span><span>LoRA ×6</span><span>超分 2048</span></div>
+        <div class="foot"><span class="last">最后使用 08-08 15:24</span><span class="acts"><button class="btn btn-sm" type="button">应用</button><button class="btn btn-sm" type="button">编辑</button><button class="btn btn-sm" type="button">复制</button></span></div>
+      </div>
+      <div class="p-card">
+        <button class="fav" type="button">☆</button>
+        <div class="head"><span class="ico">▣</span><span class="nm">亚洲人像写真</span></div>
+        <p class="ds">人像风格化：LoRA L2 0.7 强化，柔和自然光描述模板，超分 2048 · lab</p>
+        <div class="param-chips"><span class="eng">FLUX.2</span><span>1.0 cfg</span><span>8 steps</span><span>L2 0.7</span></div>
+        <div class="foot"><span class="last">最后使用 08-07 21:02</span><span class="acts"><button class="btn btn-sm" type="button">应用</button><button class="btn btn-sm" type="button">编辑</button><button class="btn btn-sm" type="button">复制</button></span></div>
+      </div>
+      <div class="p-card">
+        <button class="fav" type="button">☆</button>
+        <div class="head"><span class="ico">▣</span><span class="nm">赛博朋克城市</span></div>
+        <p class="ds">Z-Turbo 快速出图：1536²，无超分，Eses 对比开，适合批量预览候选</p>
+        <div class="param-chips"><span class="eng">Z-Turbo</span><span>4 steps</span><span>1536²</span><span>Eses h</span></div>
+        <div class="foot"><span class="last">最后使用 08-06 19:40</span><span class="acts"><button class="btn btn-sm" type="button">应用</button><button class="btn btn-sm" type="button">编辑</button><button class="btn btn-sm" type="button">复制</button></span></div>
+      </div>
+      <div class="p-card">
+        <button class="fav" type="button">☆</button>
+        <div class="head"><span class="ico">▣</span><span class="nm">胶片复古静物</span></div>
+        <p class="ds">暖调胶片质感：颗粒感提示模板，SeedVR2 3072 出大图，色彩校正 adain</p>
+        <div class="param-chips"><span class="eng">FLUX.2</span><span>3072</span><span>adain</span><span>LoRA L3 0.5</span></div>
+        <div class="foot"><span class="last">最后使用 08-05 10:11</span><span class="acts"><button class="btn btn-sm" type="button">应用</button><button class="btn btn-sm" type="button">编辑</button><button class="btn btn-sm" type="button">复制</button></span></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- 新建/编辑抽屉 -->
+<div class="scrim" id="scrim" data-component="Scrim"></div>
+<aside class="ed-drawer" id="edDrawer" data-component="Preset Editor Drawer">
+  <div class="ed-head"><span><span class="no">/</span><span id="edTitle">新建预设</span></span><button class="icon-btn" id="edClose" type="button">✕</button></div>
+  <div class="ed-body">
+    <div class="fgroup"><label>名称</label><input id="edName" value="" placeholder="例如：新预设名称"></div>
+    <div class="fgroup"><label>描述</label><textarea id="edDesc" placeholder="一句话说明该预设的用途与风格…"></textarea></div>
+    <div class="fgroup"><label>引擎</label><select id="edEngine"><option>FLUX.2 Klein-9B Distilled</option><option>Z-Image-Turbo</option></select></div>
+    <div class="fgroup"><label>参数来源</label><select><option>保存当前生图页参数（22 项）</option><option>基于选中的历史任务</option><option>手填（仅基础参数）</option></select></div>
+    <div class="fgroup"><label>标签（逗号分隔）</label><input placeholder="人像, 胶片, 夜景…"></div>
+  </div>
+  <div class="ed-foot">
+    <button class="btn btn-ghost" id="edCancel" type="button">取消</button>
+    <button class="btn btn-primary" id="edSave" type="button">保存预设</button>
+  </div>
+</aside>
+
+<!-- 设置底抽屉 -->
+<div class="scrim2" id="setScrim" data-component="Scrim"></div>
+<aside class="set-drawer" id="setDrawer" data-component="Settings Drawer">
+  <div class="ov-head"><span><span class="no">/</span>设置<span class="hint">底抽屉 · 全局配置</span></span><button class="icon-btn" id="setClose" type="button">✕</button></div>
+  <div class="ov-body">
+    <div class="ov-sec"><h4>引擎与模型</h4>
+      <div class="sg"><span class="lbl">默认引擎</span><select><option>FLUX.2 Klein-9B Distilled</option><option>Z-Image-Turbo</option></select></div>
+      <div class="sg"><span class="lbl">工作流目录</span><input type="text" value="workflows/"></div>
+      <div class="sg"><span class="lbl">LoRA 目录</span><input type="text" value="loras/"></div>
+      <div class="sg"><span class="lbl">SeedVR2 模型</span><input type="text" value="models/seedvr2/"></div>
+      <div class="sg"><span class="lbl"></span><button class="btn" type="button">完整资源扫描</button><span class="hint" style="align-self:center">loras/ 23 个 · 模型 2 个 · 全部就绪</span></div>
+    </div>
+    <div class="ov-sec"><h4>运行</h4>
+      <div class="sg"><span class="lbl">心跳轮询</span><select><option>每 30s</option><option>每 60s</option></select></div>
+      <div class="sg"><span class="lbl">自动拉起后端</span><select><option>on（auto_spawn_if_dead）</option><option>off</option></select></div>
+      <div class="sg"><span class="lbl">负载均衡</span><select><option>轮询</option><option>最少连接</option></select></div>
+    </div>
+    <div class="ov-sec"><h4>保留策略</h4>
+      <div class="sg"><span class="lbl">历史保留</span><select><option>90 天 / 100 GB</option><option>30 天 / 50 GB</option><option>永久</option></select></div>
+    </div>
+    <div class="ov-sec"><h4>配置</h4>
+      <div class="sg"><span class="lbl"></span><button class="btn" type="button">导出配置 JSON</button><button class="btn" type="button">导入配置 JSON</button><span class="hint" style="align-self:center">config.yaml</span></div>
+    </div>
+  </div>
+</aside>
+
+<!-- 状态顶抽屉 -->
+<aside class="stat-drawer" id="statDrawer" data-component="Status Drawer">
+  <div class="ov-head"><span><span class="no">/</span>系统状态<span class="hint">顶抽屉 · 点击底栏状态区展开</span></span><button class="icon-btn" id="statClose" type="button">✕</button></div>
+  <div class="ov-body">
+    <div class="stat-bars">
+      <div class="stat-bar"><div class="k"><span>GPU 显存</span><span>42%</span></div><div class="v">16.2 / 24 GB</div><div class="bar"><i style="width:67%"></i></div></div>
+      <div class="stat-bar"><div class="k"><span>系统内存</span><span>18%</span></div><div class="v">11.8 / 64 GB</div><div class="bar"><i style="width:18%"></i></div></div>
+      <div class="stat-bar"><div class="k"><span>磁盘 outputs/</span><span>3%</span></div><div class="v">12.6 / 480 GB</div><div class="bar"><i style="width:3%"></i></div></div>
+    </div>
+    <div class="ov-sec"><h4>ComfyUI 后端</h4>
+      <div class="back-row"><span class="dot green"></span><b>local</b><span style="color:var(--ink-faint)">127.0.0.1:8188</span><span class="chip ok">在线</span><span style="margin-left:auto;color:var(--ink-faint)">12ms</span><button class="btn btn-sm" type="button">测试</button></div>
+      <div class="back-row"><span class="dot gray"></span><b>gpu-cluster</b><span style="color:var(--ink-faint)">192.168.1.50:8188</span><span class="chip red">离线</span><span style="margin-left:auto;color:var(--ink-faint)">—</span><button class="btn btn-sm" type="button">测试</button></div>
+    </div>
+    <div class="ov-sec"><h4>引擎与资源</h4>
+      <div class="back-row"><b>FLUX.2 Klein-9B</b><span style="color:var(--ink-faint)">fp8mixed · 12GB</span><span class="chip ok">已加载</span></div>
+      <div class="back-row"><b>Z-Image-Turbo</b><span style="color:var(--ink-faint)">bf16 · 10GB</span><span class="chip">未加载</span></div>
+      <div class="back-row"><b>LoRA 资源</b><span style="color:var(--ink-faint)">loras/ · 23 个文件</span><span class="chip ok">就绪</span></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px"><button class="btn" type="button">刷新状态</button></div>
+  </div>
+</aside>
+
+<!-- 队列悬浮球 -->
+<div class="queue-pill" id="queuePill" data-component="Queue Pill"><span class="qd" id="qpDot"></span><span id="qpText">队列 1·0</span><span class="pct" id="qpPct" style="display:none"></span></div>
+<div class="queue-pop" id="queuePop" data-component="Queue Popover">
+  <div class="qp-head"><span>任务队列</span><button class="icon-btn" id="qpClose" style="width:20px;height:20px;font-size:10px" type="button">✕</button></div>
+  <div class="q-item"><div class="t"><b>88421 · 亚洲女性肖像</b><span>采样中 · steps 8/8</span></div><span class="p">42%</span></div>
+  <div class="q-item"><div class="t"><b>88397 · 赛博朋克夜景</b><span>排队中</span></div><span class="p">—</span></div>
+  <div style="margin-top:8px;text-align:right"><button class="btn btn-sm" type="button">取消当前</button></div>
+</div>
+
+<footer class="statusbar" data-component="Statusbar">
+  <div class="sb-item sb-click" id="sbConn"><span class="dot green"></span>CONN: LOCAL:8188 · 12MS</div>
+  <div class="sb-item sb-click" id="sbQueue">QUEUE 1·0</div>
+  <div class="sb-right">
+    <div class="sb-item">GPU 16.2/24GB</div>
+    <div class="sb-item">ENGINE: FLUX.2 KLEIN</div>
+  </div>
+</footer>
+
+<script>
+/* 主题 / 导航 */
+var themeBtn=document.getElementById('themeToggle');
+themeBtn.addEventListener('click',function(){
+  var dark=document.documentElement.getAttribute('data-theme')==='dark';
+  document.documentElement.setAttribute('data-theme',dark?'light':'dark');
+  themeBtn.textContent=dark?'◐':'◑';
+});
+document.getElementById('protoBtn').addEventListener('click',function(){document.getElementById('protoPanel').classList.toggle('show');});
+/* ===== 设置 / 状态 / 队列 浮层 ===== */
+var setD=document.getElementById('setDrawer'),setSc=document.getElementById('setScrim');
+function openSet(){setD.classList.add('open');setSc.classList.add('show');}
+function closeSet(){setD.classList.remove('open');setSc.classList.remove('show');}
+document.getElementById('setOpen').addEventListener('click',openSet);
+document.getElementById('setClose').addEventListener('click',closeSet);
+setSc.addEventListener('click',closeSet);
+var statD=document.getElementById('statDrawer');
+function openStat(){statD.classList.add('open');}
+document.querySelectorAll('.sb-click').forEach(function(el){el.addEventListener('click',openStat);});
+document.getElementById('statClose').addEventListener('click',function(){statD.classList.remove('open');});
+var qpop=document.getElementById('queuePop');
+document.getElementById('queuePill').addEventListener('click',function(){qpop.classList.toggle('show');});
+document.getElementById('qpClose').addEventListener('click',function(e){e.stopPropagation();qpop.classList.remove('show');});
+document.querySelector('.queue-pop .btn-sm').addEventListener('click',function(){qpop.classList.remove('show');});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeSet();statD.classList.remove('open');qpop.classList.remove('show');}});
+/* 收藏 */
+document.querySelectorAll('.p-card .fav').forEach(function(b){b.addEventListener('click',function(){this.classList.toggle('on');this.textContent=this.classList.contains('on')?'★':'☆';});});
+/* 编辑抽屉 */
+var ed=document.getElementById('edDrawer'),scrim=document.getElementById('scrim'),edTitle=document.getElementById('edTitle');
+function openEd(){ed.classList.add('open');scrim.classList.add('show');}
+function closeEd(){ed.classList.remove('open');scrim.classList.remove('show');}
+document.getElementById('newBtn').addEventListener('click',function(){edTitle.textContent='新建预设';document.getElementById('edName').value='';document.getElementById('edDesc').value='';openEd();});
+document.querySelectorAll('.p-card .acts .btn-sm').forEach(function(b){
+  b.addEventListener('click',function(){
+    if(this.textContent==='编辑'){edTitle.textContent='编辑预设';var nm=this.closest('.p-card').querySelector('.nm').textContent;document.getElementById('edName').value=nm;openEd();}
+    if(this.textContent==='应用'){window.alert('已应用预设「'+this.closest('.p-card').querySelector('.nm').textContent+'」（模拟）：将跳转生图工作台并载入参数');}
+  });
+});
+document.getElementById('edClose').addEventListener('click',closeEd);
+document.getElementById('edCancel').addEventListener('click',closeEd);
+scrim.addEventListener('click',closeEd);
+document.getElementById('edSave').addEventListener('click',function(){closeEd();window.alert('预设已保存（模拟）');});
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeEd();});
+</script>
+</body>
+</html>

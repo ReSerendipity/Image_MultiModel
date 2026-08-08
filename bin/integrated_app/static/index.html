@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light" data-lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Image MultiModel · 生图工作台（单页融合版）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============ 种子令牌 ============ */
+:root{
+  --seed-bg:#f5f5f5;--seed-fg:#1a1a1a;--seed-primary:#a78bfa;--seed-accent:#8b7bd8;--seed-surface:#ffffff;--seed-radius:8px;--seed-density:1;
+  --bg:var(--seed-bg);--surface:var(--seed-surface);
+  --surface-2:color-mix(in srgb,var(--seed-fg) 6%,var(--seed-surface));
+  --surface-3:color-mix(in srgb,var(--seed-fg) 11%,var(--seed-surface));
+  --ink:var(--seed-fg);
+  --ink-soft:color-mix(in srgb,var(--seed-fg) 66%,var(--seed-surface));
+  --ink-faint:color-mix(in srgb,var(--seed-fg) 46%,var(--seed-surface));
+  --ink-3:color-mix(in srgb,var(--seed-fg) 30%,var(--seed-surface));
+  --accent:var(--seed-primary);--accent-strong:var(--seed-accent);
+  --accent-deep:color-mix(in srgb,var(--seed-accent) 80%,#000);
+  --accent-soft:color-mix(in srgb,var(--seed-primary) 12%,var(--seed-surface));
+  --accent-15:color-mix(in srgb,var(--seed-primary) 15%,transparent);
+  --accent-25:color-mix(in srgb,var(--seed-primary) 25%,transparent);
+  --accent-40:color-mix(in srgb,var(--seed-primary) 40%,transparent);
+  --wire:color-mix(in srgb,var(--seed-fg) 15%,var(--seed-surface));
+  --wire-strong:color-mix(in srgb,var(--seed-fg) 30%,var(--seed-surface));
+  --dot:color-mix(in srgb,var(--seed-fg) 8%,var(--seed-surface));
+  --overlay:rgba(255,255,255,.92);
+  --red:#ef4444;--green:#22c55e;--amber:#f59e0b;
+  --on-accent:#fff;
+  --warn-ink:#92400e;--warn-ink-dark:#fbbf24;--danger-ink-dark:#f87171;
+  --figma-1:#f24e1e;--figma-2:#ff7262;--figma-3:#a259ff;--figma-4:#1abcfe;--figma-5:#0acf83;
+  --sans:'Inter',system-ui,sans-serif;
+  --radius:var(--seed-radius);--radius-sm:calc(var(--seed-radius) - 2px);
+  --ctl-pad:5px 9px;--ctl-h:calc(30px*var(--seed-density));--gap:calc(12px*var(--seed-density));--space:calc(20px*var(--seed-density));
+  --topbar-h:calc(52px*var(--seed-density));--statusbar-h:30px;
+}
+[data-theme="dark"]{--seed-bg:#17171a;--seed-fg:#ececec;--seed-surface:#232327;--overlay:rgba(24,24,28,.93)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer}
+select,input,textarea{font-family:inherit;font-size:12px;color:var(--ink);background:var(--surface-2);border:1px solid transparent;border-radius:var(--radius-sm);padding:var(--ctl-pad);height:var(--ctl-h);outline:none;transition:all .12s}
+select:hover,input:hover,textarea:hover{border-color:var(--wire)}
+select:focus,input:focus,textarea:focus{background:var(--surface);border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-15)}
+textarea{height:auto}
+/* ===== 顶栏 ===== */
+.topbar{position:fixed;top:0;left:0;right:0;height:var(--topbar-h);background:var(--surface);border-bottom:1px solid var(--wire);display:flex;align-items:center;justify-content:space-between;padding:0 14px;z-index:50}
+.logo{display:flex;align-items:center;gap:10px;user-select:none}
+.figma-logo{display:flex;align-items:center}
+.figma-logo .fl{width:13px;height:22px}
+.figma-logo .fl-1{background:var(--figma-1);border-radius:7px 0 0 7px}
+.figma-logo .fl-2{background:var(--figma-2);border-radius:0 7px 7px 0}
+.figma-logo .fl-3{background:var(--figma-3);border-radius:7px}
+.logo-text{font-size:13px;font-weight:600}
+.logo-text i{font-style:normal;color:var(--ink-faint);font-weight:400}
+.topbar-right{display:flex;align-items:center;gap:8px}
+.icon-btn{width:var(--ctl-h);height:var(--ctl-h);border:1px solid transparent;background:var(--surface);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--ink-soft)}
+.icon-btn:hover{background:var(--surface-2);color:var(--ink)}
+/* 顶栏图标菜单 */
+.ico-wrap{position:relative;display:inline-flex}
+.ico-pop{position:absolute;top:calc(100% + 8px);right:0;width:196px;background:var(--surface);border:1px solid var(--wire);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.14);padding:5px;display:none;z-index:96}
+.ico-pop.show{display:block}
+.ip-item{display:block;width:100%;text-align:left;border:none;background:none;padding:7px 10px;font-size:12px;color:var(--ink);border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ip-item:hover{background:var(--surface-2)}
+.ip-item.on{color:var(--accent-strong);font-weight:600}
+.ip-item.on::before{content:"✓ ";color:var(--accent)}
+.share-btn{background:var(--accent-strong);color:var(--on-accent);border:none;border-radius:var(--radius-sm);padding:6px 14px;font-size:12px;font-weight:500;height:var(--ctl-h);white-space:nowrap}
+.share-btn:hover{background:var(--accent-deep)}
+.avatar{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--figma-3),var(--figma-5));border:2px solid var(--surface);box-shadow:0 0 0 1px var(--wire);flex-shrink:0}
+/* ===== 布局 ===== */
+.layout{min-height:100vh;padding-top:var(--topbar-h);padding-bottom:var(--statusbar-h)}
+.stage{max-width:840px;margin:0 auto;padding:calc(var(--space) + 8px) var(--space) var(--space);position:relative}
+.big-title{font-size:24px;font-weight:700;letter-spacing:-.015em;text-align:center}
+.big-title em{font-style:normal;color:var(--accent-strong)}
+.stage .sub{text-align:center;font-size:12px;color:var(--ink-soft);margin:7px 0 20px}
+/* Prompt 卡片 */
+.prompt-card{position:relative;border:1px solid var(--wire-strong);border-radius:14px;background:var(--surface);box-shadow:0 8px 30px color-mix(in srgb,var(--seed-fg) 8%,transparent);padding:16px 18px 12px}
+.prompt-card textarea{width:100%;border:none;outline:none;resize:none;font-family:inherit;font-size:14px;line-height:1.7;color:var(--ink);background:none;height:78px;padding:0;box-shadow:none}
+.prompt-card textarea:focus{background:none;box-shadow:none}
+.prompt-card .meta{display:flex;align-items:center;justify-content:space-between;margin-top:6px;font-size:10px;color:var(--ink-faint)}
+.prompt-card .meta .ln{font-variant-numeric:tabular-nums}
+.neg-toggle{display:inline-flex;align-items:center;gap:5px;background:none;border:none;color:var(--ink-faint);font-size:11px;padding:4px 2px;margin-top:4px}
+.neg-toggle:hover{color:var(--accent)}
+.neg-box{display:none;margin-top:8px;padding-top:10px;border-top:1px dashed var(--wire)}
+.neg-box.open{display:block}
+.neg-box textarea{width:100%;height:58px;border:1px dashed var(--wire-strong);border-radius:8px;background:var(--surface-2);padding:8px 10px;font-size:12.5px;line-height:1.6;resize:vertical}
+.neg-box .meta{display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--ink-faint)}
+.examples{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.ex-chip{font-size:10.5px;padding:4px 10px;border:1px solid var(--wire);background:var(--surface);color:var(--ink-soft);border-radius:14px;cursor:pointer;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ex-chip:hover{border-color:var(--accent);color:var(--accent)}
+/* 操作行 */
+.gen-row{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
+.btn-gen{display:inline-flex;align-items:center;gap:7px;background:var(--accent-strong);color:var(--on-accent);border:none;border-radius:10px;padding:12px 30px;font-size:14px;font-weight:600;box-shadow:0 4px 14px var(--accent-40)}
+.btn-gen:hover{background:var(--accent-deep)}
+.btn-gen:disabled{opacity:.5;cursor:not-allowed}
+.adv-toggle{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--wire);background:var(--surface);color:var(--ink-soft);border-radius:8px;padding:10px 16px;font-size:12px;font-weight:600}
+.adv-toggle:hover{border-color:var(--accent);color:var(--accent)}
+.snap-row{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+.snap{font-size:10.5px;color:var(--ink-soft);border:1px solid var(--wire);border-radius:20px;padding:4px 11px;background:var(--surface);white-space:nowrap}
+.snap b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.est-line{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:12px;font-weight:600;color:var(--ink);flex-wrap:wrap}
+.est-line b{color:var(--ink-soft);font-weight:600}
+.est-line.yellow{color:var(--warn-ink)}
+.est-line.red{color:var(--red)}
+[data-theme="dark"] .est-line.yellow{color:var(--warn-ink-dark)}
+.warn-box{border-radius:var(--radius);padding:8px 11px;font-size:12px;margin-top:8px;display:none;border:1px dashed}
+.warn-box.show{display:block}
+.warn-box.yellow{background:color-mix(in srgb,var(--amber) 12%,var(--surface));color:var(--warn-ink);border-color:color-mix(in srgb,var(--amber) 45%,var(--surface))}
+.warn-box.red{background:color-mix(in srgb,var(--red) 10%,var(--surface));color:var(--red);border-color:color-mix(in srgb,var(--red) 40%,var(--surface))}
+[data-theme="dark"] .warn-box.yellow{color:var(--warn-ink-dark)}
+[data-theme="dark"] .warn-box.red{color:var(--danger-ink-dark)}
+.gen-progress{display:none;margin-top:12px;border:1px solid var(--wire);border-radius:var(--radius);background:var(--surface);padding:10px 12px}
+.gen-progress.show{display:block}
+.phase-line{display:flex;align-items:center;justify-content:space-between;font-size:10.5px;color:var(--ink-soft);margin-bottom:6px}
+.progress{height:6px;border-radius:6px;background:var(--surface-2);overflow:hidden}
+.progress i{display:block;height:100%;width:0;background:var(--accent);border-radius:6px;transition:width .2s}
+.preset-row{display:flex;align-items:center;gap:6px;margin-top:14px;flex-wrap:wrap}
+.preset-row .lbl{font-size:10px;color:var(--ink-faint);letter-spacing:.05em}
+.p-chip{font-size:11px;padding:4px 11px;border:1px solid var(--wire);background:var(--surface);color:var(--ink-soft);border-radius:6px;cursor:pointer}
+.p-chip:hover{color:var(--ink);border-color:var(--ink-3)}
+.p-chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+/* ===== 模块入口 ===== */
+.mod-row{display:flex;align-items:center;gap:7px;margin-top:16px;padding:10px 12px;border:1px solid var(--wire);border-radius:var(--radius);background:var(--surface);flex-wrap:wrap}
+.mod-row .lbl{font-size:10px;color:var(--ink-faint);letter-spacing:.05em;margin-right:2px}
+.mod-btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--wire);background:var(--surface);color:var(--ink-soft);border-radius:var(--radius-sm);padding:7px 12px;font-size:11.5px;font-weight:500}
+.mod-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+/* ===== 结果区 ===== */
+.results{margin-top:26px}
+.results .r-title{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:11px}
+.results .r-title .bar{flex:1;height:1px;background:var(--wire)}
+.masonry{columns:3;column-gap:10px}
+.r-card{border:1px solid var(--wire);border-radius:10px;overflow:hidden;background:var(--surface);position:relative;transition:all .12s;break-inside:avoid;margin-bottom:10px;display:inline-block;width:100%}
+.r-card:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.ph-img{height:auto;aspect-ratio:var(--ar,1/1);display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-size:9px;letter-spacing:.1em;background:var(--surface-2);position:relative}
+.ph-img::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--seed-fg) 4%,transparent),color-mix(in srgb,var(--seed-fg) 4%,transparent) 6px,transparent 6px,transparent 12px)}
+.r-actions{position:absolute;inset:0;background:var(--overlay);opacity:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;gap:6px;z-index:2}
+.r-card:hover .r-actions{opacity:1}
+.r-actions .btn{background:var(--ink);color:var(--bg);border:none}
+.r-actions .btn:hover{background:var(--ink-3);color:var(--bg)}
+.r-meta{padding:7px 10px;display:flex;flex-direction:column;gap:1px;border-top:1px solid var(--wire)}
+.r-meta b{font-size:11px;font-weight:600}
+.r-meta span{font-size:9px;color:var(--ink-faint)}
+/* ===== 通用按钮 ===== */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:var(--radius-sm);border:1px solid transparent;background:var(--surface-2);color:var(--ink);padding:var(--ctl-pad);height:var(--ctl-h);font-size:12px;font-weight:500;transition:all .12s;text-decoration:none;white-space:nowrap}
+.btn:hover{background:var(--surface-3)}
+.btn-primary{background:var(--accent-strong);color:var(--on-accent)}
+.btn-primary:hover{background:var(--accent-deep)}
+.btn-ghost{border:1px solid var(--wire);background:var(--surface)}
+.btn-ghost:hover{background:var(--surface-2)}
+.btn-sm{padding:3px 8px;height:23px;font-size:10.5px;border:1px solid var(--wire);background:var(--surface)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+/* ===== 右侧模块抽屉 ===== */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.28);opacity:0;pointer-events:none;transition:opacity .2s;z-index:78}
+.scrim.show{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:var(--topbar-h);bottom:var(--statusbar-h);right:0;width:392px;background:var(--surface);border-left:1px solid var(--wire);box-shadow:-10px 0 30px rgba(0,0,0,.1);transform:translateX(105%);transition:transform .22s;z-index:80;display:flex;flex-direction:column}
+.drawer.wide{width:560px}
+.drawer.open{transform:none}
+.drawer-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--wire);font-size:12.5px;font-weight:600}
+.drawer-head .no{color:var(--accent);font-weight:700;margin-right:6px}
+.drawer-head .hint{font-size:10px;color:var(--ink-faint);font-weight:400;margin-left:8px}
+.drawer-body{padding:11px 12px;overflow-y:auto;flex:1;position:relative}
+.drawer-sec{display:none}
+.drawer-sec.active{display:block}
+.drawer-foot{padding:11px 12px;border-top:1px solid var(--wire);display:flex;gap:8px}
+.drawer-foot.hide{display:none}
+.drawer-foot .btn{flex:1}
+.drawer-foot .btn-primary{flex:2}
+.acc{border:1px solid var(--wire);border-radius:var(--radius);background:var(--surface);margin:0 0 8px;position:relative}
+.acc-head{width:100%;display:flex;align-items:center;gap:9px;padding:9px 11px;background:none;border:none;font-size:12px;font-weight:600;color:var(--ink);text-align:left}
+.acc-head:hover{background:var(--surface-2)}
+.acc-num{font-size:9.5px;font-weight:700;color:var(--accent);width:20px;flex-shrink:0;letter-spacing:.02em}
+.acc-badge{font-size:9px;padding:1px 6px;border:1px solid var(--wire-strong);border-radius:10px;color:var(--ink-faint);font-weight:500}
+.acc-chev{margin-left:auto;transition:transform .2s;color:var(--ink-faint);font-size:9px}
+.acc.open .acc-chev{transform:rotate(180deg)}
+.acc-body{display:none;padding:2px 11px 11px}
+.acc.open .acc-body{display:block}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fgroup{display:flex;flex-direction:column;gap:4px}
+.fgroup.full{grid-column:1/-1}
+.fgroup label{font-size:10.5px;color:var(--ink-soft);display:flex;align-items:center;gap:6px}
+.frow{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+input[type=radio]{accent-color:var(--accent)}
+.hint{font-size:9.5px;color:var(--ink-faint)}
+.stepper{display:flex;align-items:center;border:1px solid var(--wire);border-radius:var(--radius-sm);overflow:hidden;background:var(--surface);width:fit-content}
+.stepper button{width:24px;height:var(--ctl-h);border:none;background:var(--surface-2);font-size:12px;color:var(--ink-soft);flex-shrink:0}
+.stepper button:hover{background:var(--surface-3);color:var(--ink)}
+.stepper input{width:58px;border:none;text-align:center;height:var(--ctl-h);border-radius:0;background:transparent;font-weight:500;font-size:12px;padding:0}
+.stepper.wide input{width:78px}
+.quick-sz{display:flex;gap:4px}
+.quick-sz button{font-size:9.5px;padding:2px 7px;border:1px solid var(--wire);background:var(--surface);border-radius:5px;color:var(--ink-soft);height:21px;flex-shrink:0}
+.quick-sz button:hover{color:var(--ink);border-color:var(--ink-3)}
+.quick-sz button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.switch{position:relative;width:38px;height:20px;flex-shrink:0;display:inline-block;vertical-align:middle}
+.switch input{opacity:0;width:0;height:0}
+.sl{position:absolute;inset:0;background:var(--surface-3);border-radius:20px;transition:.15s}
+.sl:before{content:"";position:absolute;width:14px;height:14px;left:3px;top:3px;background:var(--on-accent);border-radius:50%;transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.switch input:checked + .sl{background:var(--accent)}
+.switch input:checked + .sl:before{transform:translateX(18px)}
+.range-row{display:flex;align-items:center;gap:8px}
+.range-row input[type=range]{flex:1;accent-color:var(--accent);height:auto;background:transparent;border:none;padding:0;min-width:0}
+.range-val{width:48px;text-align:right;font-size:10.5px;color:var(--ink-soft);background:var(--surface-2);border-radius:5px;padding:2px 6px;font-weight:600;height:auto;font-variant-numeric:tabular-nums}
+.lora-row{display:grid;grid-template-columns:auto minmax(0,1fr);gap:7px;align-items:center;padding:6px 8px;border:1px dashed var(--wire-strong);border-radius:var(--radius);margin-bottom:6px;background:var(--surface)}
+.lora-row:hover{border-style:solid;border-color:var(--wire-strong)}
+.lora-badge{font-size:9.5px;font-weight:700;color:var(--ink-faint);width:20px;flex-shrink:0}
+.lora-row select{width:100%;min-width:0}
+.lora-row .r2{grid-column:1/-1;display:flex;align-items:center;gap:8px}
+.lora-row .r2 label{font-size:9.5px;color:var(--ink-faint);width:38px;flex-shrink:0}
+.lora-off-hint{grid-column:1/-1;display:none;font-size:10px;color:var(--red)}
+.lora-row.disabled .lora-off-hint{display:block}
+.lora-row.disabled{opacity:.5}
+/* ===== 图片展示（抽屉内） ===== */
+.filter-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.f-chip{font-size:10.5px;padding:3px 10px;border:1px solid var(--wire);background:var(--surface);color:var(--ink-soft);border-radius:6px;cursor:pointer}
+.f-chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.g-masonry{columns:2;column-gap:9px}
+.g-card{border:1px solid var(--wire);border-radius:9px;overflow:hidden;background:var(--surface);position:relative;cursor:pointer;transition:all .12s;break-inside:avoid;margin-bottom:9px;display:inline-block;width:100%}
+.g-card:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.g-card .ph{height:auto;aspect-ratio:var(--ar,1/1);display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-size:8.5px;letter-spacing:.08em;background:var(--surface-2);position:relative}
+.g-card .ph::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(0,0,0,.03),rgba(0,0,0,.03) 6px,transparent 6px,transparent 12px)}
+.g-card .g-type{position:absolute;top:6px;left:6px;font-size:8px;font-weight:600;padding:2px 6px;border-radius:8px;background:var(--surface);border:1px solid var(--wire);color:var(--ink-soft);z-index:2}
+.g-card .g-meta{padding:6px 9px;border-top:1px solid var(--wire)}
+.g-card .g-meta b{display:block;font-size:10.5px}
+.g-card .g-meta span{font-size:8.5px;color:var(--ink-faint)}
+/* ===== 历史（抽屉内） ===== */
+.hist-toolbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:9px}
+.hist-toolbar .search{display:flex;align-items:center;gap:5px;background:var(--surface);border:1px solid var(--wire);border-radius:var(--radius-sm);padding:0 8px;height:var(--ctl-h);flex:1;min-width:140px}
+.hist-toolbar .search span{color:var(--ink-faint);font-size:10px}
+.hist-toolbar .search input{border:none;background:none;flex:1;height:100%;padding:0;box-shadow:none}
+table.tbl{width:100%;border-collapse:collapse;font-size:11px}
+.tbl th{text-align:left;padding:6px 8px;color:var(--ink-faint);font-weight:600;font-size:9.5px;border-bottom:1px solid var(--wire);white-space:nowrap;background:var(--surface-2)}
+.tbl td{padding:6px 8px;border-bottom:1px solid var(--wire);vertical-align:middle}
+.tbl tr:hover td{background:var(--surface-2)}
+.tbl tr.sel td{background:var(--accent-soft)}
+.tbl .pro{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-soft)}
+.th{width:38px;height:28px;border-radius:5px;border:1px dashed var(--wire-strong);background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-size:7.5px;color:var(--ink-faint);letter-spacing:.05em;position:relative}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:10px;font-size:9.5px;border:1px solid var(--wire-strong);color:var(--ink-soft);background:var(--surface)}
+.chip.ok{color:var(--green);border-color:color-mix(in srgb,var(--green) 45%,var(--surface));background:color-mix(in srgb,var(--green) 8%,var(--surface))}
+.chip.warn{color:var(--amber);border-color:color-mix(in srgb,var(--amber) 45%,var(--surface))}
+.chip.red{color:var(--red);border-color:color-mix(in srgb,var(--red) 45%,var(--surface))}
+.chip.eng{color:var(--accent-strong);border-color:var(--accent-25);background:var(--accent-soft)}
+.hist-sec{display:block}
+.hist-sec.hide{display:none}
+.detail-sec{display:none}
+.detail-sec.show{display:block}
+.detail-sec h3{font-size:10.5px;font-weight:700;letter-spacing:.05em;color:var(--ink-faint);margin:12px 0 7px}
+.kv{display:flex;justify-content:space-between;gap:12px;font-size:10.5px;padding:5px 0;border-bottom:1px dashed var(--wire)}
+.kv span{color:var(--ink-soft)}
+.kv b{font-weight:600;text-align:right}
+.kv:last-child{border-bottom:none}
+pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;color:var(--ink-soft);background:var(--surface-2);border-radius:6px;padding:7px;overflow:auto;max-height:130px;margin-top:5px}
+/* ===== 预设（抽屉内） ===== */
+.p-list{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.p-card{border:1px solid var(--wire);border-radius:9px;background:var(--surface);padding:11px;position:relative;transition:all .12s}
+.p-card:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.p-card .nm{font-size:12px;font-weight:700;padding-right:16px}
+.p-card .ds{font-size:9.5px;color:var(--ink-soft);margin:4px 0 7px;line-height:1.45}
+.p-card .fav{position:absolute;top:9px;right:9px;border:none;background:none;color:var(--ink-3);font-size:12px}
+.p-card .fav.on{color:var(--amber)}
+.param-chips{display:flex;flex-wrap:wrap;gap:4px}
+.param-chips span{font-size:8.5px;padding:1px 7px;border:1px solid var(--wire);border-radius:9px;color:var(--ink-soft)}
+.param-chips span.eng{color:var(--accent-strong);border-color:var(--accent-25);background:var(--accent-soft)}
+.p-card .acts{display:flex;gap:5px;margin-top:8px}
+.ed-sec{display:none}
+.ed-sec.show{display:block}
+/* ===== 底部/顶部抽屉 ===== */
+.scrim2{position:fixed;inset:0;background:rgba(0,0,0,.28);opacity:0;pointer-events:none;transition:opacity .2s;z-index:78}
+.scrim2.show{opacity:1;pointer-events:auto}
+.set-drawer,.batch-drawer{position:fixed;left:50%;bottom:var(--statusbar-h);transform:translate(-50%,115%);width:min(880px,calc(100vw - 32px));max-height:min(660px,calc(100vh - var(--topbar-h) - var(--statusbar-h) - 16px));background:var(--surface);border:1px solid var(--wire);border-radius:14px 14px 0 0;box-shadow:0 -10px 40px rgba(0,0,0,.16);transition:transform .24s;z-index:80;display:flex;flex-direction:column}
+.set-drawer.open,.batch-drawer.open{transform:translate(-50%,0)}
+.stat-drawer{position:fixed;top:var(--topbar-h);left:50%;transform:translate(-50%,-115%);width:min(880px,calc(100vw - 32px));max-height:min(640px,calc(100vh - var(--topbar-h) - var(--statusbar-h) - 16px));background:var(--surface);border:1px solid var(--wire);border-radius:0 0 14px 14px;box-shadow:0 10px 40px rgba(0,0,0,.16);transition:transform .24s;z-index:80;display:none;flex-direction:column}
+.stat-drawer.open{transform:translate(-50%,0);display:flex}
+.stat-drawer .ov-body{flex:1}
+/* 左抽屉（历史） */
+.l-drawer{position:fixed;top:var(--topbar-h);bottom:var(--statusbar-h);left:0;width:520px;background:var(--surface);border-right:1px solid var(--wire);box-shadow:10px 0 30px rgba(0,0,0,.1);transform:translateX(-105%);transition:transform .22s;z-index:80;display:flex;flex-direction:column}
+.l-drawer.open{transform:none}
+/* 顶抽屉（图片展示） */
+.g-drawer{position:fixed;top:var(--topbar-h);left:50%;transform:translate(-50%,-115%);width:min(1100px,calc(100vw - 32px));background:var(--surface);border:1px solid var(--wire);border-radius:0 0 14px 14px;box-shadow:0 10px 40px rgba(0,0,0,.16);transition:transform .24s;z-index:80;display:none;flex-direction:column}
+.g-drawer.open{transform:translate(-50%,0);display:flex}
+.g-body{padding:12px 14px;overflow-y:auto}
+.g-masonry.g4{columns:4}
+@media (max-width:1000px){.g-masonry.g4{columns:3}.l-drawer{width:94vw}}
+.ov-head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--wire);font-size:12.5px;font-weight:600}
+.ov-head .no{color:var(--accent);font-weight:700;margin-right:6px}
+.ov-head .hint{font-size:10px;color:var(--ink-faint);font-weight:400;margin-left:8px}
+.ov-body{padding:12px 14px;overflow-y:auto}
+.ov-sec{margin-bottom:12px}
+.ov-sec h4{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:8px}
+.sg{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.sg .lbl{font-size:11px;color:var(--ink-soft);width:110px;flex-shrink:0}
+.sg input[type=text],.sg select{flex:1;min-width:180px}
+.stat-bars{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+.stat-bar{border:1px solid var(--wire);border-radius:8px;padding:9px 11px}
+.stat-bar .k{font-size:10px;color:var(--ink-faint);display:flex;justify-content:space-between}
+.stat-bar .v{font-size:15px;font-weight:700;margin:3px 0 5px}
+.stat-bar .bar{height:5px;border-radius:5px;background:var(--surface-2);overflow:hidden}
+.stat-bar .bar i{display:block;height:100%;background:var(--accent)}
+.back-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px dashed var(--wire);font-size:11.5px}
+.back-row:last-child{border-bottom:none}
+.sb-click{cursor:pointer}
+.sb-click:hover{color:var(--accent)}
+/* 批量（底抽屉内） */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--wire);margin-bottom:12px}
+.tab{padding:7px 14px;border:none;background:none;font-size:12px;color:var(--ink-soft);border-bottom:2px solid transparent}
+.tab.active{color:var(--accent-strong);border-bottom-color:var(--accent);font-weight:600}
+.tabpane{display:none}
+.tabpane.active{display:block}
+.dropzone{border:2px dashed var(--wire-strong);border-radius:var(--radius);padding:20px;text-align:center;color:var(--ink-soft);background:var(--surface);margin-bottom:10px;cursor:pointer;transition:all .15s}
+.dropzone:hover{border-color:var(--accent);color:var(--accent)}
+.dropzone b{font-size:12px}
+.dropzone p{font-size:10px;margin-top:3px;color:var(--ink-faint)}
+.file-list{border:1px solid var(--wire);border-radius:var(--radius);background:var(--surface);overflow:hidden;margin-bottom:10px}
+.f-row{display:flex;align-items:center;gap:10px;padding:7px 11px;border-bottom:1px solid var(--wire);font-size:11px}
+.f-row:last-child{border-bottom:none}
+.f-row .nm{font-weight:600}
+.f-row .sz{color:var(--ink-faint);font-size:9px}
+.f-row .st{margin-left:auto;font-size:9px;padding:2px 8px;border-radius:10px;border:1px solid var(--wire-strong);color:var(--ink-soft)}
+.f-row .st.ok{color:var(--green);border-color:color-mix(in srgb,var(--green) 45%,var(--surface))}
+.cfg-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.cfg-row .lbl{font-size:10px;color:var(--ink-faint)}
+.dims{border:1px solid var(--wire);border-radius:var(--radius);background:var(--surface);padding:10px 12px;margin-bottom:10px}
+.dim{display:flex;align-items:flex-start;gap:9px;padding:6px 0;border-bottom:1px dashed var(--wire)}
+.dim:last-child{border-bottom:none}
+.dim input[type=checkbox]{margin-top:3px;accent-color:var(--accent)}
+.dim-name{font-size:11px;font-weight:600;width:104px;flex-shrink:0;padding-top:2px}
+.dim-name small{display:block;font-weight:400;color:var(--ink-faint);font-size:9px}
+.vals{display:flex;gap:5px;flex-wrap:wrap}
+.vals label{display:flex;align-items:center;gap:4px;font-size:10px;padding:3px 9px;border:1px solid var(--wire);border-radius:6px;cursor:pointer;color:var(--ink-soft)}
+.vals label.checked{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-strong)}
+.vals input{display:none}
+.b-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:10px;align-items:start}
+.b-panel{border:1px solid var(--wire);border-radius:var(--radius);background:var(--surface);padding:10px 12px}
+.b-panel h3{font-size:10px;font-weight:700;letter-spacing:.05em;color:var(--ink-faint);margin-bottom:8px}
+.big-est{font-size:12px;font-weight:600;padding:7px 0 2px}
+.big-est.yellow{color:var(--warn-ink)}
+.big-est.red{color:var(--red)}
+[data-theme="dark"] .big-est.yellow{color:var(--warn-ink-dark)}
+.queue-item{display:flex;align-items:center;gap:9px;padding:7px 9px;border:1px solid var(--wire);border-radius:var(--radius-sm);margin-bottom:6px;background:var(--surface)}
+.queue-item .qi-main{flex:1;min-width:0}
+.queue-item .qi-title{font-size:10.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.queue-item .qi-sub{font-size:9px;color:var(--ink-faint)}
+/* ===== 悬浮查看器 ===== */
+.viewer{position:fixed;left:120px;top:120px;width:520px;min-height:340px;background:var(--surface);border:1px solid var(--wire);border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.22);z-index:120;display:none;flex-direction:column;overflow:hidden}
+.viewer.show{display:flex}
+.v-head{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--wire);cursor:grab;user-select:none;background:var(--surface-2)}
+.v-head:active{cursor:grabbing}
+.v-head b{font-size:12px}
+.v-head .seed{font-size:9px;color:var(--ink-faint)}
+.v-head .sp{flex:1}
+.v-tools{display:flex;gap:4px}
+.v-tools button{border:1px solid var(--wire);background:var(--surface);border-radius:5px;width:24px;height:24px;font-size:11px;color:var(--ink-soft)}
+.v-tools button:hover{border-color:var(--accent);color:var(--accent)}
+.v-tools button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.v-body{flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--seed-fg) 4%,var(--seed-surface));padding:12px;min-height:230px}
+.v-img{width:400px;height:230px;border:1px dashed var(--wire-strong);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-size:10px;letter-spacing:.1em;background:var(--surface-2);position:relative;transition:transform .15s}
+.v-img::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(0,0,0,.03),rgba(0,0,0,.03) 6px,transparent 6px,transparent 12px);border-radius:8px}
+.v-img.compare{display:grid;grid-template-columns:1fr 1fr;gap:2px;background:var(--surface)}
+.v-img.compare .half{display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--ink-faint);background:var(--surface-2);border-radius:7px;position:relative}
+.v-foot{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-top:1px solid var(--wire);font-size:9.5px;color:var(--ink-faint)}
+/* ===== 队列悬浮球 ===== */
+.queue-pill{position:fixed;right:16px;bottom:44px;z-index:85;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--wire);border-radius:20px;padding:7px 14px;font-size:11.5px;font-weight:600;color:var(--ink-soft);box-shadow:0 4px 14px rgba(0,0,0,.12);cursor:pointer}
+.queue-pill:hover{border-color:var(--accent);color:var(--accent)}
+.queue-pill .qd{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0}
+.queue-pill .qd.run{background:var(--accent)}
+.queue-pill .pct{color:var(--accent-strong);font-variant-numeric:tabular-nums}
+.queue-pop{position:fixed;right:16px;bottom:82px;z-index:86;width:300px;max-height:min(420px,calc(100vh - 160px));overflow-y:auto;background:var(--surface);border:1px solid var(--wire);border-radius:12px;box-shadow:0 10px 36px rgba(0,0,0,.16);padding:10px;display:none}
+.queue-pop.show{display:block}
+.queue-pop .qp-head{display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:700;color:var(--ink-faint);letter-spacing:.05em;margin-bottom:8px;text-transform:uppercase}
+.q-item{display:flex;align-items:center;gap:9px;padding:7px 8px;border:1px solid var(--wire);border-radius:8px;margin-bottom:6px;background:var(--surface)}
+.q-item:last-child{margin-bottom:0}
+.q-item .t{flex:1;min-width:0}
+.q-item .t b{display:block;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.q-item .t span{font-size:9px;color:var(--ink-faint)}
+.q-item .p{font-size:10px;font-weight:600;color:var(--accent-strong)}
+/* ===== 关于（底抽屉） ===== */
+.about-card{border:1px solid var(--wire);border-radius:12px;padding:13px 15px;display:grid;grid-template-columns:auto 1fr;gap:5px 13px;align-items:center}
+.about-lg{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--accent-soft);border:1px solid var(--accent-25);grid-row:1/3}
+.about-card .nm{font-size:14px;font-weight:700}
+.about-card .sub{font-size:10.5px;color:var(--ink-soft)}
+.about-card .desc{grid-column:1/-1;font-size:11px;color:var(--ink-soft);line-height:1.6}
+.kv3{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;grid-column:1/-1}
+.kv3 .it{background:var(--surface-2);border-radius:8px;padding:6px 10px}
+.kv3 .it b{display:block;font-size:9px;color:var(--ink-faint);font-weight:600;letter-spacing:.04em}
+.kv3 .it span{font-size:11.5px;font-weight:600}
+.about-links{display:flex;align-items:center;gap:7px;grid-column:1/-1;flex-wrap:wrap}
+.soc{width:26px;height:26px;border:1px solid var(--wire);background:var(--surface);border-radius:50%;color:var(--ink-soft);font-size:10px;display:inline-flex;align-items:center;justify-content:center}
+.soc:hover{border-color:var(--accent);color:var(--accent)}
+.feat2{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.feat2 .it{border:1px dashed var(--wire-strong);border-radius:9px;padding:9px 11px}
+.feat2 .it b{display:block;font-size:11px;margin-bottom:3px}
+.feat2 .it b .ic{color:var(--accent-strong);margin-right:5px}
+.feat2 .it span{font-size:9.5px;color:var(--ink-soft);line-height:1.5;display:block}
+.db-note{font-size:9.5px;color:var(--ink-faint);text-align:center;padding-bottom:2px}
+/* ===== 底栏 ===== */
+.statusbar{position:fixed;bottom:0;left:0;right:0;height:var(--statusbar-h);background:var(--surface);border-top:1px solid var(--wire);display:flex;align-items:center;gap:18px;padding:0 12px;font-size:10.5px;color:var(--ink-soft);z-index:90}
+.sb-item{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex-shrink:0}
+.dot.green{background:var(--green)}.dot.red{background:var(--red)}.dot.yellow{background:var(--amber)}.dot.gray{background:var(--wire-strong)}
+.sb-right{margin-left:auto;display:flex;gap:14px}
+.zoom{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border:1px solid var(--wire);border-radius:5px;color:var(--ink-soft);font-size:10.5px;background:var(--surface)}
+.zoom .z-btn{border:none;background:none;color:var(--ink-soft);font-size:12px;padding:0 2px;line-height:1}
+.zoom .z-val{min-width:38px;text-align:center;font-variant-numeric:tabular-nums}
+/* ===== 原型导航 ===== */
+.proto-nav{position:fixed;right:16px;top:calc(var(--topbar-h) + 12px);z-index:92;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.proto-btn{background:var(--surface);color:var(--ink-soft);border:1px solid var(--wire);border-radius:var(--radius-sm);padding:7px 13px;font-size:11.5px;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.proto-btn:hover{border-color:var(--accent);color:var(--accent)}
+.proto-panel{display:none;background:var(--surface);border:1px solid var(--wire);border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.14);padding:8px;min-width:210px}
+.proto-panel.show{display:block}
+.proto-panel a{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--radius-sm);color:var(--ink);text-decoration:none;font-size:12px}
+.proto-panel a:hover{background:var(--surface-2)}
+.proto-panel .pt{font-size:9.5px;color:var(--ink-faint);padding:5px 10px 3px;letter-spacing:.05em}
+.proto-panel .pm{font-size:10px;color:var(--ink-soft);padding:2px 10px 7px;line-height:1.5}
+@media (max-width:900px){.stat-bars{grid-template-columns:1fr}.g-masonry{columns:2}.p-list{grid-template-columns:1fr}.b-grid{grid-template-columns:1fr}.feat2{grid-template-columns:1fr 1fr}}
+@media (max-width:700px){.masonry{columns:1}.g-masonry{columns:1}.drawer.wide{width:94vw}.set-drawer,.batch-drawer{width:94vw}.viewer{width:calc(100vw - 24px);left:12px;top:90px}}
+</style>
+</head>
+<body>
+
+<!-- 原型导航 -->
+<div class="proto-nav" data-component="Proto Nav">
+  <div class="proto-panel" id="protoPanel">
+    <div class="pt">单页融合版 · 模块入口在主画布</div>
+    <p class="pm">图片展示 / 历史记录 / 批量模式 / 预设管理 已融合为抽屉，从主画布「模块入口」进入。</p>
+    <a href="../index.html">首页仪表盘（旧版）</a>
+    <a href="../batch.html">旧版独立页（参考）</a>
+  </div>
+  <button class="proto-btn" id="protoBtn" type="button">原型信息 ▾</button>
+</div>
+
+<!-- 顶部栏 -->
+<header class="topbar" data-component="Topbar">
+  <div class="logo"><span class="figma-logo"><span class="fl fl-1"></span><span class="fl fl-2"></span><span class="fl fl-3"></span></span><span class="logo-text">Image MultiModel <i>/ 生图工作台</i></span></div>
+  <div class="topbar-right">
+    <button class="icon-btn" id="themeToggle" title="主题切换" type="button">◐</button>
+    <button class="icon-btn" id="aboutBtn" title="关于" type="button">ⓘ</button>
+    <button class="icon-btn" id="setOpen" title="设置" type="button">⚙︎</button>
+    <span class="ico-wrap" data-component="Engine Menu">
+      <button class="icon-btn" id="engIcon" title="切换模型" type="button">◈</button>
+      <div class="ico-pop" id="engMenu">
+        <button class="ip-item on" data-v="FLUX.2 Klein-9B Distilled" type="button">FLUX.2 Klein-9B Distilled</button>
+        <button class="ip-item" data-v="Z-Image-Turbo" type="button">Z-Image-Turbo</button>
+      </div>
+    </span>
+    <span class="ico-wrap" data-component="Language Menu">
+      <button class="icon-btn" id="langIcon" title="切换语言" type="button">文</button>
+      <div class="ico-pop" id="langMenu">
+        <button class="ip-item on" data-l="zh-CN" type="button">简体中文</button>
+        <button class="ip-item" data-l="zh-TW" type="button">繁體中文</button>
+        <button class="ip-item" data-l="en-US" type="button">English</button>
+        <button class="ip-item" data-l="ja-JP" type="button">日本語</button>
+        <button class="ip-item" data-l="ko-KR" type="button">한국어</button>
+      </div>
+    </span>
+    <select id="engineSelect" style="display:none" aria-label="引擎">
+      <option>FLUX.2 Klein-9B Distilled</option>
+      <option>Z-Image-Turbo</option>
+    </select>
+    <select id="langSelect" style="display:none" aria-label="语言">
+      <option value="zh-CN">简体中文</option>
+      <option value="zh-TW">繁體中文</option>
+      <option value="en-US">English</option>
+      <option value="ja-JP">日本語</option>
+      <option value="ko-KR">한국어</option>
+    </select>
+    <button class="share-btn" type="button">分享</button>
+    <span class="avatar"></span>
+  </div>
+</header>
+
+<div class="layout">
+  <main class="stage" data-component="Stage">
+    <div class="big-title">用一句话，生成一张 <em>图</em></div>
+    <p class="sub" data-i18n="sub">支持 简中/繁中/英/日/韩 直接输入 · 默认 FLUX.2 Klein 蒸馏配置，开箱即用</p>
+
+    <div class="prompt-card" data-component="Prompt Input">
+      <textarea id="posPrompt" placeholder="描述你想生成的画面，例如：一位亚洲女性肖像，柔和自然光，浅景深，胶片质感…">一位亚洲女性肖像，柔和自然光，浅景深，胶片质感，细节丰富</textarea>
+      <div class="meta"><span class="ln" id="posMeta">28 字符 · ≈42 token</span><span><button class="btn btn-sm" id="clearPos" type="button">清空</button> <button class="btn btn-sm" id="copyPos" type="button">复制</button></span></div>
+      <button class="neg-toggle" id="negToggle" type="button">＋ 负向提示词</button>
+      <div class="neg-box" id="negBox" data-component="Negative Prompt">
+        <textarea id="negPrompt" placeholder="不希望出现的内容，例如：低质量、模糊、变形…（可为空）"></textarea>
+        <div class="meta"><span class="ln" id="negMeta">0 字符</span><span><button class="btn btn-sm" type="button">清空</button> <button class="btn btn-sm" type="button">复制</button></span></div>
+      </div>
+      <div class="examples" data-component="Prompt Examples">
+        <button class="ex-chip" type="button">赛博朋克城市夜景，雨夜，霓虹灯反射，电影感</button>
+        <button class="ex-chip" type="button">日本庭院枯山水，禅意，清晨薄雾，柔光</button>
+        <button class="ex-chip" type="button">韩式女团舞台照，聚光灯，动感，高对比</button>
+        <button class="ex-chip" type="button">老式胶片相机静物，暖调，复古海报风</button>
+      </div>
+    </div>
+
+    <div class="gen-row" data-component="Actions Row">
+      <button class="btn-gen" id="genBtn" type="button">▶ 生成</button>
+      <div class="snap-row" data-component="Param Snapshot">
+        <span class="snap">引擎 <b id="snapEngine">FLUX.2 Klein</b></span>
+        <span class="snap">分辨率 <b id="snapRes">1024 × 1024</b></span>
+        <span class="snap">steps <b id="snapSteps">8</b></span>
+        <span class="snap">cfg <b id="snapCfg">1.0</b></span>
+        <span class="snap">预计 <b id="snapOut">3</b> 张</span>
+      </div>
+    </div>
+
+    <div class="est-line" id="estLine" data-component="Estimate Line">预计生成 <b>3</b> 张 = 1 Prompt × 1 batch × (SeedVR2×2 + Eses×1)</div>
+    <div class="warn-box yellow" id="warn500" data-component="Batch Warning">⚠ 超过 500 张：建议夜间生成，预计约 40min（RTX 4090 估算）</div>
+    <div class="warn-box red" id="warn5000" data-component="Batch Warning">⚠ 超过 5000 张：自动断点续跑（每 100 张 checkpoint），点击「生成」需二次确认（倒计时 5s）</div>
+
+    <div class="gen-progress" id="genProgress" data-component="Generation Progress">
+      <div class="phase-line"><span id="phaseText">空闲 · 引擎已就绪（FLUX.2 Klein）</span><span>chunk 0/0</span></div>
+      <div class="progress"><i id="progFill"></i></div>
+    </div>
+
+    <!-- 模块入口 -->
+    <div class="mod-row" data-component="Module Launcher">
+      <span class="lbl">模块</span>
+      <button class="mod-btn" id="drawerToggle" type="button">⚙ 高级参数</button>
+      <button class="mod-btn" id="openGallery" type="button">▦ 图片展示</button>
+      <button class="mod-btn" id="openHistory" type="button">◷ 历史记录</button>
+      <button class="mod-btn" id="openBatch" type="button">▤ 批量模式</button>
+      <button class="mod-btn" id="openPresets" type="button">▣ 预设管理</button>
+    </div>
+
+    <section class="results" data-component="Results">
+      <div class="r-title"><span data-i18n="recent">最近生成</span><span class="bar"></span></div>
+      <div class="masonry" id="outGrid">
+        <div class="r-card" style="--ar:1/1"><div class="ph-img">PORTRAIT</div><div class="r-actions"><button class="btn btn-sm" type="button">下载</button><button class="btn btn-sm" type="button">收藏</button><button class="btn btn-sm" type="button">重绘</button></div><div class="r-meta"><b>亚洲女性肖像</b><span>FLUX.2 · 1024² · 88421</span></div></div>
+        <div class="r-card" style="--ar:1/1"><div class="ph-img">CYBERPUNK</div><div class="r-actions"><button class="btn btn-sm" type="button">下载</button><button class="btn btn-sm" type="button">收藏</button><button class="btn btn-sm" type="button">重绘</button></div><div class="r-meta"><b>赛博朋克夜景</b><span>FLUX.2 · 2048² · 88397</span></div></div>
+        <div class="r-card" style="--ar:2/1"><div class="ph-img">ZEN</div><div class="r-actions"><button class="btn btn-sm" type="button">下载</button><button class="btn btn-sm" type="button">收藏</button><button class="btn btn-sm" type="button">重绘</button></div><div class="r-meta"><b>日本庭院枯山水</b><span>Z-Turbo · 4096×2048 · 88355</span></div></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ========== 右侧模块抽屉（高级参数 / 图片展示 / 历史 / 预设） ========== -->
+<div class="scrim" id="scrim" data-component="Scrim"></div>
+<aside class="drawer" id="drawer" data-component="Module Drawer">
+  <div class="drawer-head"><span><span class="no">/</span><span id="mTitle">高级参数</span><span class="hint" id="mHint">22 项 · 改动即时生效</span></span><button class="icon-btn" id="drawerClose" type="button">✕</button></div>
+  <div class="drawer-body">
+
+    <!-- 高级参数 -->
+    <section class="drawer-sec active" id="sec-adv" data-component="Advanced Params">
+      <div class="acc open" data-component="Param Group Basic">
+        <button class="acc-head" type="button"><span class="acc-num">02</span><span>基础参数</span><span class="acc-badge">8 项</span><span class="acc-chev">▾</span></button>
+        <div class="acc-body">
+          <div class="fgrid">
+            <div class="fgroup"><label>cfg（蒸馏推荐 1.0）</label><div class="frow"><input type="number" id="cfg" value="1.0" min="1.0" max="20.0" step="0.1" style="width:82px"><span class="hint">[1.0,20.0]</span></div></div>
+            <div class="fgroup"><label>steps</label><div class="stepper" data-min="1" data-max="50" data-step="1"><button class="st-dec" type="button">−</button><input id="steps" value="8"><button class="st-inc" type="button">+</button></div></div>
+            <div class="fgroup"><label>width（16 倍数）</label><div class="frow"><div class="stepper" data-min="256" data-max="2048" data-step="16"><button class="st-dec" type="button">−</button><input id="width" value="1024"><button class="st-inc" type="button">+</button></div><div class="quick-sz"><button type="button">512</button><button type="button">768</button><button class="on" type="button">1024</button><button type="button">1536</button></div></div></div>
+            <div class="fgroup"><label>height（16 倍数）</label><div class="frow"><div class="stepper" data-min="256" data-max="2048" data-step="16"><button class="st-dec" type="button">−</button><input id="height" value="1024"><button class="st-inc" type="button">+</button></div><div class="quick-sz"><button type="button">512</button><button type="button">768</button><button class="on" type="button">1024</button><button type="button">1536</button></div></div></div>
+            <div class="fgroup"><label>seed（-1 = 随机）</label><div class="frow"><div class="stepper wide" data-min="-1" data-max="9007199254740991" data-step="1"><button class="st-dec" type="button">−</button><input id="seed" value="-1"><button class="st-inc" type="button">+</button></div><button class="btn btn-sm dice" data-target="seed" type="button">⚄</button><button class="btn btn-sm" id="reuseSeed" type="button">↻</button></div><div class="hint" id="seedHint">随机模式：实际 seed 提交时生成</div></div>
+            <div class="fgroup"><label>batch_size <span class="hint">[1,9999]</span></label><div class="frow"><div class="stepper wide" data-min="1" data-max="9999" data-step="1"><button class="st-dec" type="button">−</button><input id="batchSize" value="1"><button class="st-inc" type="button">+</button></div><button class="btn btn-sm" id="b10" type="button">+10</button><button class="btn btn-sm" id="b100" type="button">+100</button><span id="bsWarn" style="display:none">⚠</span></div></div>
+          </div>
+          <div class="hint" style="margin-top:8px">估算与阈值警告显示在主界面操作行下方</div>
+        </div>
+      </div>
+      <div class="acc open" data-component="Param Group LoRA">
+        <button class="acc-head" type="button"><span class="acc-num">03</span><span>LoRA 叠加</span><span class="acc-badge">6 层串联</span><span class="acc-chev">▾</span></button>
+        <div class="acc-body">
+          <div class="hint" style="margin-bottom:8px">顺序 = 工作流 LoraLoaderModelOnly id=16→21（UNETLoader → CFGGuider），不得乱序；选「— 禁用 —」自动跳过该层并重连链路。</div>
+          <div id="loraStack">
+            <div class="lora-row"><span class="lora-badge">L1</span><select class="lora-name"><option>— 禁用 —</option><option selected>.safetensors</option><option>Kook_Flux_klein_亚洲人像.safetensors</option></select><div class="lora-off-hint">⚠ 该层已禁用（mode=4 跳过，MODEL 链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="1.0"><span class="range-val">1.00</span></div></div>
+            <div class="lora-row"><span class="lora-badge">L2</span><select class="lora-name"><option>— 禁用 —</option><option selected>Kook_Flux_klein_亚洲人像.safetensors</option></select><div class="lora-off-hint">⚠ 该层已禁用（mode=4 跳过，MODEL 链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="0.7"><span class="range-val">0.70</span></div></div>
+            <div class="lora-row"><span class="lora-badge">L3</span><select class="lora-name"><option>— 禁用 —</option><option selected>Kook_Flux_klein_亚洲人像.safetensors</option></select><div class="lora-off-hint">⚠ 该层已禁用（mode=4 跳过，MODEL 链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="0.5"><span class="range-val">0.50</span></div></div>
+            <div class="lora-row"><span class="lora-badge">L4</span><select class="lora-name"><option>— 禁用 —</option><option selected>Kook_Flux_klein_亚洲人像.safetensors</option></select><div class="lora-off-hint">⚠ 该层已禁用（mode=4 跳过，MODEL 链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="0.4"><span class="range-val">0.40</span></div></div>
+            <div class="lora-row"><span class="lora-badge">L5</span><select class="lora-name"><option>— 禁用 —</option><option selected>Kook_Flux_klein_亚洲人像.safetensors</option></select><div class="lora-off-hint">⚠ 该层已禁用（mode=4 跳过，MODEL 链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="0.3"><span class="range-val">0.30</span></div></div>
+            <div class="lora-row"><span class="lora-badge">L6</span><select class="lora-name"><option>— 禁用 —</option><option selected>.safetensors</option></select><div class="lora-off-hint">⚠ 该层已禁用（mode=4 跳过，MODEL 链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="0.2"><span class="range-val">0.20</span></div></div>
+          </div>
+          <div class="warn-box yellow show">⚠ 默认 LoRA 已在磁盘找到；缺失将自动 _disabled + 黄提示。</div>
+        </div>
+      </div>
+      <div class="acc open" data-component="Param Group SeedVR2">
+        <button class="acc-head" type="button"><span class="acc-num">04</span><span>SeedVR2 超分</span><span class="acc-badge">on</span><span class="acc-chev">▾</span></button>
+        <div class="acc-body">
+          <div class="fgrid">
+            <div class="fgroup full"><label>启用 SeedVR2 超分（ema_vae + 3B DiT）</label><label class="switch"><input type="checkbox" id="seedvr2Toggle" checked><span class="sl"></span></label></div>
+            <div class="fgroup"><label>超分分辨率（最短边）</label><select id="upscaleRes"><option>1024</option><option>1536</option><option selected>2048</option><option>3072</option><option>4096</option></select></div>
+            <div class="fgroup"><label>色彩校正</label><select id="colorCorr"><option>off</option><option selected>lab</option><option>adain</option><option>none</option></select></div>
+            <div class="fgroup"><label>upscale_seed（独立）</label><div class="frow"><div class="stepper wide" data-min="-1" data-max="9007199254740991" data-step="1"><button class="st-dec" type="button">−</button><input id="upscaleSeed" value="-1"><button class="st-inc" type="button">+</button></div><button class="btn btn-sm dice" data-target="upscaleSeed" type="button">⚄</button></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="acc open" data-component="Param Group Compare">
+        <button class="acc-head" type="button"><span class="acc-num">05</span><span>对比 + 显存预留</span><span class="acc-chev">▾</span></button>
+        <div class="acc-body">
+          <div class="fgrid">
+            <div class="fgroup"><label>Eses 双图对比</label><label class="switch"><input type="checkbox" id="esesToggle" checked><span class="sl"></span></label><div class="frow" style="margin-top:6px"><label class="hint">轴</label><label style="font-size:11px"><input type="radio" name="axis" value="horizontal" checked> h</label><label style="font-size:11px"><input type="radio" name="axis" value="vertical"> v</label><label style="font-size:11px"><input type="radio" name="axis" value="slider"> s</label></div></div>
+            <div class="fgroup"><label>ReservedVRAM 显存预留</label><label class="switch"><input type="checkbox" id="vramToggle" checked><span class="sl"></span></label><div class="frow" style="margin-top:6px;gap:6px"><input type="number" id="vramGb" value="0.6" min="0" max="10" step="0.05" style="width:70px"><span class="hint">GB</span></div><div class="frow" style="margin-top:6px;gap:6px"><select id="vramMode" style="width:86px"><option selected>auto</option><option>manual</option></select><div class="stepper wide" data-min="-1" data-max="9007199254740991" data-step="1"><button class="st-dec" type="button">−</button><input id="vramSeed" value="-1"><button class="st-inc" type="button">+</button></div><button class="btn btn-sm dice" data-target="vramSeed" type="button">⚄</button></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="acc open" data-component="Param Group Output">
+        <button class="acc-head" type="button"><span class="acc-num">06</span><span>输出设置</span><span class="acc-chev">▾</span></button>
+        <div class="acc-body">
+          <div class="fgrid">
+            <div class="fgroup"><label>输出格式</label><select disabled><option>png（固定）</option></select></div>
+            <div class="fgroup"><label>文件名前缀模板</label><input value="{engine}" maxlength="80"><div class="hint">{date}/{engine}/{seed}/{task_id} · ≤80</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 预设管理 -->
+    <section class="drawer-sec" id="sec-presets" data-component="Presets">
+      <div class="p-list" id="pList">
+        <div class="p-card"><button class="fav on" type="button">★</button><div class="nm">默认预设（FLUX.2）</div><p class="ds">亚洲人像基线：1.0 cfg · 8 steps · 1024²</p><div class="param-chips"><span class="eng">FLUX.2</span><span>LoRA ×6</span><span>超分 2048</span></div><div class="acts"><button class="btn btn-sm" type="button">应用</button><button class="btn btn-sm ed" type="button">编辑</button></div></div>
+        <div class="p-card"><button class="fav" type="button">☆</button><div class="nm">亚洲人像写真</div><p class="ds">L2 0.7 强化，柔和自然光模板</p><div class="param-chips"><span class="eng">FLUX.2</span><span>L2 0.7</span></div><div class="acts"><button class="btn btn-sm" type="button">应用</button><button class="btn btn-sm ed" type="button">编辑</button></div></div>
+        <div class="p-card"><button class="fav" type="button">☆</button><div class="nm">赛博朋克城市</div><p class="ds">Z-Turbo 快速出图：1536²</p><div class="param-chips"><span class="eng">Z-Turbo</span><span>4 steps</span></div><div class="acts"><button class="btn btn-sm" type="button">应用</button><button class="btn btn-sm ed" type="button">编辑</button></div></div>
+        <div class="p-card"><button class="fav" type="button">☆</button><div class="nm">胶片复古静物</div><p class="ds">暖调胶片质感，3072 大图</p><div class="param-chips"><span class="eng">FLUX.2</span><span>3072</span></div><div class="acts"><button class="btn btn-sm" type="button">应用</button><button class="btn btn-sm ed" type="button">编辑</button></div></div>
+      </div>
+      <div class="ed-sec" id="pEdit">
+        <button class="btn btn-sm" id="pBack" type="button">← 返回列表</button>
+        <h3 style="font-size:10.5px;font-weight:700;color:var(--ink-faint);margin:11px 0 8px">编辑预设</h3>
+        <div class="fgroup" style="margin-bottom:9px"><label>名称</label><input id="pName" value=""></div>
+        <div class="fgroup" style="margin-bottom:9px"><label>描述</label><textarea id="pDesc" style="height:52px"></textarea></div>
+        <div class="fgroup" style="margin-bottom:9px"><label>引擎</label><select id="pEngine"><option>FLUX.2 Klein-9B Distilled</option><option>Z-Image-Turbo</option></select></div>
+        <div style="display:flex;gap:7px;margin-top:6px"><button class="btn" id="pCancel" type="button">取消</button><button class="btn btn-primary" id="pSave" type="button">保存预设</button></div>
+      </div>
+      <div style="margin-top:9px"><button class="btn" id="pNew" type="button">＋ 新建预设</button></div>
+    </section>
+
+  </div>
+  <div class="drawer-foot" id="drawerFoot">
+    <button class="btn btn-ghost" id="restoreBtn" type="button">恢复默认</button>
+    <button class="btn btn-primary" id="drawerDone" type="button">完成</button>
+  </div>
+</aside>
+
+<!-- ========== 历史（左抽屉） ========== -->
+<aside class="l-drawer" id="histDrawer" data-component="History Drawer">
+  <div class="drawer-head"><span><span class="no">/</span>历史记录<span class="hint">共 1,284 条</span></span><button class="icon-btn" id="histClose" type="button">✕</button></div>
+  <div class="drawer-body">
+    <div class="hist-sec" id="histList">
+      <div class="hist-toolbar">
+        <div class="search"><span>⌕</span><input placeholder="搜索 Prompt / seed…" aria-label="搜索"></div>
+        <select aria-label="状态筛选" style="min-width:92px"><option>状态</option><option>成功</option><option>失败</option></select>
+        <select aria-label="引擎筛选" style="min-width:92px"><option>引擎</option><option>FLUX.2</option><option>Z-Turbo</option></select>
+      </div>
+      <table class="tbl">
+        <thead><tr><th style="width:44px">预览</th><th class="pro">Prompt</th><th>状态</th><th style="width:86px">操作</th></tr></thead>
+        <tbody id="histRows">
+          <tr data-p="一位亚洲女性肖像，柔和自然光，浅景深，胶片质感，细节丰富" data-e="FLUX.2" data-s="完成" data-d="4096×2048 · 88421" data-t="42.3s · 08-08 15:24"><td><div class="th">PORTRAIT</div></td><td class="pro">一位亚洲女性肖像，柔和自然光，浅景深，胶片质感，细节丰富</td><td><span class="chip ok">完成</span></td><td><button class="btn btn-sm" type="button">详情</button></td></tr>
+          <tr data-p="赛博朋克城市夜景，雨夜，霓虹灯反射，广角镜头，电影感" data-e="Z-Turbo" data-s="完成" data-d="2048×2048 · 88397" data-t="31.0s · 08-08 14:58"><td><div class="th">CYBER</div></td><td class="pro">赛博朋克城市夜景，雨夜，霓虹灯反射，广角镜头，电影感</td><td><span class="chip ok">完成</span></td><td><button class="btn btn-sm" type="button">详情</button></td></tr>
+          <tr data-p="日本庭院枯山水，禅意，清晨薄雾，柔光" data-e="FLUX.2" data-s="进行中" data-d="4096×2048 · —" data-t="— · 08-08 14:41"><td><div class="th">ZEN</div></td><td class="pro">日本庭院枯山水，禅意，清晨薄雾，柔光</td><td><span class="chip warn">进行中</span></td><td><button class="btn btn-sm" type="button">详情</button></td></tr>
+          <tr data-p="韩式女团舞台照，聚光灯，动感，高对比" data-e="Z-Turbo" data-s="失败" data-d="1024×1024 · 88321" data-t="12.1s · 08-08 14:12"><td><div class="th">STAGE</div></td><td class="pro">韩式女团舞台照，聚光灯，动感，高对比</td><td><span class="chip red">失败</span></td><td><button class="btn btn-sm" type="button">详情</button></td></tr>
+          <tr data-p="老式胶片相机，静物，暖调，颗粒感，复古海报风" data-e="FLUX.2" data-s="完成" data-d="3072×1536 · 88290" data-t="38.7s · 08-08 13:55"><td><div class="th">FILM</div></td><td class="pro">老式胶片相机，静物，暖调，颗粒感，复古海报风</td><td><span class="chip ok">完成</span></td><td><button class="btn btn-sm" type="button">详情</button></td></tr>
+          <tr data-p="批量任务 b4f2 · 20 Prompt × 5 batch · 100 张（300 份）" data-e="FLUX.2" data-s="完成" data-d="多图 · —" data-t="18m 24s · 08-08 11:02"><td><div class="th">BATCH</div></td><td class="pro">批量任务 b4f2 · 20 Prompt × 5 batch · 100 张（300 份）</td><td><span class="chip ok">完成</span></td><td><button class="btn btn-sm" type="button">详情</button></td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top:9px;display:flex;justify-content:space-between;align-items:center;font-size:9.5px;color:var(--ink-faint)"><span>共 1,284 条 · 第 1/26 页</span><span><button class="btn btn-sm" type="button">下一页 ›</button></span></div>
+    </div>
+    <div class="detail-sec" id="histDetail">
+      <button class="btn btn-sm" id="histBack" type="button">← 返回列表</button>
+      <h3>任务详情</h3>
+      <div class="d-tags" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"><span class="chip eng" id="ddEngine">FLUX.2</span><span class="chip" id="ddStatus">完成</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:10px"><div class="th" style="width:100%;height:56px">ORIGINAL</div><div class="th" style="width:100%;height:56px">UPSCALED</div><div class="th" style="width:100%;height:56px">COMPARE</div></div>
+      <div class="kv"><span>prompt</span><b id="ddPrompt">…</b></div>
+      <div class="kv"><span>尺寸 · seed</span><b id="ddDim">…</b></div>
+      <div class="kv"><span>耗时 · 时间</span><b id="ddTime">…</b></div>
+      <div class="kv"><span>cfg · steps</span><b>1.0 · 8</b></div>
+      <div class="kv"><span>LoRA / SeedVR2 / Eses</span><b>6 层 · 2048 · h</b></div>
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" type="button">用相同参数重绘</button><button class="btn btn-sm" type="button">保存为预设</button><button class="btn btn-sm" type="button">下载 ZIP</button></div>
+    </div>
+  </div>
+</aside>
+
+<!-- ========== 图片展示（顶抽屉） ========== -->
+<aside class="g-drawer" id="galleryDrawer" data-component="Gallery Drawer">
+  <div class="ov-head"><span><span class="no">/</span>图片展示<span class="hint">顶抽屉 · 点击卡片弹出悬浮查看器</span></span><button class="icon-btn" id="galleryClose" type="button">✕</button></div>
+  <div class="g-body">
+    <div class="filter-row">
+      <button class="f-chip on" data-f="全部" type="button">全部</button>
+      <button class="f-chip" data-f="原图" type="button">原图</button>
+      <button class="f-chip" data-f="超分" type="button">超分</button>
+      <button class="f-chip" data-f="对比图" type="button">对比图</button>
+    </div>
+    <div class="g-masonry g4" id="gMasonry"></div>
+  </div>
+</aside>
+
+<!-- ========== 批量（底抽屉） ========== -->
+<aside class="batch-drawer" id="batchDrawer" data-component="Batch Drawer">
+  <div class="ov-head"><span><span class="no">/</span>批量模式<span class="hint">底抽屉 · Prompt 文件 / 参数网格</span></span><button class="icon-btn" id="batchClose" type="button">✕</button></div>
+  <div class="ov-body">
+    <div class="tabs">
+      <button class="tab active" data-t="bpane-file" type="button">Prompt 文件</button>
+      <button class="tab" data-t="bpane-grid" type="button">参数网格</button>
+    </div>
+    <section class="tabpane active" id="bpane-file">
+      <div class="dropzone" id="dropzone"><b>拖拽或点击上传 Prompt 文件</b><p>支持 .txt / .csv · 每行一个 Prompt</p></div>
+      <div class="file-list">
+        <div class="f-row"><span class="nm">prompts_portrait.txt</span><span class="sz">2.1 KB · 20 行</span><span class="st ok">解析完成</span></div>
+        <div class="f-row"><span class="nm">prompts_cyberpunk.csv</span><span class="sz">3.4 KB · 32 行</span><span class="st ok">解析完成</span></div>
+      </div>
+      <div class="cfg-row">
+        <span class="lbl">每行 batch</span><select style="width:104px"><option>1</option><option>2</option><option>4</option></select>
+        <span class="lbl">覆盖策略</span><select style="width:130px"><option>存在则跳过（默认）</option><option>覆盖同名输出</option></select>
+      </div>
+    </section>
+    <section class="tabpane" id="bpane-grid">
+      <div class="dims">
+        <div class="dim"><input type="checkbox" id="gW" checked><div class="dim-name">width<small>16 倍数</small></div><div class="vals"><label class="checked"><input type="checkbox" checked>512</label><label class="checked"><input type="checkbox" checked>768</label><label><input type="checkbox">1024</label></div></div>
+        <div class="dim"><input type="checkbox" id="gH" checked><div class="dim-name">height<small>16 倍数</small></div><div class="vals"><label class="checked"><input type="checkbox" checked>512</label><label class="checked"><input type="checkbox" checked>768</label><label><input type="checkbox">1024</label></div></div>
+        <div class="dim"><input type="checkbox" id="gS" checked><div class="dim-name">steps</div><div class="vals"><label class="checked"><input type="checkbox" checked>4</label><label class="checked"><input type="checkbox" checked>8</label><label><input type="checkbox">16</label></div></div>
+        <div class="dim"><input type="checkbox" id="gC"><div class="dim-name">cfg</div><div class="vals"><label><input type="checkbox">1.0</label><label><input type="checkbox">2.0</label></div></div>
+      </div>
+    </section>
+    <div class="b-grid">
+      <div class="b-panel" data-component="Batch Summary">
+        <h3>批次估算</h3>
+        <div class="kv"><span>Prompt 文件</span><b>2 个 · 52 行</b></div>
+        <div class="kv"><span>参数网格组合</span><b id="gridCombo">2×2×2 = 8 组</b></div>
+        <div class="big-est" id="bEst">预计生成 <b>180</b> 张 = (52 + 8) × 1 × 3</div>
+        <div class="warn-box yellow" id="bWarn500">⚠ 超过 500 张：建议夜间生成</div>
+        <div class="warn-box red" id="bWarn5000">⚠ 超过 5000 张：断点续跑 + 二次确认</div>
+        <div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-primary" style="flex:1" type="button">▶ 生成批次</button><button class="btn btn-ghost" type="button">取消</button></div>
+      </div>
+      <div class="b-panel" data-component="Batch Queue">
+        <h3>任务队列</h3>
+        <div class="queue-item"><div class="qi-main"><div class="qi-title">b4f2 · prompts_portrait × 20</div><div class="qi-sub">chunk 12/20 · 进行中</div></div><span style="font-size:10px;font-weight:600;color:var(--accent-strong)">60%</span></div>
+        <div class="queue-item"><div class="qi-main"><div class="qi-title">b4f1 · 网格 8 组 × 4</div><div class="qi-sub">排队中</div></div><span style="font-size:10px;color:var(--ink-faint)">—</span></div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- ========== 设置（底抽屉） ========== -->
+<div class="scrim2" id="setScrim" data-component="Scrim"></div>
+<aside class="stat-drawer" id="setDrawer" data-component="Settings Drawer">
+  <div class="ov-head"><span><span class="no">/</span>设置<span class="hint">顶抽屉 · 全局配置</span></span><button class="icon-btn" id="setClose" type="button">✕</button></div>
+  <div class="ov-body">
+    <div class="ov-sec"><h4>引擎与模型</h4>
+      <div class="sg"><span class="lbl">默认引擎</span><select><option>FLUX.2 Klein-9B Distilled</option><option>Z-Image-Turbo</option></select></div>
+      <div class="sg"><span class="lbl">工作流目录</span><input type="text" value="workflows/"></div>
+      <div class="sg"><span class="lbl">LoRA 目录</span><input type="text" value="loras/"></div>
+      <div class="sg"><span class="lbl">SeedVR2 模型</span><input type="text" value="models/seedvr2/"></div>
+      <div class="sg"><span class="lbl"></span><button class="btn" type="button">完整资源扫描</button><span class="hint" style="align-self:center">loras/ 23 个 · 模型 2 个 · 全部就绪</span></div>
+    </div>
+    <div class="ov-sec"><h4>运行</h4>
+      <div class="sg"><span class="lbl">心跳轮询</span><select><option>每 30s</option><option>每 60s</option></select></div>
+      <div class="sg"><span class="lbl">自动拉起后端</span><select><option>on（auto_spawn_if_dead）</option><option>off</option></select></div>
+      <div class="sg"><span class="lbl">负载均衡</span><select><option>轮询</option><option>最少连接</option></select></div>
+    </div>
+    <div class="ov-sec"><h4>保留策略</h4>
+      <div class="sg"><span class="lbl">历史保留</span><select><option>90 天 / 100 GB</option><option>30 天 / 50 GB</option><option>永久</option></select></div>
+    </div>
+    <div class="ov-sec"><h4>配置</h4>
+      <div class="sg"><span class="lbl"></span><button class="btn" type="button">导出配置 JSON</button><button class="btn" type="button">导入配置 JSON</button><span class="hint" style="align-self:center">config.yaml</span></div>
+    </div>
+  </div>
+</aside>
+
+<!-- ========== 状态（顶抽屉） ========== -->
+<aside class="stat-drawer" id="statDrawer" data-component="Status Drawer">
+  <div class="ov-head"><span><span class="no">/</span>系统状态<span class="hint">顶抽屉 · 点击底栏状态区展开</span></span><button class="icon-btn" id="statClose" type="button">✕</button></div>
+  <div class="ov-body">
+    <div class="stat-bars">
+      <div class="stat-bar"><div class="k"><span>GPU 显存</span><span>42%</span></div><div class="v">16.2 / 24 GB</div><div class="bar"><i style="width:67%"></i></div></div>
+      <div class="stat-bar"><div class="k"><span>系统内存</span><span>18%</span></div><div class="v">11.8 / 64 GB</div><div class="bar"><i style="width:18%"></i></div></div>
+      <div class="stat-bar"><div class="k"><span>磁盘 outputs/</span><span>3%</span></div><div class="v">12.6 / 480 GB</div><div class="bar"><i style="width:3%"></i></div></div>
+    </div>
+    <div class="ov-sec"><h4>ComfyUI 后端</h4>
+      <div class="back-row"><span class="dot green"></span><b>local</b><span style="color:var(--ink-faint)">127.0.0.1:8188</span><span class="chip ok">在线</span><span style="margin-left:auto;color:var(--ink-faint)">12ms</span><button class="btn btn-sm" type="button">测试</button></div>
+      <div class="back-row"><span class="dot gray"></span><b>gpu-cluster</b><span style="color:var(--ink-faint)">192.168.1.50:8188</span><span class="chip red">离线</span><span style="margin-left:auto;color:var(--ink-faint)">—</span><button class="btn btn-sm" type="button">测试</button></div>
+    </div>
+    <div class="ov-sec"><h4>引擎与资源</h4>
+      <div class="back-row"><b>FLUX.2 Klein-9B</b><span style="color:var(--ink-faint)">fp8mixed · 12GB</span><span class="chip ok">已加载</span></div>
+      <div class="back-row"><b>Z-Image-Turbo</b><span style="color:var(--ink-faint)">bf16 · 10GB</span><span class="chip">未加载</span></div>
+      <div class="back-row"><b>LoRA 资源</b><span style="color:var(--ink-faint)">loras/ · 23 个文件</span><span class="chip ok">就绪</span></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px"><button class="btn" type="button">刷新状态</button></div>
+  </div>
+</aside>
+
+<!-- ========== 关于（底抽屉） ========== -->
+<aside class="stat-drawer" id="aboutDrawer" data-component="About Drawer">
+  <div class="ov-head"><span><span class="no">/</span>关于 · 项目介绍<span class="hint">顶抽屉 · 应用内板块</span></span><button class="icon-btn" id="aboutClose" type="button">✕</button></div>
+  <div class="ov-body">
+    <div class="about-card" data-component="Project Card">
+      <span class="about-lg"><span class="figma-logo"><span class="fl fl-1"></span><span class="fl fl-2"></span><span class="fl fl-3"></span></span></span>
+      <div class="nm">Image MultiModel</div>
+      <div class="sub">统一驱动 ComfyUI 多引擎生图工作台</div>
+      <p class="desc">面向本地 AI 图像生成的工作台：FLUX.2 Klein / Z-Image-Turbo 多引擎，LoRA 六层叠加、SeedVR2 超分、Eses 双图对比与显存预留，以对话式主界面屏蔽工作流复杂度。</p>
+      <div class="kv3">
+        <div class="it"><b>作者</b><span>待补充</span></div>
+        <div class="it"><b>当前版本</b><span>v0.1 · 原型</span></div>
+        <div class="it"><b>协议</b><span>待定</span></div>
+      </div>
+      <div class="about-links">
+        <button class="btn" type="button">前往 GitHub</button>
+        <button class="soc" type="button">G</button>
+        <button class="soc" type="button">B</button>
+        <button class="soc" type="button">T</button>
+        <button class="soc" type="button">M</button>
+      </div>
+    </div>
+    <div style="margin-top:12px" class="feat2" data-component="Feature Grid">
+      <div class="it"><b><span class="ic">▦</span>多引擎驱动</b><span>FLUX.2 Klein / Z-Image-Turbo，统一界面切换</span></div>
+      <div class="it"><b><span class="ic">▥</span>六层 LoRA</b><span>串联叠加 id=16→21，禁用自动重连</span></div>
+      <div class="it"><b><span class="ic">◔</span>SeedVR2 超分</b><span>ema_vae + 3B DiT，多档最短边</span></div>
+      <div class="it"><b><span class="ic">◫</span>双图对比</b><span>Eses h/v/s 拼接，直观比对</span></div>
+      <div class="it"><b><span class="ic">◳</span>显存预留</b><span>ReservedVRAM 保护生成稳定</span></div>
+      <div class="it"><b><span class="ic">◧</span>本地运行</b><span>驱动本地 ComfyUI，数据不出机器</span></div>
+    </div>
+    <p class="db-note" style="margin-top:10px">作者 / GitHub / 社交 / 协议为占位，待项目构建并开源后补充。</p>
+  </div>
+</aside>
+
+<!-- ========== 悬浮查看器 ========== -->
+<div class="viewer" id="viewer" data-component="Floating Viewer">
+  <div class="v-head" id="vHead">
+    <b id="vTitle">图片查看</b><span class="seed" id="vSeed">—</span><span class="sp"></span>
+    <span class="v-tools">
+      <button id="vCompare" title="对比模式" aria-label="对比模式" type="button">⇄</button>
+      <button id="vZoomOut" title="缩小" aria-label="缩小" type="button">−</button>
+      <span style="font-size:10px;align-self:center;min-width:32px;text-align:center" id="vZoomVal">100%</span>
+      <button id="vZoomIn" title="放大" aria-label="放大" type="button">＋</button>
+      <button id="vFav" title="收藏" aria-label="收藏" type="button">☆</button>
+      <button id="vClose" title="关闭" aria-label="关闭" type="button">✕</button>
+    </span>
+  </div>
+  <div class="v-body"><div class="v-img" id="vImg"><span id="vImgLabel">PREVIEW</span></div></div>
+  <div class="v-foot"><span id="vMeta">FLUX.2 · 1024²</span><span><button class="btn btn-sm" type="button">下载</button> <button class="btn btn-sm" type="button">重绘</button></span></div>
+</div>
+
+<!-- ========== 队列悬浮球 ========== -->
+<div class="queue-pill" id="queuePill" data-component="Queue Pill"><span class="qd" id="qpDot"></span><span id="qpText">队列 1·0</span><span class="pct" id="qpPct" style="display:none"></span></div>
+<div class="queue-pop" id="queuePop" data-component="Queue Popover">
+  <div class="qp-head"><span>任务队列</span><button class="icon-btn" id="qpClose" style="width:20px;height:20px;font-size:10px" type="button">✕</button></div>
+  <div class="q-item"><div class="t"><b>88421 · 亚洲女性肖像</b><span>采样中 · steps 8/8</span></div><span class="p">42%</span></div>
+  <div class="q-item"><div class="t"><b>88397 · 赛博朋克夜景</b><span>排队中</span></div><span class="p">—</span></div>
+  <div style="margin-top:8px;text-align:right"><button class="btn btn-sm" type="button">取消当前</button></div>
+</div>
+
+<!-- ========== 底栏 ========== -->
+<footer class="statusbar" data-component="Statusbar">
+  <div class="sb-item sb-click" id="sbConn"><span class="dot green"></span>CONN: LOCAL:8188 · 12MS</div>
+  <div class="sb-item sb-click" id="sbQueue">QUEUE 1·0</div>
+  <div class="sb-right">
+    <div class="sb-item">GPU 16.2/24GB</div>
+    <div class="sb-item">ENGINE: FLUX.2 KLEIN</div>
+    <span class="zoom"><button class="z-btn" id="zOut" type="button" aria-label="缩小">−</button><span class="z-val" id="zVal">100%</span><button class="z-btn" id="zIn" type="button" aria-label="放大">＋</button></span>
+  </div>
+</footer>
+
+<script>
+/* ---------- i18n ---------- */
+var I18N={
+'zh-CN':{nav_home:'首页',nav_generate:'生图',nav_batch:'批量',nav_history:'历史',nav_status:'状态',nav_settings:'设置',sub:'支持 简中/繁中/英/日/韩 直接输入 · 默认 FLUX.2 Klein 蒸馏配置，开箱即用',preset:'预设',save_preset:'保存当前为预设',recent:'最近生成',neg_add:'＋ 负向提示词',neg_hide:'− 收起负向提示词'},
+'zh-TW':{nav_home:'首頁',nav_generate:'生圖',nav_batch:'批量',nav_history:'歷史',nav_status:'狀態',nav_settings:'設定',sub:'支援 簡中/繁中/英/日/韓 直接輸入 · 預設 FLUX.2 Klein 蒸餾配置',preset:'預設',save_preset:'儲存目前為預設',recent:'最近生成',neg_add:'＋ 負向提示詞',neg_hide:'− 收起負向提示詞'},
+'en-US':{nav_home:'Home',nav_generate:'Generate',nav_batch:'Batch',nav_history:'History',nav_status:'Status',nav_settings:'Settings',sub:'Type in zh-CN/zh-TW/en/ja/ko directly · FLUX.2 Klein defaults',preset:'Preset',save_preset:'Save as preset',recent:'Recent',neg_add:'＋ Negative prompt',neg_hide:'− Hide negative prompt'},
+'ja-JP':{nav_home:'ホーム',nav_generate:'生成',nav_batch:'バッチ',nav_history:'履歴',nav_status:'ステータス',nav_settings:'設定',sub:'簡中/繁中/英/日/韓を直接入力可',preset:'プリセット',save_preset:'プリセット保存',recent:'最近の生成',neg_add:'＋ ネガティブプロンプト',neg_hide:'− 閉じる'},
+'ko-KR':{nav_home:'홈',nav_generate:'생성',nav_batch:'배치',nav_history:'기록',nav_status:'상태',nav_settings:'설정',sub:'중국어/번체/영어/일어/한국어 직접 입력',preset:'프리셋',save_preset:'현재를 프리셋으로 저장',recent:'최근 생성',neg_add:'＋ 네거티브 프롬프트',neg_hide:'− 접기'}
+};
+var langSel=document.getElementById('langSelect');
+function applyLang(l){document.documentElement.setAttribute('data-lang',l);var d=I18N[l]||I18N['zh-CN'];document.querySelectorAll('[data-i18n]').forEach(function(el){var k=el.getAttribute('data-i18n');if(d[k])el.textContent=d[k];});}
+langSel.addEventListener('change',function(e){applyLang(e.target.value);});
+/* 顶栏图标菜单：引擎 / 语言 */
+var engMenu=document.getElementById('engMenu'),langMenu=document.getElementById('langMenu');
+function closeMenus(){engMenu.classList.remove('show');langMenu.classList.remove('show');}
+document.getElementById('engIcon').addEventListener('click',function(e){e.stopPropagation();langMenu.classList.remove('show');engMenu.classList.toggle('show');});
+document.getElementById('langIcon').addEventListener('click',function(e){e.stopPropagation();engMenu.classList.remove('show');langMenu.classList.toggle('show');});
+document.querySelectorAll('#engMenu .ip-item').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('#engMenu .ip-item').forEach(function(x){x.classList.remove('on');});b.classList.add('on');document.getElementById('engineSelect').value=b.dataset.v;document.getElementById('engineSelect').dispatchEvent(new Event('change'));closeMenus();});});
+document.querySelectorAll('#langMenu .ip-item').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('#langMenu .ip-item').forEach(function(x){x.classList.remove('on');});b.classList.add('on');langSel.value=b.dataset.l;applyLang(b.dataset.l);closeMenus();});});
+document.addEventListener('click',function(e){if(!e.target.closest('.ico-wrap'))closeMenus();});
+/* ---------- 主题 ---------- */
+var themeBtn=document.getElementById('themeToggle');
+themeBtn.addEventListener('click',function(){var dark=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',dark?'light':'dark');themeBtn.textContent=dark?'◐':'◑';});
+/* ---------- 原型信息 ---------- */
+document.getElementById('protoBtn').addEventListener('click',function(){document.getElementById('protoPanel').classList.toggle('show');});
+/* ---------- 抽屉总控 ---------- */
+var drawer=document.getElementById('drawer'),scrim=document.getElementById('scrim');
+var mTitle=document.getElementById('mTitle'),mHint=document.getElementById('mHint'),drawerFoot=document.getElementById('drawerFoot');
+var MODULES={adv:['高级参数','22 项 · 改动即时生效','sec-adv',false],presets:['预设管理','与生图页联动','sec-presets',true]};
+function closeHist(){document.getElementById('histDrawer').classList.remove('open');}
+function closeGalleryD(){document.getElementById('galleryDrawer').classList.remove('open');}
+function openRight(key){
+  closeBottom();closeTop();closeHist();closeGalleryD();
+  var m=MODULES[key];
+  mTitle.textContent=m[0];mHint.textContent=m[1];
+  document.querySelectorAll('.drawer-sec').forEach(function(s){s.classList.remove('active');});
+  document.getElementById(m[2]).classList.add('active');
+  drawer.classList.toggle('wide',m[3]);
+  drawerFoot.classList.toggle('hide',key!=='adv');
+  drawer.classList.add('open');scrim.classList.add('show');
+}
+function closeRight(){drawer.classList.remove('open');scrim.classList.remove('show');}
+document.getElementById('drawerToggle').addEventListener('click',function(){openRight('adv');});
+document.getElementById('drawerClose').addEventListener('click',closeRight);
+document.getElementById('drawerDone').addEventListener('click',closeRight);
+scrim.addEventListener('click',function(){closeRight();closeBottom();});
+function openHistD(){closeRight();closeBottom();closeTop();closeGalleryD();document.getElementById('histDrawer').classList.add('open');showHistList();}
+function openGalleryD(){closeRight();closeBottom();closeTop();closeHist();document.getElementById('galleryDrawer').classList.add('open');renderGallery();}
+document.getElementById('openGallery').addEventListener('click',openGalleryD);
+document.getElementById('openHistory').addEventListener('click',openHistD);
+document.getElementById('openPresets').addEventListener('click',function(){openRight('presets');showPList();});
+document.getElementById('openBatch').addEventListener('click',function(){closeRight();closeTop();closeHist();closeGalleryD();document.getElementById('batchDrawer').classList.add('open');});
+document.getElementById('histClose').addEventListener('click',closeHist);
+document.getElementById('galleryClose').addEventListener('click',closeGalleryD);
+/* ---------- 底部/顶部抽屉 ---------- */
+function closeBottom(){['setDrawer','aboutDrawer','batchDrawer'].forEach(function(id){document.getElementById(id).classList.remove('open');});['setScrim'].forEach(function(id){document.getElementById(id).classList.remove('show');});}
+function closeTop(){document.getElementById('statDrawer').classList.remove('open');}
+var setD=document.getElementById('setDrawer'),setSc=document.getElementById('setScrim');
+function openSet(){closeRight();closeBottom();closeTop();closeHist();closeGalleryD();setD.classList.add('open');setSc.classList.add('show');}
+document.getElementById('setOpen').addEventListener('click',openSet);
+document.getElementById('setClose').addEventListener('click',function(){setD.classList.remove('open');setSc.classList.remove('show');});
+setSc.addEventListener('click',function(){setD.classList.remove('open');setSc.classList.remove('show');});
+var aboutDrawer=document.getElementById('aboutDrawer');
+function openAbout(){closeRight();closeBottom();closeTop();closeHist();closeGalleryD();aboutDrawer.classList.add('open');}
+document.getElementById('aboutBtn').addEventListener('click',openAbout);
+document.getElementById('aboutClose').addEventListener('click',function(){aboutDrawer.classList.remove('open');});
+document.getElementById('batchClose').addEventListener('click',function(){document.getElementById('batchDrawer').classList.remove('open');});
+var statD=document.getElementById('statDrawer');
+function openStat(){closeRight();closeBottom();closeHist();closeGalleryD();statD.classList.add('open');}
+document.querySelectorAll('.sb-click').forEach(function(el){el.addEventListener('click',openStat);});
+document.getElementById('statClose').addEventListener('click',closeTop);
+/* ---------- Esc ---------- */
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeRight();closeBottom();closeTop();closeHist();closeGalleryD();viewer.classList.remove('show');qpop.classList.remove('show');}});
+/* ---------- 负向提示词 / 示例 / Prompt ---------- */
+var negBox=document.getElementById('negBox'),negToggle=document.getElementById('negToggle');
+negToggle.addEventListener('click',function(){var open=negBox.classList.toggle('open');var d=I18N[langSel.value]||I18N['zh-CN'];negToggle.textContent=open?d.neg_hide:d.neg_add;});
+document.querySelectorAll('.ex-chip').forEach(function(c){c.addEventListener('click',function(){posPrompt.value=this.textContent;updatePosMeta();});});
+var posPrompt=document.getElementById('posPrompt'),negPrompt=document.getElementById('negPrompt');
+function updatePosMeta(){document.getElementById('posMeta').textContent=posPrompt.value.length+' 字符 · ≈'+Math.max(1,Math.round(posPrompt.value.length/0.7))+' token';}
+function updateNegMeta(){document.getElementById('negMeta').textContent=negPrompt.value.length+' 字符';}
+posPrompt.addEventListener('input',updatePosMeta);negPrompt.addEventListener('input',updateNegMeta);
+document.getElementById('clearPos').addEventListener('click',function(){posPrompt.value='';updatePosMeta();});
+document.getElementById('copyPos').addEventListener('click',function(){posPrompt.select();document.execCommand('copy');});
+document.querySelectorAll('.p-chip').forEach(function(c){c.addEventListener('click',function(){document.querySelectorAll('.p-chip').forEach(function(x){x.classList.remove('on');});c.classList.add('on');});});
+/* ---------- 手风琴 / stepper / 滑块 / LoRA / dice / batch ---------- */
+document.querySelectorAll('.acc-head').forEach(function(h){h.addEventListener('click',function(){h.parentElement.classList.toggle('open');});});
+document.querySelectorAll('.stepper').forEach(function(s){var inp=s.querySelector('input'),step=+(s.dataset.step||1),min=+(s.dataset.min||-Infinity),max=+(s.dataset.max||Infinity);s.querySelector('.st-dec').addEventListener('click',function(){inp.value=Math.max(min,(+inp.value||0)-step);inp.dispatchEvent(new Event('input'));});s.querySelector('.st-inc').addEventListener('click',function(){inp.value=Math.min(max,(+inp.value||0)+step);inp.dispatchEvent(new Event('input'));});});
+document.querySelectorAll('.quick-sz').forEach(function(q){q.querySelectorAll('button').forEach(function(b){b.addEventListener('click',function(){q.querySelectorAll('button').forEach(function(x){x.classList.remove('on');});b.classList.add('on');var tg=q.closest('.fgroup').querySelector('.stepper input');tg.value=b.textContent;tg.dispatchEvent(new Event('input'));});});});
+document.querySelectorAll('.range-row input[type=range]').forEach(function(r){var v=r.nextElementSibling;function upd(){v.textContent=(+r.value).toFixed(2);v.style.color=Math.abs(+r.value)>1.5?'var(--red)':'var(--accent)';}r.addEventListener('input',upd);upd();});
+document.querySelectorAll('.lora-name').forEach(function(sel){sel.addEventListener('change',function(){var row=sel.closest('.lora-row');row.classList.toggle('disabled',sel.value==='— 禁用 —');});});
+document.querySelectorAll('.dice').forEach(function(b){b.addEventListener('click',function(){var inp=document.getElementById(b.dataset.target);inp.value=Math.floor(Math.random()*9007199254740991);inp.dispatchEvent(new Event('input'));if(b.dataset.target==='seed'){document.getElementById('seedHint').textContent='实际 seed：'+inp.value;document.getElementById('seedHint').style.color='var(--accent)';}});});
+document.getElementById('reuseSeed').addEventListener('click',function(){var e=document.getElementById('seed');e.value=88421;e.dispatchEvent(new Event('input'));document.getElementById('seedHint').textContent='实际 seed：88421';});
+document.getElementById('b10').addEventListener('click',function(){var e=document.getElementById('batchSize');e.value=Math.min(9999,(+e.value||0)+10);e.dispatchEvent(new Event('input'));});
+document.getElementById('b100').addEventListener('click',function(){var e=document.getElementById('batchSize');e.value=Math.min(9999,(+e.value||0)+100);e.dispatchEvent(new Event('input'));});
+document.getElementById('restoreBtn').addEventListener('click',function(){document.getElementById('cfg').value=1.0;document.getElementById('steps').value=8;document.getElementById('width').value=1024;document.getElementById('height').value=1024;document.getElementById('seed').value=-1;document.getElementById('batchSize').value=1;document.getElementById('seedvr2Toggle').checked=true;document.getElementById('esesToggle').checked=true;document.getElementById('vramToggle').checked=true;document.getElementById('vramGb').value=0.6;document.getElementById('upscaleSeed').value=-1;document.getElementById('vramSeed').value=-1;updateEst();});
+/* ---------- 估算 + 快照 ---------- */
+function estCount(){var n=+document.getElementById('batchSize').value||1;var coef=(document.getElementById('seedvr2Toggle').checked?2:1)+(document.getElementById('esesToggle').checked?1:0);return {n:n,coef:coef,total:n*coef};}
+function syncChips(){document.getElementById('snapRes').textContent=document.getElementById('width').value+' × '+document.getElementById('height').value;document.getElementById('snapSteps').textContent=document.getElementById('steps').value;document.getElementById('snapCfg').textContent=document.getElementById('cfg').value;document.getElementById('snapOut').textContent=estCount().total;document.getElementById('snapEngine').textContent=document.getElementById('engineSelect').value.indexOf('FLUX')>-1?'FLUX.2 Klein':'Z-Image-Turbo';}
+function updateEst(){var e=estCount(),line=document.getElementById('estLine');document.getElementById('bsWarn').style.display=e.n>500?'':'none';document.getElementById('bsWarn').style.color=e.n>5000?'var(--red)':'var(--amber)';line.innerHTML='预计生成 <b>'+e.total+'</b> 张 = 1 Prompt × '+e.n+' batch × (SeedVR2'+(e.coef===3?'×2':'')+' + Eses'+(e.coef===3?'×1':'')+')';line.className='est-line'+(e.total>=5000?' red':(e.total>=500?' yellow':''));document.getElementById('warn500').classList.toggle('show',e.total>=500&&e.total<5000);document.getElementById('warn5000').classList.toggle('show',e.total>=5000);syncChips();}
+['batchSize','seedvr2Toggle','esesToggle','width','height','steps','cfg'].forEach(function(id){var el=document.getElementById(id);el.addEventListener('input',updateEst);el.addEventListener('change',updateEst);});
+document.getElementById('engineSelect').addEventListener('change',syncChips);
+updateEst();
+/* ---------- 生成模拟 ---------- */
+var genBtn=document.getElementById('genBtn');
+var progFill=document.getElementById('progFill'),phaseText=document.getElementById('phaseText'),genProgress=document.getElementById('genProgress');
+var outGrid=document.getElementById('outGrid');
+var qpDot=document.getElementById('qpDot'),qpText=document.getElementById('qpText'),qpPct=document.getElementById('qpPct'),qpop=document.getElementById('queuePop');
+var timer=null,progress=0;
+var phases=[[5,'排队中…'],[40,'采样中 · steps 8/8 (dpmpp_3m_sde_gpu)'],[72,'SeedVR2 超分 2048 · chunk 1/1'],[90,'Eses 对比拼接 (horizontal)'],[100,'保存与入库']];
+function startGen(){if(timer)return;progress=0;genBtn.disabled=true;genProgress.classList.add('show');progFill.style.width='0%';phaseText.textContent='排队中…';qpDot.className='qd run';qpPct.style.display='';qpText.textContent='生成中';timer=setInterval(function(){progress+=Math.random()*2.4+0.7;if(progress>=100){clearInterval(timer);timer=null;genBtn.disabled=false;phaseText.textContent='完成 · 3 张输出 · 耗时 42.3s';progFill.style.width='100%';qpDot.className='qd';qpPct.style.display='none';qpText.textContent='队列 0·0 · 完成';renderOut();}else{progFill.style.width=progress+'%';var cur=phases[0];phases.forEach(function(p){if(progress>=p[0])cur=p;});phaseText.textContent=cur[1]+' · '+Math.floor(progress)+'%';qpPct.textContent=Math.floor(progress)+'%';}},180);}
+function cancelGen(){if(!timer)return;clearInterval(timer);timer=null;genBtn.disabled=false;phaseText.textContent='已取消 (status=cancelled)';progFill.style.width='0%';genProgress.classList.remove('show');qpDot.className='qd';qpPct.style.display='none';qpText.textContent='队列 1·0';}
+function renderOut(){var imgs=[['原直通图','1024×1024 · PNG · seed 88421','1/1'],['SeedVR2 超分','2048×2048 · PNG · seed 88421','1/1'],['Eses 对比图','4096×2048 · PNG · seed 88421','2/1']];outGrid.innerHTML='';imgs.forEach(function(x){var c=document.createElement('div');c.className='r-card';c.style.setProperty('--ar',x[2]);c.innerHTML='<div class="ph-img">'+x[0].toUpperCase()+'<div class="r-actions"><button class="btn btn-sm" type="button">下载</button><button class="btn btn-sm" type="button">收藏</button><button class="btn btn-sm" type="button">重绘</button></div></div><div class="r-meta"><b>'+x[0]+'</b><span>'+x[1]+'</span></div>';outGrid.appendChild(c);});}
+genBtn.addEventListener('click',function(){var e=estCount();if(e.total>=5000){if(!window.confirm('⚠ 将生成 '+e.total+' 张（batch='+e.n+'，开 SeedVR2 chunk=4）。预计 '+Math.ceil(e.total/3000)+' 小时，确认？（模拟）'))return;}else if(e.total>=500){if(!window.confirm('⚠ 将生成 '+e.total+' 张，预计 '+(e.total*1.5/60).toFixed(0)+' 分钟，确认？（模拟）'))return;}startGen();});
+document.getElementById('queuePill').addEventListener('click',function(){qpop.classList.toggle('show');});
+document.getElementById('qpClose').addEventListener('click',function(e){e.stopPropagation();qpop.classList.remove('show');});
+document.querySelector('.queue-pop .btn-sm').addEventListener('click',function(){cancelGen();qpop.classList.remove('show');});
+/* ---------- 图片展示（抽屉内 + 悬浮查看器） ---------- */
+var gCards=[['PORTRAIT','亚洲女性肖像','原图','FLUX.2 · 1024² · 88421','88421','1/1'],['CYBER','赛博朋克夜景','超分','FLUX.2 · 2048² · 88397','88397','1/1'],['ZEN','日本庭院枯山水','对比图','Z-Turbo · 4096×2048 · 88355','88355','2/1'],['STAGE','韩式女团舞台照','原图','Z-Turbo · 1024² · 88321','88321','1/1'],['FILM','老式胶片相机静物','超分','FLUX.2 · 3072×1536 · 88290','88290','2/1'],['NIGHT','城市夜景长曝','对比图','FLUX.2 · 4096×2048 · 88264','88264','2/1'],['FLOWER','微观花卉微距','原图','FLUX.2 · 1024² · 88212','88212','1/1'],['CAT','布偶猫肖像','超分','Z-Turbo · 2048² · 88178','88178','1/1']];
+var gMasonry=document.getElementById('gMasonry');
+function renderGallery(filter){filter=filter||'全部';gMasonry.innerHTML='';gCards.forEach(function(c,i){if(filter!=='全部'&&c[2]!==filter)return;var d=document.createElement('div');d.className='g-card';d.style.setProperty('--ar',c[5]);d.innerHTML='<span class="g-type">'+c[2]+'</span><div class="ph">'+c[0]+'</div><div class="g-meta"><b>'+c[1]+'</b><span>'+c[3]+'</span></div>';d.addEventListener('click',function(){openViewer(i);});gMasonry.appendChild(d);});}
+document.querySelectorAll('#galleryDrawer .f-chip').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('#galleryDrawer .f-chip').forEach(function(x){x.classList.remove('on');});b.classList.add('on');renderGallery(b.dataset.f);});});
+var viewer=document.getElementById('viewer'),vImg=document.getElementById('vImg'),vTitle=document.getElementById('vTitle'),vSeed=document.getElementById('vSeed'),vMeta=document.getElementById('vMeta'),vZoomVal=document.getElementById('vZoomVal');
+var zoom=100,compare=false,cur=0;
+function openViewer(i){cur=i;zoom=100;compare=false;vTitle.textContent=gCards[i][1];vSeed.textContent=gCards[i][4];vMeta.textContent=gCards[i][3];viewer.classList.add('show');renderImg();}
+function renderImg(){vImg.style.transform='scale('+(zoom/100)+')';vImg.className='v-img'+(compare?' compare':'');vZoomVal.textContent=zoom+'%';if(compare){vImg.innerHTML='<div class="half">BEFORE · 1024²</div><div class="half">AFTER · 2048²</div>';}else{vImg.innerHTML='<span>'+gCards[cur][0]+'</span>';}document.getElementById('vCompare').classList.toggle('on',compare);}
+document.getElementById('vCompare').addEventListener('click',function(){compare=!compare;renderImg();});
+document.getElementById('vZoomIn').addEventListener('click',function(){zoom=Math.min(200,zoom+25);renderImg();});
+document.getElementById('vZoomOut').addEventListener('click',function(){zoom=Math.max(50,zoom-25);renderImg();});
+document.getElementById('vFav').addEventListener('click',function(){this.classList.toggle('on');this.textContent=this.classList.contains('on')?'★':'☆';});
+document.getElementById('vClose').addEventListener('click',function(){viewer.classList.remove('show');});
+var dragging=false,dx=0,dy=0;
+document.getElementById('vHead').addEventListener('pointerdown',function(e){dragging=true;dx=e.clientX-viewer.offsetLeft;dy=e.clientY-viewer.offsetTop;this.setPointerCapture(e.pointerId);});
+document.getElementById('vHead').addEventListener('pointermove',function(e){if(!dragging)return;viewer.style.left=(e.clientX-dx)+'px';viewer.style.top=(e.clientY-dy)+'px';});
+document.getElementById('vHead').addEventListener('pointerup',function(){dragging=false;});
+/* ---------- 历史（抽屉内） ---------- */
+var histList=document.getElementById('histList'),histDetail=document.getElementById('histDetail');
+function showHistList(){histList.classList.remove('hide');histDetail.classList.remove('show');}
+function showHistDetail(){histList.classList.add('hide');histDetail.classList.add('show');}
+document.getElementById('histBack').addEventListener('click',showHistList);
+document.querySelectorAll('#histRows tr').forEach(function(tr){tr.addEventListener('click',function(){document.querySelectorAll('#histRows tr').forEach(function(x){x.classList.remove('sel');});tr.classList.add('sel');document.getElementById('ddEngine').textContent=tr.dataset.e;document.getElementById('ddStatus').textContent=tr.dataset.s;document.getElementById('ddPrompt').textContent=tr.dataset.p;document.getElementById('ddDim').textContent=tr.dataset.d;document.getElementById('ddTime').textContent=tr.dataset.t;showHistDetail();});});
+/* ---------- 预设（抽屉内） ---------- */
+var pList=document.getElementById('pList'),pEdit=document.getElementById('pEdit');
+function showPList(){pList.style.display='';pEdit.classList.remove('show');}
+function showPEdit(){pList.style.display='none';pEdit.classList.add('show');}
+document.getElementById('pBack').addEventListener('click',showPList);
+document.getElementById('pCancel').addEventListener('click',showPList);
+document.getElementById('pNew').addEventListener('click',function(){document.getElementById('pName').value='';document.getElementById('pDesc').value='';showPEdit();});
+document.querySelectorAll('#pList .fav').forEach(function(b){b.addEventListener('click',function(){this.classList.toggle('on');this.textContent=this.classList.contains('on')?'★':'☆';});});
+document.querySelectorAll('#pList .acts .btn-sm').forEach(function(b){b.addEventListener('click',function(){if(b.classList.contains('ed')){document.getElementById('pName').value=b.closest('.p-card').querySelector('.nm').textContent;showPEdit();}else{window.alert('已应用预设（模拟）');}});});
+document.getElementById('pSave').addEventListener('click',function(){showPList();window.alert('预设已保存（模拟）');});
+/* ---------- 批量（底抽屉内） ---------- */
+document.querySelectorAll('.tabs .tab').forEach(function(t){t.addEventListener('click',function(){document.querySelectorAll('.tabs .tab').forEach(function(x){x.classList.remove('active');});document.querySelectorAll('.tabpane').forEach(function(x){x.classList.remove('active');});t.classList.add('active');document.getElementById(t.dataset.t).classList.add('active');});});
+document.getElementById('dropzone').addEventListener('click',function(){this.style.borderColor='var(--accent)';setTimeout(function(){dropzone.style.borderColor='';},600);});
+document.querySelectorAll('#bpane-grid .vals label').forEach(function(l){l.addEventListener('click',function(){l.classList.toggle('checked');calcBEst();});});
+document.querySelectorAll('#bpane-grid .dim>input[type=checkbox]').forEach(function(c){c.addEventListener('change',function(){var vals=c.parentElement.querySelectorAll('.vals label');vals.forEach(function(l){l.classList.toggle('checked',c.checked);});calcBEst();});});
+function calcBEst(){var grid=1;document.querySelectorAll('#bpane-grid .dim>input[type=checkbox]:checked').forEach(function(c){var n=c.parentElement.querySelectorAll('.vals label.checked').length;grid*=Math.max(1,n);});document.getElementById('gridCombo').textContent='2×2×2 = '+grid+' 组';var total=(52+grid)*3;var e=document.getElementById('bEst');e.innerHTML='预计生成 <b>'+total+'</b> 张 = (52 + '+grid+') × 3';e.className='big-est'+(total>=5000?' red':(total>=500?' yellow':''));document.getElementById('bWarn500').classList.toggle('show',total>=500&&total<5000);document.getElementById('bWarn5000').classList.toggle('show',total>=5000);}
+calcBEst();
+/* ---------- 缩放控件 ---------- */
+var zooms=[50,75,100,125,150,200],zi=2;var zVal=document.getElementById('zVal');
+document.getElementById('zOut').addEventListener('click',function(){zi=Math.max(0,zi-1);zVal.textContent=zooms[zi]+'%';});
+document.getElementById('zIn').addEventListener('click',function(){zi=Math.min(zooms.length-1,zi+1);zVal.textContent=zooms[zi]+'%';});
+</script>
+</body>
+</html>

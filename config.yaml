@@ -1,0 +1,370 @@
+# ==========================================================================
+#  Image MultiModel — 产品级配置文件
+#  参考项目：Seedvr2 (restore pipeline) + TTS_MultiModel (declarative engines)
+#  代码复用比例 ≈ 70%，新增：ComfyUI 适配 + 图像生成双模式
+# ==========================================================================
+
+version: "1.0.0"
+
+# ==========================================================================
+#  1. 应用与网络服务
+# ==========================================================================
+server:
+  host: "127.0.0.1"              # 【安全强制】默认绑定回环，禁止 UI 改成 0.0.0.0
+  port: 8288                     # WebUI 端口（ComfyUI 默认 8188，本产品 +100 避开冲突）
+  auto_open_browser: true        # 启动成功后自动打开浏览器
+  auto_load_default_engine: false # 启动时是否自动加载 models.default_engine（显存紧张可关闭）
+  workers: 1                     # 【性能】Uvicorn workers，固定 =1（与任务队列单 Worker 一致，防 OOM）
+  ssl:
+    enabled: false
+    certfile: "bin/cert.pem"
+    keyfile: "bin/key.pem"
+
+# ==========================================================================
+#  2. 模型源双模式（核心创新点）
+#     shared   → 开发阶段：共享本机/外部 ComfyUI 的 models 目录，用 Junction 符号链接挂到项目下
+#     portable → 便携/发布阶段：所有模型物理内置到 pretrained_models/，拷走即用
+# ==========================================================================
+models:
+  # ─── 双模式切换开关 ──────────────────────────────────────────────────
+  model_source_mode: "shared"    # "shared" (开发省空间) 或 "portable" (便携发布)
+
+  # ─── 默认引擎（启动自动加载 / 首页默认选中） ────────────────────────
+  default_engine: "flux2_klein_9b_distilled"
+
+  # ─── 【MODE=shared】共享外部 ComfyUI 模型目录配置 ──────────────────
+  shared:
+    # 本机/远程 ComfyUI 的 models 根目录（绝对路径）
+    comfy_models_dir: "C:/Users/Doro/APP/ComfyUI-aki-v3/ComfyUI/models"
+    # 项目根下的 3 个本地子目录（Junction 挂载点 / 或便携模式的相对镜像）
+    # key   = 项目内相对路径 (小写，跨平台兼容)
+    # value = ComfyUI 中 models 下的子目录名
+    mount_map:
+      text: "text_encoders"
+      unet: "unet"
+      vae:  "vae"
+      lora: "loras"
+      controlnet: "controlnet"
+      checkpoint: "checkpoints"
+    # shared 模式下创建符号链接的安全策略
+    symlink_strategy: "junction"    # junction (推荐, Windows 最稳) | symlink | none
+
+  # ─── 【MODE=portable】便携包内置模型目录配置 ────────────────────────
+  portable:
+    # 相对于项目根的内部模型根（打包发布时把 ComfyUI 的模型拷进这里）
+    internal_models_dir: "pretrained_models"
+    # 镜像 ComfyUI 的子目录结构（与 mount_map.value 保持一致，便于复制）
+    sub_dirs:
+      text: "text_encoders"
+      unet: "unet"
+      vae:  "vae"
+      lora: "loras"
+      controlnet: "controlnet"
+      checkpoint: "checkpoints"
+
+  # ─── 引擎声明（对齐 TTS_MultiModel declarative engines）────────────
+  # 新增引擎只需追加一个 block + 放 workflow.json + schema.yaml，无需改代码
+  engines:
+    # ── FLUX.2 Klein-9B Distilled（当前项目主引擎）─────────────────
+    flux2_klein_9b_distilled:
+      name: "flux2_klein_9b_distilled"
+      display_name: "FLUX.2 Klein-9B Distilled"
+      display_name_en: "FLUX.2 Klein-9B Distilled"
+      # 后端类型（目前仅 comfyui，预留 direct_pytorch 扩展）
+      backend: "comfyui"
+      comfy_backend_preference: "local"
+      # 工作流 JSON + 参数映射 Schema（相对于「项目根」；M0 阶段统一放根下 workflows/）
+      workflow_file: "workflows/Flux.2_Klein-9B-Distilled.json"
+      parameter_schema: "schemas/flux2_klein_9b_distilled.yaml"
+      # 模型路径（MODE=shared/portable 会自动拼前缀）
+      text_encoder:
+        sub_dir: "text"
+        sub_path: "FLUX.2-klein-9b/qwen_3_8b_fp8mixed.safetensors"
+      unet:
+        sub_dir: "unet"
+        sub_path: "FLUX.2-klein-9b-fp8/flux-2-klein-9b-kv-fp8.safetensors"
+      vae:
+        sub_dir: "vae"
+        sub_path: "FLUX.2-klein-9b/flux2-vae.safetensors"
+      # 资源预估（显存预检 1.5× 规则用）
+      vram_gb: 16.0
+      ram_gb: 24.0
+      default_precision: "fp8"       # fp8 | fp16 | fp32 | auto
+      fallback_precision: "fp8"       # 显存不足时自动回退
+      # 能力 & 元数据
+      supported_features: ["txt2img", "lora_stack_6", "seedvr2_upscale_2x", "eses_compare", "reserved_vram"]
+      default_width: 1024
+      default_height: 1024
+      image_formats: ["png"]
+      license: "FLUX.2 Non-Commercial"
+      tags: ["realistic", "high-quality", "distilled", "fast"]
+
+    # ── Z-Image Turbo（快推理引擎）────────────────────────────────
+    z_image_turbo:
+      name: "z_image_turbo"
+      display_name: "Z-Image Turbo"
+      display_name_en: "Z-Image Turbo"
+      backend: "comfyui"
+      comfy_backend_preference: "local"
+      workflow_file: "workflows/Z_image_turbo.json"
+      parameter_schema: "schemas/z_image_turbo.yaml"
+      text_encoder:
+        sub_dir: "text"
+        sub_path: "Z_image(turbo)/qwen_3_4b_fp8_mixed.safetensors"
+      unet:
+        sub_dir: "unet"
+        sub_path: "Z-image_turbo-bf16/z_image_turbo_bf16.safetensors"
+      vae:
+        sub_dir: "vae"
+        sub_path: "FLUX.1-dev(Z-image(turbo))/ae.safetensors"
+      vram_gb: 12.0
+      ram_gb: 16.0
+      default_precision: "bf16"
+      fallback_precision: "fp8"
+      supported_features: ["txt2img", "lora_stack_6", "seedvr2_upscale_2x", "eses_compare", "reserved_vram"]
+      default_width: 1024
+      default_height: 1024
+      image_formats: ["png"]
+      license: "Qwen Image Community License"
+      tags: ["turbo", "fast", "real-time", "low-vram"]
+
+# ==========================================================================
+#  3. ComfyUI 后端管理（仅本产品新增，参考项目无）
+# ==========================================================================
+comfy:
+  backends:
+    # 默认本地后端（若已安装 ComfyUI Manager  aki-v3）
+    local:
+      name: "local"
+      display_name: "本机 ComfyUI (aki-v3)"
+      base_url: "http://127.0.0.1:8188"
+      ws_url:   "ws://127.0.0.1:8188/ws"
+      auth_token: ""               # 若 ComfyUI 启用了 --enable-header-auth 再填
+      client_id_prefix: "img_multimodel_"
+      health_check_interval_s: 30
+      # 是否允许启动嵌入式 ComfyUI（若没手动启动）
+      auto_spawn_if_dead: false
+      # auto_spawn 时的 ComfyUI 根目录与启动参数
+      spawn:
+        comfy_root: "C:/Users/Doro/APP/ComfyUI-aki-v3/ComfyUI"
+        launch_exe:  "python"
+        extra_args:
+          - "--listen"
+          - "127.0.0.1"
+          - "--port"
+          - "8188"
+          - "--lowvram"
+    # 示例：局域网远程后端（多机分布式时用）
+    # remote_lab_4090:
+    #   name: "remote_lab_4090"
+    #   display_name: "实验室 RTX 4090 (24GB)"
+    #   base_url: "http://192.168.1.100:8188"
+    #   ws_url:   "ws://192.168.1.100:8188/ws"
+    #   auth_token: "Bearer xxxxxxxxxxxxxxxxxxxxxxxx"
+  # 负载均衡策略（多后端时）：round_robin | least_queue | prefer_local
+  load_balance: "prefer_local"
+
+# ==========================================================================
+#  4. 推理参数（严格对齐 workflows/*.json 的 widgets_values 默认值 + v1.3 边界规则）
+#     注意：img2img denoise / ControlNet 工作流 JSON 完全无节点，已从配置中移除
+# ==========================================================================
+inference:
+  default_steps: 8                    # 对齐 FLUX.2 Klein / Z-Turbo 工作流 steps 默认值
+  default_cfg: 1.0                    # 对齐两蒸馏模型官方推荐 cfg=1.0（CFGGuider widgets_values[0]）
+  default_sampler: "dpmpp_3m_sde_gpu" # 对齐 Klein KSamplerSelect + Z-Turbo KSampler
+  default_scheduler: "sgm_uniform"    # Z-Turbo KSampler.scheduler（Klein 用 Flux2Scheduler 无视此项）
+  default_seed: -1                    # -1 = 随机生成
+  default_batch_size: 1               # 用户可在 UI 设置页覆盖；range 1~9999
+  default_format: "png"               # 工作流 SaveImage 仅 png 输出（jpg/webp 无对应节点故关闭）
+  default_quality: 95                 # （保留字段，png 无视）
+  enable_fp8_fallback: true           # 显存不足自动 fp8 回退（对齐 FR-2.4.3 width×chunk 内存估算）
+  vram_headroom_gb: 2.0               # 推理前至少保留的空闲显存（防止 OOM 爆桌面）
+  vram_multisample_rule: 1.5          # 显存预检 = max_vram_est × 本系数（参考 Seedvr2 1.5× 峰值规则）
+  torch_compile:
+    enabled: false                    # 首图预热慢，后续 +20% 吞吐
+    backend: "inductor"
+    dynamic: true
+    mode: "default"
+  lora_max_units: 6                   # 严格对齐工作流 6 条 LoraLoaderModelOnly 串联（id=16~21）
+
+# ==========================================================================
+#  5. 输出 & 命名
+# ==========================================================================
+output:
+  base_dir: "outputs"             # 主输出目录
+  naming_template: "{engine}_{date}_{taskid}_{seed}_{idx}"   # 文件名模板
+  organize_by: "engine_date"      # none | date | engine | engine_date
+  save_thumbnail: true
+  thumbnail_max_side: 512
+  # 历史素材库设置
+  history:
+    db_path: "data/history.db"
+    max_records: 50000
+    keep_days: 0                  # 0 = 永久保留；>0 自动清理 N 天前
+    cleanup_cron: "0 3 * * *"     # 每日凌晨 3:00 清理
+  uploads:
+    cache_dir: "data/uploads"
+    max_size_mb: 2000
+    ttl_s: 86400                  # 上传缓存 24h 自动清理
+
+# ==========================================================================
+#  6. 预设 / 命名 / 水印
+# ==========================================================================
+presets:
+  dir: "data/presets"
+  allow_engine_mix_presets: true  # 是否允许跨引擎加载参数（相同字段才覆盖）
+
+watermark:
+  # 水印强制接入，本配置仅作参考；实际强制由代码常量决定（参考 TTS 安全设计）
+  enabled_in_code: true           # 代码侧强制 true，不可通过 config 禁用
+  method: "dct_frequency"         # dct_frequency | invisible_pixel | exif
+  product_id: "IMGMULTI-1"        # 数字水印产品标识（溯源用）
+  embed_timestamp: true
+  embed_task_id: true
+  strength: 0.008                 # 不可感知强度，0.005~0.015
+
+# ==========================================================================
+#  7. 任务与运行时队列（完全复用 Seedvr2 task_queue）
+# ==========================================================================
+runtime:
+  task_queue:
+    maxsize: 100                  # 队列最多排队 100 个任务（防无界堆积）
+    worker_mode: "single_serial"  # 固定单 Worker 串行（GPU 独占，防 OOM）
+    cancel_timeout_s: 5
+    auto_recover: false           # 重启后是否自动恢复未完成任务
+    max_timeout_s: 86400          # 单任务最长 24h（避免死锁）
+    id_format: "ulid"             # ulid | uuid | nanoid
+  batch:
+    max_retries: 2
+    retry_base_delay_s: 1.0
+    retry_max_delay_s: 30.0
+    stop_on_error: false          # 批量模式：false=单个失败不中断整批
+  sse:
+    poll_interval_s: 0.5
+    heartbeat_interval_s: 30
+    max_duration_s: 3600
+    send_comfy_preview: true      # 推理中是否推送 ComfyUI 的预览图（带宽敏感可关）
+    preview_b64_max_width: 256    # 预览图缩到该宽度后 base64 推送
+
+# ==========================================================================
+#  8. 安全（融合 Seedvr2 + TTS 最佳实践，可 80% 直接复用代码）
+# ==========================================================================
+security:
+  # 路径穿越守卫：所有文件 I/O 必须在以下目录中
+  allowed_base_dirs:
+    - "outputs/"
+    - "data/"
+    - "workflows/"
+    - "pretrained_models/"
+  # 速率限制（每 IP）
+  rate_limit:
+    infer_per_minute: 30
+    upload_per_minute: 10
+    global_per_minute: 600
+  # 认证（三选一，默认全关 → 仅本机）
+  basic_auth:
+    enabled: false
+    username: "admin"
+    # 密码哈希（bcrypt），勿放明文
+    password_bcrypt_hash: ""
+  api_token:
+    enabled: false
+    tokens:
+      - "REPLACE_WITH_YOUR_BEARER_TOKEN_32BYTES"
+  # CORS（默认仅允许本地回环 + 当前端口）
+  cors:
+    allowed_origins:
+      - "http://127.0.0.1:8288"
+      - "http://localhost:8288"
+      - "ws://127.0.0.1:*"
+    allow_credentials: true
+  # 模型格式安全
+  model_format:
+    only_safetensors: true        # 仅允许 .safetensors，拒绝 .pt/.bin (反序列化 RCE)
+    warn_if_pickle_found: true
+  # 核心模块完整性自检
+  integrity_selfcheck:
+    enabled: true
+    manifest_file: "bin/integrated_app/security/integrity_manifest.json"
+
+# ==========================================================================
+#  9. GPU & 硬件（85% 来自 TTS gpu_backend.py）
+# ==========================================================================
+gpu:
+  backend: "auto"                 # auto | cuda | rocm | mps | cpu
+  device_ids: [0]                 # 多卡时可指定 [0,1]
+  allow_fallback_to_cpu: true     # 仅用于 UI 调试，推理会警告
+  low_vram_mode: "auto"           # auto | true | false (对应 ComfyUI --lowvram)
+  monitor:
+    sample_interval_s: 2
+    history_points: 60            # GPU 曲线保留最近 N 个采样点
+
+# ==========================================================================
+#  10. UI & 国际化（80% 来自 Seedvr2）
+# ==========================================================================
+ui:
+  theme_default: "dark"           # dark | light | system
+  accent_color: "#5e7d5a"         # Warm Print 橄榄绿品牌色
+  font_pair: "instrument_serif_dm_sans"
+  sidebar_collapsed_by_default: false
+  accordion_default_groups:       # 参数面板默认展开的手风琴分组
+    - "basic"
+    - "prompt"
+  history_page_size: 50
+  preview_max_size_mb: 20         # 预览图最大体积（大图走缩略图）
+  a11y:
+    focus_ring: true
+    reduce_motion: false
+
+i18n:
+  default_locale: "zh"
+  available_locales:
+    - "zh"        # 简体中文
+    - "en"        # English
+    - "ja"        # 日本語
+    - "ko"        # 한국어
+    # - "zh-TW"   # 繁體中文（后续扩展）
+  locale_dir: "bin/integrated_app/locales"
+  fallback_to_en: true
+
+# ==========================================================================
+#  11. 日志 & 缓存（完全来自 Seedvr2 + TTS）
+# ==========================================================================
+logging:
+  level: "INFO"
+  file: "logs/app.log"
+  max_size_mb: 50
+  backup_count: 5
+  include_traceback: true
+  # Sensitive 脱敏：API Token / Auth Header / ComfyUI auth
+  mask_sensitive_headers: true
+
+cache:
+  # 上传文件 & 中间缩略图缓存
+  dir: "data/cache"
+  max_size_mb: 500
+  ttl_s: 86400
+  # ComfyUI object_info 元数据缓存（避免每次 UI 打开都请求）
+  comfy_object_info_ttl_s: 3600
+
+# ==========================================================================
+#  12. vLLM / TensorRT 加速（预留接口，暂不激活）
+# ==========================================================================
+acceleration:
+  vllm:
+    enabled: false
+    tensor_parallel_size: 1
+    gpu_memory_utilization: 0.85
+  tensorrt:
+    enabled: false
+    engine_cache_dir: "data/trt_engines"
+
+# ==========================================================================
+#  13. 环境变量（离线优先级，来自 TTS）
+# ==========================================================================
+environment:
+  HF_HUB_OFFLINE: "1"             # 断网/内网部署强制离线
+  TRANSFORMERS_OFFLINE: "1"
+  MODELSCOPE_OFFLINE: "1"
+  # 禁用 ComfyUI 自动更新检测
+  COMFYUI_DISABLE_UPDATE_CHECK: "1"

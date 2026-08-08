@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Figma 化线框 · 生图工作台（风格样张）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f5f5;--surface:#ffffff;--surface-2:#f0f0f0;--surface-3:#e6e6e6;
+  --ink:#1a1a1a;--ink-soft:#5f5f5f;--ink-faint:#8f8f8f;--ink-3:#b3b3b3;
+  --accent:#a78bfa;--accent-strong:#8b7bd8;--accent-deep:#7767c9;--accent-soft:#efebfc;--accent-15:rgba(167,139,250,.15);--accent-25:rgba(167,139,250,.25);--accent-30:rgba(167,139,250,.30);--accent-40:rgba(167,139,250,.40);
+  --wire:#d9d9d9;--wire-strong:#b3b3b3;--red:#ef4444;--green:#22c55e;--amber:#f59e0b;
+  --dot:#e5e5e5;
+  --sans:'Inter',system-ui,sans-serif;
+  --radius:8px;--ctl-pad:5px 9px;--ctl-h:30px;--gap:12px;--space:20px;--topbar-h:52px;
+}
+body.spacey{--ctl-pad:8px 12px;--ctl-h:36px;--gap:16px;--space:26px;--topbar-h:60px}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer}
+select,input,textarea{font-family:inherit;font-size:12px;color:var(--ink);background:var(--surface-2);border:1px solid transparent;border-radius:6px;padding:var(--ctl-pad);height:var(--ctl-h);outline:none;transition:all .12s}
+select:hover,input:hover,textarea:hover{border-color:var(--wire)}
+select:focus,input:focus,textarea:focus{background:var(--surface);border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-15)}
+/* note bubbles: figma comment style */
+.note{position:absolute;z-index:20;display:flex;align-items:flex-start;gap:6px;pointer-events:none}
+.note .nb{width:18px;height:18px;border-radius:50%;background:var(--accent);color:#fff;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 1px 3px var(--accent-40)}
+.note .nt{font-size:10.5px;color:var(--ink-soft);background:var(--surface);border:1px solid var(--wire);border-radius:6px;padding:3px 7px;line-height:1.35;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+/* topbar */
+.topbar{position:fixed;top:0;left:0;right:0;height:var(--topbar-h);background:var(--surface);border-bottom:1px solid var(--wire);display:flex;align-items:center;justify-content:space-between;padding:0 14px;z-index:50}
+.logo{display:flex;align-items:center;gap:10px;user-select:none}
+.figma-logo{display:flex;align-items:center}
+.figma-logo .fl{width:13px;height:22px}
+.figma-logo .fl-1{background:#f24e1e;border-radius:7px 0 0 7px}
+.figma-logo .fl-2{background:#ff7262;border-radius:0 7px 7px 0}
+.figma-logo .fl-3{background:#a259ff;border-radius:7px}
+.figma-logo .fl-4{background:#1abcfe;border-radius:7px}
+.figma-logo .fl-5{background:#0acf83;border-radius:7px 0 0 7px}
+.logo-text{font-size:13px;font-weight:600;letter-spacing:.01em}
+.logo-text i{font-style:normal;color:var(--ink-faint);font-weight:400}
+.topbar-right{display:flex;align-items:center;gap:8px}
+.icon-btn{width:var(--ctl-h);height:var(--ctl-h);border:1px solid transparent;background:var(--surface);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--ink-soft)}
+.icon-btn:hover{background:var(--surface-2);color:var(--ink)}
+.share-btn{background:var(--accent-strong);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:500;height:var(--ctl-h)}
+.share-btn:hover{background:var(--accent-deep)}
+.avatar{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#a259ff,#0acf83);border:2px solid var(--surface);box-shadow:0 0 0 1px var(--wire)}
+/* layout */
+.layout{display:flex;min-height:100vh;padding-top:var(--topbar-h);padding-bottom:var(--statusbar-h)}
+.sidebar{width:212px;background:var(--surface);border-right:1px solid var(--wire);padding:12px 8px;transition:width .2s;flex-shrink:0}
+.sidebar.collapsed{width:52px}
+.sidebar.collapsed .nav-label{display:none}
+.side-collapse{display:flex;justify-content:flex-end;margin-bottom:10px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:6px 9px;border-radius:6px;color:var(--ink-soft);text-decoration:none;margin-bottom:2px;font-size:12.5px;white-space:nowrap;overflow:hidden;transition:all .12s}
+.nav-item:hover{background:var(--surface-2);color:var(--ink)}
+.nav-item.active{background:var(--accent-soft);color:var(--accent-strong);font-weight:600}
+.nav-ico{width:14px;height:14px;border:1.5px solid var(--wire-strong);border-radius:3px;flex-shrink:0;position:relative}
+.nav-ico::after{content:"";position:absolute;inset:3px;border:1px dashed var(--wire);border-radius:1px}
+.nav-item.active .nav-ico{border-color:var(--accent)}
+.nav-item.active .nav-ico::after{border-color:var(--accent-25)}
+.content{flex:1;padding:var(--space);overflow-y:auto;min-width:0;position:relative;background-color:var(--surface);background-image:radial-gradient(var(--dot) 1px,transparent 1px);background-size:20px 20px}
+body.bg-white .content{background-image:none;background-color:#fff}
+body.bg-gray .content{background-image:none;background-color:var(--surface-2)}
+/* workbench */
+.workbench{display:grid;grid-template-columns:55% 45%;gap:var(--gap);align-items:start;max-width:1560px;margin:0 auto}
+.panel{border:1px solid var(--wire);border-radius:var(--radius);background:var(--surface);position:relative}
+.pane-head{display:flex;align-items:center;justify-content:space-between;margin:0;padding:12px 14px 9px;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--wire)}
+.pane-head h2{font-size:13.5px;font-weight:600}
+.pane-head h2 .no{color:var(--accent);font-weight:700;margin-right:8px}
+.preset-bar{display:flex;align-items:center;gap:8px}
+.preset-bar .lbl{font-size:10.5px;color:var(--ink-faint)}
+/* accordion */
+.acc{border:1px solid var(--wire);border-radius:var(--radius);background:var(--surface);margin:0 0 var(--gap);position:relative}
+.acc-head{width:100%;display:flex;align-items:center;gap:9px;padding:10px 12px;background:none;border:none;font-size:12.5px;font-weight:600;color:var(--ink);text-align:left}
+.acc-head:hover{background:var(--surface-2)}
+.acc-num{font-size:10px;font-weight:700;color:var(--ink-faint);width:22px;flex-shrink:0}
+.acc-badge{font-size:9.5px;padding:1px 7px;border:1px solid var(--wire-strong);border-radius:10px;color:var(--ink-faint)}
+.acc-chev{margin-left:auto;transition:transform .2s;color:var(--ink-faint);font-size:10px}
+.acc.open .acc-chev{transform:rotate(180deg)}
+.acc-body{display:none;padding:2px 12px 12px}
+.acc.open .acc-body{display:block}
+/* form */
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:var(--gap)}
+.fgroup{display:flex;flex-direction:column;gap:4px}
+.fgroup.full{grid-column:1/-1}
+.fgroup label{font-size:11px;color:var(--ink-soft);display:flex;align-items:center;gap:6px}
+.frow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+input[type=radio]{accent-color:var(--accent)}
+.hint{font-size:10px;color:var(--ink-faint)}
+.stepper{display:flex;align-items:center;border:1px solid var(--wire);border-radius:6px;overflow:hidden;background:var(--surface)}
+.stepper button{width:24px;height:var(--ctl-h);border:none;background:var(--surface-2);font-size:12px;color:var(--ink-soft);flex-shrink:0}
+.stepper button:hover{background:var(--surface-3);color:var(--ink)}
+.stepper input{width:60px;border:none;text-align:center;height:var(--ctl-h);border-radius:0;background:transparent;font-weight:500;font-size:12px}
+.stepper.wide input{width:82px}
+.quick-sz{display:flex;gap:4px}
+.quick-sz button{font-size:10px;padding:3px 8px;border:1px solid var(--wire);background:var(--surface);border-radius:5px;color:var(--ink-soft);height:22px}
+.quick-sz button:hover{color:var(--ink);border-color:var(--ink-3)}
+.quick-sz button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+/* prompt */
+.prompt-box{position:relative;margin-bottom:8px}
+.prompt-box textarea{width:100%;height:116px;resize:vertical;padding:9px 11px;line-height:1.6;font-size:12.5px;border:1px dashed var(--wire-strong)}
+.prompt-box textarea:focus{border-style:solid}
+.prompt-meta{display:flex;justify-content:space-between;align-items:center;margin-top:4px;font-size:10px;color:var(--ink-faint)}
+/* switch: figma style */
+.switch{position:relative;width:38px;height:20px;flex-shrink:0;display:inline-block}
+.switch input{opacity:0;width:0;height:0}
+.sl{position:absolute;inset:0;background:var(--surface-3);border-radius:20px;transition:.15s}
+.sl:before{content:"";position:absolute;width:14px;height:14px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.switch input:checked + .sl{background:var(--accent)}
+.switch input:checked + .sl:before{transform:translateX(18px)}
+/* range */
+.range-row{display:flex;align-items:center;gap:9px}
+.range-row input[type=range]{flex:1;accent-color:var(--accent);height:auto;background:transparent;border:none;padding:0}
+.range-val{width:52px;text-align:right;font-size:11px;color:var(--ink-soft);background:var(--surface-2);border-radius:5px;padding:2px 6px;font-weight:600;height:auto}
+/* lora */
+.lora-row{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;align-items:center;padding:7px 9px;border:1px dashed var(--wire-strong);border-radius:var(--radius);margin-bottom:7px;background:var(--surface)}
+.lora-row:hover{border-style:solid;border-color:var(--wire-strong)}
+.lora-badge{font-size:10px;font-weight:700;color:var(--ink-soft);width:22px;flex-shrink:0}
+.lora-row select{width:100%}
+.lora-row .r2{grid-column:1/-1;display:flex;align-items:center;gap:9px}
+.lora-row .r2 label{font-size:10px;color:var(--ink-faint);width:40px;flex-shrink:0}
+.lora-off-hint{grid-column:1/-1;display:none;font-size:10.5px;color:var(--red)}
+.lora-row.disabled .lora-off-hint{display:block}
+.lora-row.disabled{opacity:.5}
+/* warnings */
+.warn-box{border-radius:var(--radius);padding:8px 11px;font-size:12px;margin-top:8px;display:none;border:1px dashed}
+.warn-box.show{display:block}
+.warn-box.yellow{background:#fffbeb;color:#92400e;border-color:#fcd34d}
+.warn-box.red{background:#fef2f2;color:var(--red);border-color:#fca5a5}
+.big-est{font-size:12px;font-weight:600;padding:6px 0 0}
+.big-est b{color:var(--ink-soft)}
+.big-est.yellow{color:#92400e}
+.big-est.red{color:var(--red)}
+/* actions */
+.actions-bar{display:flex;gap:10px;margin-top:12px;padding:12px;border-top:1px solid var(--wire)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:6px;border:1px solid transparent;background:var(--surface-2);color:var(--ink);padding:var(--ctl-pad);height:var(--ctl-h);font-size:12px;font-weight:500;transition:all .12s;text-decoration:none}
+.btn:hover{background:var(--surface-3)}
+.btn-primary{background:var(--accent-strong);color:#fff}
+.btn-primary:hover{background:var(--accent-deep)}
+.btn-ghost{background:transparent}
+.btn-ghost:hover{background:var(--surface-2)}
+.btn-sm{padding:3px 8px;height:24px;font-size:11px;background:var(--surface-2)}
+.btn-sm:hover{background:var(--surface-3)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.actions-bar .btn-primary{flex:1;padding:10px;height:auto;font-size:13px;font-weight:600}
+/* output */
+.output-pane{position:sticky;top:var(--space)}
+.preview{border:1px solid var(--wire);border-radius:var(--radius);background:var(--surface);padding:12px;position:relative}
+.ph-big{height:258px;border-radius:var(--radius);display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-size:11.5px;letter-spacing:.1em;background:var(--surface-2);border:1px dashed var(--wire-strong)}
+.ph-big.idle{background:repeating-linear-gradient(45deg,#fafafa,#fafafa 10px,var(--surface-2) 10px,var(--surface-2) 20px)}
+.phase-line{display:flex;align-items:center;justify-content:space-between;margin:9px 2px 6px;font-size:10.5px;color:var(--ink-soft)}
+.progress{height:6px;border-radius:6px;background:var(--surface-2);overflow:hidden}
+.progress i{display:block;height:100%;width:0;background:var(--accent);border-radius:6px;transition:width .2s}
+.out-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--gap);margin-top:var(--gap)}
+.out-card{border:1px solid var(--wire);border-radius:var(--radius);background:var(--surface);position:relative;overflow:hidden;transition:all .12s}
+.out-card:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.out-card .ph-img{height:104px;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-size:9.5px;letter-spacing:.1em;position:relative;background:var(--surface-2)}
+.out-card .ph-img::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(0,0,0,.04),rgba(0,0,0,.04) 6px,transparent 6px,transparent 12px)}
+.out-actions{position:absolute;inset:0;background:rgba(255,255,255,.92);opacity:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;gap:6px;z-index:2}
+.out-card:hover .out-actions{opacity:1}
+.out-actions .btn{background:var(--ink);color:#fff}
+.out-actions .btn:hover{background:#3a3a3a}
+.out-meta{padding:7px 9px;display:flex;flex-direction:column;gap:1px;border-top:1px solid var(--wire)}
+.out-meta b{font-size:11.5px;font-weight:600}
+.out-meta span{font-size:9.5px;color:var(--ink-faint)}
+.empty-note{color:var(--ink-faint);font-size:10.5px;text-align:center;padding:12px 0 3px}
+/* statusbar: figma canvas footer */
+.statusbar{position:fixed;bottom:0;left:0;right:0;height:30px;background:var(--surface);border-top:1px solid var(--wire);display:flex;align-items:center;gap:18px;padding:0 12px;font-size:10.5px;color:var(--ink-soft);z-index:50}
+.sb-item{display:flex;align-items:center;gap:6px}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+.dot.green{background:var(--green)}.dot.red{background:var(--red)}.dot.yellow{background:var(--amber)}.dot.gray{background:var(--wire-strong)}
+.sb-right{margin-left:auto;display:flex;align-items:center;gap:14px}
+.zoom{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border:1px solid var(--wire);border-radius:5px;color:var(--ink-soft);font-size:10.5px}
+/* adjust panel: figma design-panel style */
+.adj-wrap{position:fixed;right:14px;bottom:42px;z-index:200;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.adj-btn{background:var(--accent-strong);color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:11.5px;font-weight:600;box-shadow:0 2px 10px rgba(0,0,0,.15)}
+.adj-btn:hover{background:var(--accent-deep)}
+.adj-panel{display:none;width:236px;background:var(--surface);border:1px solid var(--wire);border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.14);padding:12px}
+.adj-panel.show{display:block}
+.adj-sec{margin-bottom:12px}
+.adj-sec:last-child{margin-bottom:0}
+.adj-title{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:7px}
+.adj-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sw{width:20px;height:20px;border-radius:6px;border:1px solid var(--wire-strong);cursor:pointer;transition:all .1s;padding:0}
+.sw:hover{transform:scale(1.1)}
+.sw.on{box-shadow:0 0 0 2px var(--surface),0 0 0 3.5px var(--ink)}
+.sw-fig{background:#a78bfa}
+.sw-deep{background:#8b7bd8}
+.sw-lite{background:#c4b5fd}
+.seg{display:inline-flex;border:1px solid var(--wire);border-radius:6px;overflow:hidden}
+.seg button{border:none;background:var(--surface);padding:4px 10px;font-size:11px;color:var(--ink-soft);height:auto}
+.seg button + button{border-left:1px solid var(--wire)}
+.seg button:hover{background:var(--surface-2)}
+.seg button.on{background:var(--ink);color:#fff}
+/* back */
+.back-link{position:fixed;right:14px;top:60px;z-index:200;text-decoration:none;font-size:11px;font-weight:600;padding:7px 13px;border-radius:6px;background:var(--surface);border:1px solid var(--wire);color:var(--ink-soft);box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.back-link:hover{border-color:var(--accent);color:var(--accent)}
+.rise{animation:rise .5s cubic-bezier(.2,.7,.3,1) both}
+@keyframes rise{from{transform:translateY(6px);opacity:0}to{transform:none;opacity:1}}
+@media (max-width:1180px){.workbench{grid-template-columns:1fr}.output-pane{position:static}}
+</style>
+</head>
+<body>
+
+<a class="back-link" href="compare.html">◀ 返回风格对比</a>
+
+<header class="topbar">
+  <div class="logo">
+    <span class="figma-logo"><span class="fl fl-1"></span><span class="fl fl-2"></span><span class="fl fl-3"></span></span>
+    <span class="logo-text">Image MultiModel <i>/ txt2img 工作台</i></span>
+  </div>
+  <div class="topbar-right">
+    <button class="icon-btn" title="主题切换">◐</button>
+    <button class="icon-btn" title="设置">⚙</button>
+    <select style="width:170px"><option>FLUX.2 Klein-9B Distilled</option><option>Z-Image-Turbo</option></select>
+    <button class="share-btn">分享</button>
+    <span class="avatar" title="用户头像"></span>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="side-collapse"><button class="icon-btn" id="sbToggle" title="折叠侧栏">◧</button></div>
+    <nav>
+      <a class="nav-item" href="#"><span class="nav-ico"></span><span class="nav-label">首页</span></a>
+      <a class="nav-item active" href="#"><span class="nav-ico"></span><span class="nav-label">生图</span></a>
+      <a class="nav-item" href="#"><span class="nav-ico"></span><span class="nav-label">批量</span></a>
+      <a class="nav-item" href="#"><span class="nav-ico"></span><span class="nav-label">历史</span></a>
+      <a class="nav-item" href="#"><span class="nav-ico"></span><span class="nav-label">状态</span></a>
+      <a class="nav-item" href="#"><span class="nav-ico"></span><span class="nav-label">设置</span></a>
+    </nav>
+  </aside>
+
+  <main class="content">
+    <div class="workbench">
+      <section>
+        <div class="note" style="top:-11px;right:6px"><span class="nb">1</span><span class="nt">手风琴 6 组 · 22 项参数</span></div>
+        <div class="panel" style="margin-bottom:var(--gap)">
+          <div class="pane-head">
+            <h2><span class="no">/</span>生图工作台 · txt2img</h2>
+            <div class="preset-bar">
+              <span class="lbl">预设</span>
+              <select style="width:150px"><option>默认预设（FLUX.2）</option><option>亚洲人像写真</option></select>
+              <button class="btn btn-sm">保存</button>
+              <button class="btn btn-sm">导入</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="acc open">
+          <button class="acc-head" type="button"><span class="acc-num">01</span><span>Prompt 输入</span><span class="acc-chev">▾</span></button>
+          <div class="acc-body">
+            <div class="prompt-box">
+              <textarea placeholder="正向 Prompt：支持 简中/繁中/英/日/韩 直接输入…">一位亚洲女性肖像，柔和自然光，浅景深，胶片质感，细节丰富</textarea>
+              <div class="prompt-meta"><span>行 2 · 28 字符 · ≈42 token</span><span><button class="btn btn-sm" type="button">清空</button> <button class="btn btn-sm" type="button">复制</button></span></div>
+            </div>
+            <div class="prompt-box">
+              <textarea placeholder="负向 Prompt（可为空）…" style="height:66px"></textarea>
+              <div class="prompt-meta"><span>0 字符</span><span><button class="btn btn-sm" type="button">清空</button> <button class="btn btn-sm" type="button">复制</button></span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="acc open">
+          <button class="acc-head" type="button"><span class="acc-num">02</span><span>基础参数</span><span class="acc-badge">8</span><span class="acc-chev">▾</span></button>
+          <div class="acc-body">
+            <div class="fgrid">
+              <div class="fgroup"><label>cfg（蒸馏推荐 1.0）</label><div class="frow"><input type="number" id="cfg" value="1.0" min="1.0" max="20.0" step="0.1" style="width:90px"><span class="hint">[1.0,20.0]</span></div></div>
+              <div class="fgroup"><label>steps</label><div class="stepper" data-min="1" data-max="50" data-step="1"><button class="st-dec" type="button">−</button><input id="steps" value="8"><button class="st-inc" type="button">+</button></div></div>
+              <div class="fgroup"><label>width（16 倍数）</label><div class="frow"><div class="stepper" data-min="256" data-max="2048" data-step="16"><button class="st-dec" type="button">−</button><input id="width" value="1024"><button class="st-inc" type="button">+</button></div><div class="quick-sz"><button type="button">512</button><button type="button">768</button><button class="on" type="button">1024</button><button type="button">1536</button></div></div></div>
+              <div class="fgroup"><label>height（16 倍数）</label><div class="frow"><div class="stepper" data-min="256" data-max="2048" data-step="16"><button class="st-dec" type="button">−</button><input id="height" value="1024"><button class="st-inc" type="button">+</button></div><div class="quick-sz"><button type="button">512</button><button type="button">768</button><button class="on" type="button">1024</button><button type="button">1536</button></div></div></div>
+              <div class="fgroup"><label>seed（-1 = 随机）</label><div class="frow"><div class="stepper wide" data-min="-1" data-max="9007199254740991" data-step="1"><button class="st-dec" type="button">−</button><input id="seed" value="-1"><button class="st-inc" type="button">+</button></div><button class="btn btn-sm dice" data-target="seed" type="button">🎲</button><button class="btn btn-sm" id="reuseSeed" type="button">♻️</button></div><div class="hint" id="seedHint">随机模式：实际 seed 提交时生成</div></div>
+              <div class="fgroup"><label>batch_size <span class="hint">[1,9999]</span></label><div class="frow"><div class="stepper wide" data-min="1" data-max="9999" data-step="1"><button class="st-dec" type="button">−</button><input id="batchSize" value="1"><button class="st-inc" type="button">+</button></div><button class="btn btn-sm" id="b10" type="button">+10</button><button class="btn btn-sm" id="b100" type="button">+100</button><span id="bsWarn" style="display:none">⚠</span></div></div>
+            </div>
+            <div class="note" style="top:-10px;right:0"><span class="nb">2</span><span class="nt">&gt;500 黄 ⚠ / &gt;5000 红 ⚠ 二次确认</span></div>
+            <div class="big-est" id="estLine">预计生成 <b>3</b> 张 = 1×1×(SeedVR2×2+Eses×1)</div>
+            <div class="warn-box yellow" id="warn500">⚠ &gt;500 张：建议夜间生成，预计约 40min（RTX 4090）</div>
+            <div class="warn-box red" id="warn5000">⚠ &gt;5000 张：自动断点续跑（每 100 张 checkpoint），需二次确认（倒计时 5s）</div>
+          </div>
+        </div>
+
+        <div class="acc open">
+          <button class="acc-head" type="button"><span class="acc-num">03</span><span>LoRA 叠加</span><span class="acc-badge">6×</span><span class="acc-chev">▾</span></button>
+          <div class="acc-body">
+            <div class="note" style="top:-10px;left:6px"><span class="nb">3</span><span class="nt">顺序 id=16→21，禁用自动重连</span></div>
+            <div id="loraStack">
+              <div class="lora-row"><span class="lora-badge">1</span><select class="lora-name"><option>— 禁用 —</option><option selected>.safetensors</option><option>Kook_Flux_klein_亚洲人像.safetensors</option></select><div class="lora-off-hint">⚠ 已禁用（mode=4，链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="1.0"><span class="range-val">1.00</span></div></div>
+              <div class="lora-row"><span class="lora-badge">2</span><select class="lora-name"><option>— 禁用 —</option><option selected>Kook_Flux_klein_亚洲人像.safetensors</option></select><div class="lora-off-hint">⚠ 已禁用（mode=4，链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="0.7"><span class="range-val">0.70</span></div></div>
+              <div class="lora-row"><span class="lora-badge">3</span><select class="lora-name"><option>— 禁用 —</option><option selected>Kook_Flux_klein_亚洲人像.safetensors</option></select><div class="lora-off-hint">⚠ 已禁用（mode=4，链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="0.5"><span class="range-val">0.50</span></div></div>
+              <div class="lora-row"><span class="lora-badge">4</span><select class="lora-name"><option>— 禁用 —</option><option selected>Kook_Flux_klein_亚洲人像.safetensors</option></select><div class="lora-off-hint">⚠ 已禁用（mode=4，链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="0.4"><span class="range-val">0.40</span></div></div>
+              <div class="lora-row"><span class="lora-badge">5</span><select class="lora-name"><option>— 禁用 —</option><option selected>Kook_Flux_klein_亚洲人像.safetensors</option></select><div class="lora-off-hint">⚠ 已禁用（mode=4，链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="0.3"><span class="range-val">0.30</span></div></div>
+              <div class="lora-row"><span class="lora-badge">6</span><select class="lora-name"><option>— 禁用 —</option><option selected>.safetensors</option></select><div class="lora-off-hint">⚠ 已禁用（mode=4，链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="0.2"><span class="range-val">0.20</span></div></div>
+            </div>
+            <div class="warn-box yellow show">⚠ 默认 LoRA 已在磁盘找到；缺失将自动 _disabled + 黄提示。</div>
+          </div>
+        </div>
+
+        <div class="acc open">
+          <button class="acc-head" type="button"><span class="acc-num">04</span><span>SeedVR2 超分</span><span class="acc-badge">ON</span><span class="acc-chev">▾</span></button>
+          <div class="acc-body">
+            <div class="fgrid">
+              <div class="fgroup full"><label>启用 SeedVR2 超分（ema_vae + 3B DiT）</label><label class="switch"><input type="checkbox" id="seedvr2Toggle" checked><span class="sl"></span></label></div>
+              <div class="fgroup"><label>超分分辨率（最短边）</label><select id="upscaleRes"><option>1024</option><option>1536</option><option selected>2048</option><option>3072</option><option>4096</option></select></div>
+              <div class="fgroup"><label>色彩校正</label><select id="colorCorr"><option>off</option><option selected>lab</option><option>adain</option><option>none</option></select></div>
+              <div class="fgroup"><label>upscale_seed（独立）</label><div class="frow"><div class="stepper wide" data-min="-1" data-max="9007199254740991" data-step="1"><button class="st-dec" type="button">−</button><input id="upscaleSeed" value="-1"><button class="st-inc" type="button">+</button></div><button class="btn btn-sm dice" data-target="upscaleSeed" type="button">🎲</button></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="acc open">
+          <button class="acc-head" type="button"><span class="acc-num">05</span><span>对比 + 显存预留</span><span class="acc-chev">▾</span></button>
+          <div class="acc-body">
+            <div class="fgrid">
+              <div class="fgroup"><label>Eses 双图对比</label><label class="switch"><input type="checkbox" id="esesToggle" checked><span class="sl"></span></label><div class="frow" style="margin-top:7px"><label class="hint">轴</label><label style="font-size:11.5px"><input type="radio" name="axis" value="horizontal" checked> h</label><label style="font-size:11.5px"><input type="radio" name="axis" value="vertical"> v</label><label style="font-size:11.5px"><input type="radio" name="axis" value="slider"> s</label></div></div>
+              <div class="fgroup"><label>ReservedVRAM 显存预留</label><label class="switch"><input type="checkbox" id="vramToggle" checked><span class="sl"></span></label><div class="frow" style="margin-top:7px;gap:6px"><input type="number" id="vramGb" value="0.6" min="0" max="10" step="0.05" style="width:76px"><span class="hint">GB</span></div><div class="frow" style="margin-top:7px;gap:6px"><select id="vramMode" style="width:92px"><option selected>auto</option><option>manual</option></select><div class="stepper wide" data-min="-1" data-max="9007199254740991" data-step="1"><button class="st-dec" type="button">−</button><input id="vramSeed" value="-1"><button class="st-inc" type="button">+</button></div><button class="btn btn-sm dice" data-target="vramSeed" type="button">🎲</button></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="acc open">
+          <button class="acc-head" type="button"><span class="acc-num">06</span><span>输出设置</span><span class="acc-chev">▾</span></button>
+          <div class="acc-body">
+            <div class="fgrid">
+              <div class="fgroup"><label>输出格式</label><select disabled><option>png（固定）</option></select></div>
+              <div class="fgroup"><label>文件名前缀模板</label><input value="{engine}" maxlength="80"><div class="hint">{date}/{engine}/{seed}/{task_id} · ≤80</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="actions-bar">
+          <button class="btn btn-primary" id="genBtn" type="button">▶ 生成</button>
+          <button class="btn btn-ghost" id="cancelBtn" type="button" disabled>取消当前</button>
+        </div>
+      </section>
+
+      <section class="output-pane">
+        <div class="note" style="top:-11px;left:6px"><span class="nb">4</span><span class="nt">输出区：预览 + 3 张结果卡</span></div>
+        <div class="preview">
+          <div class="ph-big idle" id="phBig">等待生成…</div>
+          <div class="phase-line"><span id="phaseText">空闲 · 引擎已就绪（FLUX.2 Klein）</span><span>chunk 0/0</span></div>
+          <div class="progress"><i id="progFill"></i></div>
+        </div>
+        <div class="out-grid" id="outGrid">
+          <div class="out-card"><div class="ph-img">ORIGINAL</div><div class="out-meta"><b>原直通图</b><span>—</span></div></div>
+          <div class="out-card"><div class="ph-img">UPSCALED</div><div class="out-meta"><b>SeedVR2 超分</b><span>—</span></div></div>
+          <div class="out-card"><div class="ph-img">COMPARE</div><div class="out-meta"><b>Eses 对比图</b><span>—</span></div></div>
+        </div>
+        <p class="empty-note">{task_id}_original / _upscaled / _compare .png</p>
+      </section>
+    </div>
+  </main>
+</div>
+
+<footer class="statusbar">
+  <div class="sb-item"><span class="dot green"></span>CONN: LOCAL:8188 · 12MS</div>
+  <div class="sb-item">QUEUE 1·0</div>
+  <div class="sb-right">
+    <div class="sb-item">GPU 16.2/24GB</div>
+    <div class="sb-item">ENGINE: FLUX.2 KLEIN</div>
+    <span class="zoom">− 100% ＋</span>
+  </div>
+</footer>
+
+<!-- 样式调节面板（Figma Design Panel 风格） -->
+<div class="adj-wrap">
+  <div class="adj-panel" id="adjPanel">
+    <div class="adj-sec">
+      <div class="adj-title">主题色 · 紫系</div>
+      <div class="adj-row">
+        <button class="sw sw-fig on" data-k="accent" data-v="#a78bfa" data-s="#efebfc" title="薰衣草" type="button"></button>
+        <button class="sw sw-deep" data-k="accent" data-v="#8b7bd8" data-s="#e9e4f8" title="深薰衣草" type="button"></button>
+        <button class="sw sw-lite" data-k="accent" data-v="#c4b5fd" data-s="#f5f3fe" title="浅薰衣草" type="button"></button>
+      </div>
+    </div>
+    <div class="adj-sec">
+      <div class="adj-title">控件密度</div>
+      <div class="adj-row">
+        <span class="seg" id="densSeg">
+          <button data-d="compact" class="on" type="button">紧凑</button>
+          <button data-d="spacey" type="button">标准</button>
+        </span>
+      </div>
+    </div>
+    <div class="adj-sec">
+      <div class="adj-title">画布背景</div>
+      <div class="adj-row">
+        <span class="seg" id="bgSeg">
+          <button data-b="dots" class="on" type="button">点阵</button>
+          <button data-b="white" type="button">纯白</button>
+          <button data-b="gray" type="button">浅灰</button>
+        </span>
+      </div>
+    </div>
+  </div>
+  <button class="adj-btn" id="adjBtn">样式调节 ▾</button>
+</div>
+
+<script>
+/* 样式调节：主题色 / 密度 / 画布背景 */
+function shade(hex,p){
+  var h=hex.replace('#','');
+  var r=parseInt(h.substr(0,2),16),g=parseInt(h.substr(2,2),16),b=parseInt(h.substr(4,2),16);
+  r=Math.round(r*(1-p));g=Math.round(g*(1-p));b=Math.round(b*(1-p));
+  return '#'+[r,g,b].map(function(x){var s=x.toString(16);return s.length<2?'0'+s:s;}).join('');
+}
+document.querySelectorAll('#adjPanel .sw').forEach(function(b){
+  b.addEventListener('click',function(){
+    document.querySelectorAll('#adjPanel .sw').forEach(function(x){x.classList.remove('on');});
+    b.classList.add('on');
+    var root=document.documentElement.style;
+    var v=b.dataset.v,s=b.dataset.s;
+    root.setProperty('--accent',v);
+    root.setProperty('--accent-strong',shade(v,.12));
+    root.setProperty('--accent-deep',shade(v,.22));
+    root.setProperty('--accent-soft',s);
+    var hex=v.replace('#','');
+    var r=parseInt(hex.substr(0,2),16),g=parseInt(hex.substr(2,2),16),bl=parseInt(hex.substr(4,2),16);
+    var c='rgba('+r+','+g+','+bl+',';
+    root.setProperty('--accent-15',c+'.15)');
+    root.setProperty('--accent-25',c+'.25)');
+    root.setProperty('--accent-30',c+'.30)');
+    root.setProperty('--accent-40',c+'.40)');
+  });
+});
+document.querySelectorAll('#densSeg button').forEach(function(b){
+  b.addEventListener('click',function(){
+    document.querySelectorAll('#densSeg button').forEach(function(x){x.classList.remove('on');});
+    b.classList.add('on');
+    document.body.classList.toggle('spacey',b.dataset.d==='spacey');
+  });
+});
+document.querySelectorAll('#bgSeg button').forEach(function(b){
+  b.addEventListener('click',function(){
+    document.querySelectorAll('#bgSeg button').forEach(function(x){x.classList.remove('on');});
+    b.classList.add('on');
+    document.body.classList.remove('bg-white','bg-gray');
+    if(b.dataset.b!=='dots')document.body.classList.add('bg-'+b.dataset.b);
+  });
+});
+document.getElementById('adjBtn').addEventListener('click',function(){
+  document.getElementById('adjPanel').classList.toggle('show');
+});
+/* 通用交互 */
+document.querySelectorAll('.acc-head').forEach(function(h){h.addEventListener('click',function(){h.parentElement.classList.toggle('open');});});
+document.querySelectorAll('.stepper').forEach(function(s){
+  var inp=s.querySelector('input'),step=+(s.dataset.step||1),min=+(s.dataset.min||-Infinity),max=+(s.dataset.max||Infinity);
+  s.querySelector('.st-dec').addEventListener('click',function(){inp.value=Math.max(min,(+inp.value||0)-step);inp.dispatchEvent(new Event('input'));});
+  s.querySelector('.st-inc').addEventListener('click',function(){inp.value=Math.min(max,(+inp.value||0)+step);inp.dispatchEvent(new Event('input'));});
+});
+document.querySelectorAll('.quick-sz').forEach(function(q){
+  q.querySelectorAll('button').forEach(function(b){b.addEventListener('click',function(){
+    q.querySelectorAll('button').forEach(function(x){x.classList.remove('on');});
+    b.classList.add('on');
+    var tg=q.closest('.fgroup').querySelector('.stepper input');tg.value=b.textContent;tg.dispatchEvent(new Event('input'));
+  });});
+});
+document.querySelectorAll('.range-row input[type=range]').forEach(function(r){
+  var v=r.nextElementSibling;
+  function upd(){v.textContent=(+r.value).toFixed(2);v.style.color=Math.abs(+r.value)>1.5?'var(--red)':'var(--accent)';}
+  r.addEventListener('input',upd);upd();
+});
+document.querySelectorAll('.lora-name').forEach(function(sel){
+  sel.addEventListener('change',function(){
+    var row=sel.closest('.lora-row');
+    row.classList.toggle('disabled',sel.value==='— 禁用 —');
+    updateEst();
+  });
+});
+document.querySelectorAll('.dice').forEach(function(b){b.addEventListener('click',function(){
+  var inp=document.getElementById(b.dataset.target);inp.value=Math.floor(Math.random()*9007199254740991);inp.dispatchEvent(new Event('input'));
+});});
+document.getElementById('reuseSeed').addEventListener('click',function(){var e=document.getElementById('seed');e.value=88421;e.dispatchEvent(new Event('input'));});
+document.getElementById('b10').addEventListener('click',function(){var e=document.getElementById('batchSize');e.value=Math.min(9999,(+e.value||0)+10);e.dispatchEvent(new Event('input'));});
+document.getElementById('b100').addEventListener('click',function(){var e=document.getElementById('batchSize');e.value=Math.min(9999,(+e.value||0)+100);e.dispatchEvent(new Event('input'));});
+document.getElementById('sbToggle').addEventListener('click',function(){document.getElementById('sidebar').classList.toggle('collapsed');});
+function estCount(){
+  var n=+document.getElementById('batchSize').value||1;
+  var coef=(document.getElementById('seedvr2Toggle').checked?2:1)+(document.getElementById('esesToggle').checked?1:0);
+  return {n:n,total:n*coef};
+}
+function updateEst(){
+  var e=estCount(),line=document.getElementById('estLine');
+  document.getElementById('bsWarn').style.display=e.n>500?'':'none';
+  line.innerHTML='预计生成 <b>'+e.total+'</b> 张 = 1×'+e.n+'×(SeedVR2×'+(e.total/e.n===3?2:1)+'+Eses×'+(e.total/e.n===3?1:0)+')';
+  line.className='big-est'+(e.total>=5000?' red':(e.total>=500?' yellow':''));
+  document.getElementById('warn500').classList.toggle('show',e.total>=500&&e.total<5000);
+  document.getElementById('warn5000').classList.toggle('show',e.total>=5000);
+}
+['batchSize','seedvr2Toggle','esesToggle'].forEach(function(id){var el=document.getElementById(id);el.addEventListener('input',updateEst);el.addEventListener('change',updateEst);});
+updateEst();
+var genBtn=document.getElementById('genBtn'),cancelBtn=document.getElementById('cancelBtn');
+var progFill=document.getElementById('progFill'),phaseText=document.getElementById('phaseText'),phBig=document.getElementById('phBig');
+var outGrid=document.getElementById('outGrid');
+var timer=null,progress=0;
+var phases=[[5,'排队中…'],[40,'采样中 · steps 8/8 (dpmpp_3m_sde_gpu)'],[72,'SeedVR2 超分 2048 · chunk 1/1'],[90,'Eses 对比拼接 (horizontal)'],[100,'保存与入库']];
+function startGen(){
+  if(timer)return;
+  progress=0;genBtn.disabled=true;cancelBtn.disabled=false;
+  progFill.style.width='0%';phBig.className='ph-big';phBig.textContent='生成中…';outGrid.innerHTML='';
+  timer=setInterval(function(){
+    progress+=Math.random()*2.4+0.7;
+    if(progress>=100){clearInterval(timer);timer=null;genBtn.disabled=false;cancelBtn.disabled=true;
+      phaseText.textContent='完成 · 3 张输出 · 耗时 42.3s';progFill.style.width='100%';phBig.textContent='✅ 完成';
+      renderOut();
+    }else{
+      progFill.style.width=progress+'%';
+      var cur=phases[0];phases.forEach(function(p){if(progress>=p[0])cur=p;});
+      phaseText.textContent=cur[1]+' · '+Math.floor(progress)+'%';
+    }
+  },180);
+}
+cancelBtn.addEventListener('click',function(){clearInterval(timer);timer=null;genBtn.disabled=false;cancelBtn.disabled=true;phaseText.textContent='已取消 (status=cancelled)';progFill.style.width='0%';phBig.className='ph-big idle';phBig.textContent='等待生成…';});
+function renderOut(){
+  var imgs=[['','原直通图','1024×1024'],['','SeedVR2 超分','2048×2048'],['','Eses 对比图','4096×2048']];
+  imgs.forEach(function(x){
+    var c=document.createElement('div');c.className='out-card rise';
+    c.innerHTML='<div class="ph-img">'+x[1].toUpperCase()+'<div class="out-actions"><button class="btn btn-sm" type="button">下载</button><button class="btn btn-sm" type="button">收藏</button><button class="btn btn-sm" type="button">重绘</button></div></div><div class="out-meta"><b>'+x[1]+'</b><span>'+x[2]+' · seed 88421</span></div>';
+    outGrid.appendChild(c);
+  });
+}
+genBtn.addEventListener('click',function(){
+  var e=estCount();
+  if(e.total>=5000){
+    if(!window.confirm('⚠ 将生成 '+e.total+' 张（batch='+e.n+'，开 SeedVR2 chunk=4）。预计 '+Math.ceil(e.total/3000)+' 小时，确认？（模拟）'))return;
+  }else if(e.total>=500){
+    if(!window.confirm('⚠ 将生成 '+e.total+' 张，预计 '+(e.total*1.5/60).toFixed(0)+' 分钟，确认？（模拟）'))return;
+  }
+  startGen();
+});
+</script>
+</body>
+</html>

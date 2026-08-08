@@ -1,0 +1,31 @@
+{
+  "version": "1.0.0",
+  "generated_at": "2026-08-08",
+  "files": {
+    "bin/integrated_app/app_server.py": "core",
+    "bin/integrated_app/config.py": "core",
+    "bin/integrated_app/config_models.py": "core",
+    "bin/integrated_app/engine_interface.py": "core",
+    "bin/integrated_app/model_manager.py": "core",
+    "bin/integrated_app/model_registry.py": "core",
+    "bin/integrated_app/task_queue.py": "core",
+    "bin/integrated_app/history_db.py": "core",
+    "bin/integrated_app/i18n.py": "core",
+    "bin/integrated_app/gpu_utils.py": "core",
+    "bin/integrated_app/sse.py": "core",
+    "bin/integrated_app/security/path_guard.py": "security",
+    "bin/integrated_app/middleware/csrf.py": "security",
+    "bin/integrated_app/middleware/rate_limit.py": "security",
+    "bin/integrated_app/middleware/request_id.py": "security",
+    "bin/integrated_app/comfy/client.py": "comfy",
+    "bin/integrated_app/comfy/engine.py": "comfy",
+    "bin/integrated_app/comfy/workflow.py": "comfy",
+    "bin/integrated_app/routes/config_routes.py": "routes",
+    "bin/integrated_app/routes/system_routes.py": "routes",
+    "bin/integrated_app/routes/generate_routes.py": "routes",
+    "bin/integrated_app/routes/task_routes.py": "routes",
+    "bin/integrated_app/routes/output_routes.py": "routes",
+    "bin/integrated_app/routes/preset_routes.py": "routes"
+  },
+  "checksums": {}
+}

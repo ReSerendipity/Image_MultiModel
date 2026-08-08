@@ -1,0 +1,55 @@
+# Image MultiModel .gitignore
+
+# ── Python ──────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.installed.cfg
+*.egg
+
+# ── Virtual Environment ──────────────────────────────────────
+venv/
+.venv/
+env/
+ENV/
+
+# ── IDE ─────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.catpaw/
+
+# ── Testing ─────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ── Data & Output ────────────────────────────────────────────
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/uploads/
+data/cache/
+outputs/
+logs/
+
+# ── Model Files (大文件不提交) ──────────────────────────────
+*.safetensors
+*.pt
+*.bin
+*.ckpt
+*.gguf
+
+# ── OS ──────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── SSL ─────────────────────────────────────────────────────
+bin/cert.pem
+bin/key.pem

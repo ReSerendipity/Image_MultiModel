@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>信息架构 · Image MultiModel 生图工作台（草案 v1）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --seed-bg:#f5f5f5;--seed-fg:#1a1a1a;--seed-primary:#a78bfa;--seed-accent:#8b7bd8;--seed-surface:#ffffff;--seed-radius:8px;
+  --bg:var(--seed-bg);--surface:var(--seed-surface);
+  --surface-2:color-mix(in srgb,var(--seed-fg) 6%,var(--seed-surface));
+  --surface-3:color-mix(in srgb,var(--seed-fg) 11%,var(--seed-surface));
+  --ink:var(--seed-fg);
+  --ink-soft:color-mix(in srgb,var(--seed-fg) 66%,var(--seed-surface));
+  --ink-faint:color-mix(in srgb,var(--seed-fg) 46%,var(--seed-surface));
+  --accent:var(--seed-primary);--accent-strong:var(--seed-accent);
+  --accent-soft:color-mix(in srgb,var(--seed-primary) 12%,var(--seed-surface));
+  --accent-15:color-mix(in srgb,var(--seed-primary) 15%,transparent);
+  --accent-25:color-mix(in srgb,var(--seed-primary) 25%,transparent);
+  --accent-40:color-mix(in srgb,var(--seed-primary) 40%,transparent);
+  --wire:color-mix(in srgb,var(--seed-fg) 15%,var(--seed-surface));
+  --wire-strong:color-mix(in srgb,var(--seed-fg) 30%,var(--seed-surface));
+  --dot:color-mix(in srgb,var(--seed-fg) 8%,var(--seed-surface));
+  --green:#22a06b;--amber:#d97a1e;--red:#e5484d;
+  --sans:'Inter',system-ui,sans-serif;
+  --radius:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased}
+/* ===== 头 ===== */
+.doc{max-width:1180px;margin:0 auto;padding:28px 24px 60px;position:relative}
+.doc-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+.doc-head h1{font-size:22px;font-weight:700;letter-spacing:-.015em}
+.doc-head h1 em{font-style:normal;color:var(--accent-strong)}
+.doc-head .ver{font-size:10.5px;color:var(--ink-faint);border:1px solid var(--wire);border-radius:20px;padding:3px 10px;background:var(--surface)}
+.doc-sub{font-size:12px;color:var(--ink-soft);margin-bottom:18px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:22px;font-size:11px;color:var(--ink-soft)}
+.lg{display:inline-flex;align-items:center;gap:6px}
+.lg .sw{width:12px;height:12px;border-radius:3px;border:1px solid var(--wire-strong);flex-shrink:0}
+.lg .sw.page{background:var(--accent-soft);border-color:var(--accent)}
+.lg .sw.drawer{background:var(--surface-3)}
+.lg .sw.float{background:var(--surface);box-shadow:0 0 0 1px var(--accent)}
+/* ===== 分层 ===== */
+.band{margin-bottom:26px}
+.band-title{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:10px}
+.band-title .bar{flex:1;height:1px;background:var(--wire)}
+.band-title .n{color:var(--accent);font-weight:800}
+.grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;max-width:760px}
+.card{border:1px solid var(--wire);border-radius:var(--radius);background:var(--surface);padding:12px 13px;position:relative;transition:all .12s}
+.card:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.card .top{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.card .ico{width:26px;height:26px;border-radius:7px;background:var(--accent-soft);border:1px solid var(--accent-25);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--accent-strong);flex-shrink:0}
+.card .ico.g{background:var(--surface-3);border-color:var(--wire);color:var(--ink-soft)}
+.card .ico.f{background:var(--surface);border-color:var(--accent);color:var(--accent-strong);box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.card b{font-size:12.5px;font-weight:600}
+.card .p{font-size:10.5px;color:var(--ink-soft);line-height:1.5}
+.card .tag{position:absolute;top:10px;right:10px;font-size:8.5px;font-weight:600;padding:2px 7px;border-radius:10px;letter-spacing:.03em}
+.tag.done{background:var(--accent-soft);color:var(--accent-strong)}
+.tag.plan{background:var(--surface-2);color:var(--ink-faint);border:1px solid var(--wire)}
+.tag.ref{background:color-mix(in srgb,var(--green) 12%,var(--surface));color:var(--green)}
+.dir{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:600;color:var(--accent-strong);background:var(--accent-soft);border-radius:6px;padding:2px 7px;margin-top:7px}
+.dir.r::before{content:"右 ▸"}
+.dir.l::before{content:"◂ 左"}
+.dir.t::before{content:"上 ▴"}
+.dir.b::before{content:"下 ▾"}
+.ent{display:block;font-size:9.5px;color:var(--ink-faint);margin-top:5px}
+/* ===== 触发路径 ===== */
+.flows{border:1px solid var(--wire);border-radius:var(--radius);background:var(--surface);padding:14px 16px;margin-bottom:26px}
+.flows h3{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:11px}
+.flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 0;border-bottom:1px dashed var(--wire);font-size:11.5px}
+.flow:last-child{border-bottom:none}
+.flow .node{font-weight:600;color:var(--ink);background:var(--surface-2);border:1px solid var(--wire);border-radius:6px;padding:3px 9px}
+.flow .node.from{background:var(--accent-soft);border-color:var(--accent-25);color:var(--accent-strong)}
+.flow .arrow{color:var(--ink-faint);font-weight:700}
+.flow .act{color:var(--ink-soft);font-size:10.5px}
+/* ===== 关于板块参考 ===== */
+.ref-grid{display:grid;grid-template-columns:1.15fr 1fr;gap:12px;align-items:start}
+.ref-card{border:1px solid var(--wire);border-radius:var(--radius);background:var(--surface);padding:14px}
+.ref-card h3{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:10px}
+.about-demo{border:1px solid var(--wire);border-radius:10px;padding:12px}
+.about-demo .head{display:flex;align-items:center;gap:9px;margin-bottom:7px}
+.about-demo .sq{width:26px;height:26px;border-radius:6px;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700}
+.about-demo .nm{font-size:13px;font-weight:700}
+.about-demo .sub{font-size:10px;color:var(--ink-soft)}
+.about-demo .desc{font-size:10.5px;color:var(--ink-soft);line-height:1.55;margin-bottom:9px}
+.kv3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:9px}
+.kv3 .it{background:var(--surface-2);border-radius:7px;padding:6px 9px}
+.kv3 .it b{display:block;font-size:9px;color:var(--ink-faint);font-weight:600}
+.kv3 .it span{font-size:11px;font-weight:600}
+.btns{display:flex;gap:6px;flex-wrap:wrap}
+.btns .gh{background:var(--ink);color:var(--bg);border:none;border-radius:6px;padding:5px 11px;font-size:10px;font-weight:600}
+.btns .c{width:24px;height:24px;border:1px solid var(--wire);background:var(--surface);border-radius:50%;color:var(--ink-soft);font-size:9px}
+.feat-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:9px}
+.feat{border:1px dashed var(--wire-strong);border-radius:8px;padding:8px 9px}
+.feat b{display:block;font-size:10.5px;margin-bottom:3px}
+.feat span{font-size:9.5px;color:var(--ink-soft);line-height:1.45;display:block}
+.ref-note{font-size:10px;color:var(--ink-faint);margin-top:9px;line-height:1.55}
+.adapt{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.adapt .a{font-size:9.5px;color:var(--ink-soft);border:1px solid var(--wire);border-radius:14px;padding:3px 9px;background:var(--surface)}
+/* ===== 尾 ===== */
+.doc-foot{margin-top:30px;padding-top:14px;border-top:1px solid var(--wire);font-size:10.5px;color:var(--ink-faint);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+@media (max-width:980px){.grid5{grid-template-columns:repeat(2,1fr)}.grid4{grid-template-columns:repeat(2,1fr)}.ref-grid{grid-template-columns:1fr}}
+@media (max-width:560px){.grid5,.grid4,.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main class="doc">
+
+  <div class="doc-head" data-component="Doc Header">
+    <h1>信息架构 · <em>Image MultiModel</em> 生图工作台</h1>
+    <span class="ver">草案 v1 · 单页融合版</span>
+  </div>
+  <div style="border:1px solid var(--accent-25);background:var(--accent-soft);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--accent-strong);margin-bottom:14px">2026-08-08 已按用户要求单页化：五个主板块全部融合进主画布（generate.html），通过主画布「模块入口」按键以抽屉方式进入（右：高级参数/图片展示/历史/预设；底：批量/设置/关于；顶：状态；悬浮：图片查看器/队列）。下方结构为融合前规划，供追溯。</div>
+  <p class="doc-sub">三层结构：页面级主板块 / 抽屉式切入面板（四方位）/ 轻量悬浮窗。紫色 = 已实现，灰色 = 规划中，绿色 = 有参考样本。</p>
+  <div class="legend">
+    <span class="lg"><span class="sw page"></span>主板块（页面级）</span>
+    <span class="lg"><span class="sw drawer"></span>抽屉（切入面板）</span>
+    <span class="lg"><span class="sw float"></span>悬浮窗</span>
+    <span class="lg">主色 薰衣草紫 #a78bfa · Figma 化线框风格</span>
+  </div>
+
+  <!-- 主板块 -->
+  <section class="band" data-component="Main Modules">
+    <div class="band-title"><span class="n">A</span><span>主板块 · 页面级</span><span class="bar"></span><span>5 个</span></div>
+    <div class="grid5">
+      <div class="card" data-component="Module Generate">
+        <span class="tag done">已实现</span>
+        <div class="top"><span class="ico">✦</span><b>生图主舞台</b></div>
+        <p class="p">对话式 Prompt 输入 + 生成 + 参数快照 + 结果瀑布流。全产品主入口。</p>
+      </div>
+      <div class="card" data-component="Module Gallery">
+        <span class="tag done">已实现</span>
+        <div class="top"><span class="ico g">▦</span><b>图片展示</b></div>
+        <p class="p">图库/瀑布流，大图查看与双图对比。可升级为悬浮查看器。</p>
+      </div>
+      <div class="card" data-component="Module History">
+        <span class="tag done">已实现</span>
+        <div class="top"><span class="ico g">◷</span><b>历史记录</b></div>
+        <p class="p">列表 + 筛选 + 批量操作；选中条目进入详情抽屉，含完整 generation_config。</p>
+      </div>
+      <div class="card" data-component="Module Batch">
+        <span class="tag done">已实现</span>
+        <div class="top"><span class="ico g">▤</span><b>批量模式</b></div>
+        <p class="p">Prompt 文件 / 参数网格，批次 1~9999，断点续跑。独立入口。</p>
+      </div>
+      <div class="card" data-component="Module Presets">
+        <span class="tag done">已实现</span>
+        <div class="top"><span class="ico g">▣</span><b>预设管理</b></div>
+        <p class="p">预设列表/收藏，与历史「保存为预设」联动，一键复用。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 抽屉层 -->
+  <section class="band" data-component="Drawer Panels">
+    <div class="band-title"><span class="n">B</span><span>抽屉 · 切入面板</span><span class="bar"></span><span>4 个 · 四方位</span></div>
+    <div class="grid4">
+      <div class="card" data-component="Drawer Advanced">
+        <span class="tag done">已实现</span>
+        <div class="top"><span class="ico">⚙</span><b>高级参数</b></div>
+        <p class="p">02-06 五组手风琴收纳 22 项参数，改动即时生效并同步主界面快照。</p>
+        <span class="dir r"></span><span class="ent">入口：主舞台「高级参数」按钮</span>
+      </div>
+      <div class="card" data-component="Drawer Settings">
+        <span class="tag done">已实现</span>
+        <div class="top"><span class="ico g">⚙</span><b>设置</b></div>
+        <p class="p">引擎路径、模型/资源扫描、语言、保留策略等全局配置。</p>
+        <span class="dir b"></span><span class="ent">入口：顶部栏设置 / 底栏</span>
+      </div>
+      <div class="card" data-component="Drawer Status">
+        <span class="tag done">已实现</span>
+        <div class="top"><span class="ico g">◔</span><b>系统状态</b></div>
+        <p class="p">GPU / 队列 / 引擎健康 / 资源速览，轻量化，从底栏点开。</p>
+        <span class="dir t"></span><span class="ent">入口：底栏状态区点击</span>
+      </div>
+      <div class="card" data-component="Drawer About">
+        <span class="tag done">已实现</span>
+        <div class="top"><span class="ico g">i</span><b>关于 / 项目介绍</b></div>
+        <p class="p">项目卡 + 作者/版本/协议 + GitHub/社交 + 技术特性网格（参考 SeedVR2 关于页）。</p>
+        <span class="dir b"></span><span class="ent">入口：顶部「i」按钮 / 页脚</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 悬浮层 -->
+  <section class="band" data-component="Floating Windows">
+    <div class="band-title"><span class="n">C</span><span>悬浮窗 · 轻量浮层</span><span class="bar"></span><span>2 个</span></div>
+    <div class="grid2">
+      <div class="card" data-component="Float Viewer">
+        <span class="tag done">已实现</span>
+        <div class="top"><span class="ico f">◫</span><b>图片查看器</b></div>
+        <p class="p">大图/双图对比，可拖动、缩放、吸边、最小化，不遮挡生成主流程。</p>
+        <span class="ent">入口：图片展示/历史 点击大图；触发于主舞台之上</span>
+      </div>
+      <div class="card" data-component="Float Queue">
+        <span class="tag done">已实现</span>
+        <div class="top"><span class="ico f">◔</span><b>队列迷你面板</b></div>
+        <p class="p">生成中的任务进度悬浮球，点开看阶段/耗时/取消。</p>
+        <span class="ent">入口：点击「生成」自动出现</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 核心触发路径 -->
+  <section class="flows" data-component="Trigger Flows">
+    <h3>核心触发路径</h3>
+    <div class="flow"><span class="node from">生图主舞台</span><span class="act">高级参数</span><span class="arrow">→</span><span class="node">右抽屉 · 高级参数</span></div>
+    <div class="flow"><span class="node from">生图主舞台</span><span class="act">生成</span><span class="arrow">→</span><span class="node">悬浮 · 队列迷你面板</span></div>
+    <div class="flow"><span class="node from">图片展示 / 历史</span><span class="act">点击大图</span><span class="arrow">→</span><span class="node">悬浮 · 图片查看器</span></div>
+    <div class="flow"><span class="node from">历史记录</span><span class="act">选中条目</span><span class="arrow">→</span><span class="node">左抽屉 · 任务详情（完整参数）</span></div>
+    <div class="flow"><span class="node from">任意页面</span><span class="act">顶栏 ⚙</span><span class="arrow">→</span><span class="node">底抽屉 · 设置</span></div>
+    <div class="flow"><span class="node from">任意页面</span><span class="act">顶栏 i / 页脚</span><span class="arrow">→</span><span class="node">底抽屉 · 关于</span></div>
+  </section>
+
+  <!-- 关于板块参考 -->
+  <section class="band" data-component="About Reference">
+    <div class="band-title"><span class="n">D</span><span>关于板块 · 参考 SeedVR2 关于页</span><span class="bar"></span></div>
+    <div class="ref-grid">
+      <div class="ref-card">
+        <h3>目标结构（适配 Figma 线框风格）</h3>
+        <div class="about-demo">
+          <div class="head"><span class="sq">S</span><div><div class="nm">Image MultiModel</div><div class="sub">统一驱动 ComfyUI 多引擎生图工作台</div></div></div>
+          <p class="desc">面向本地 AI 图像生成的工作台：FLUX.2 Klein / Z-Image-Turbo 多引擎，LoRA 六层叠加、SeedVR2 超分、双图对比与显存预留，屏蔽工作流复杂度。</p>
+          <div class="kv3">
+            <div class="it"><b>作者</b><span>待补充</span></div>
+            <div class="it"><b>当前版本</b><span>v0.1 · 原型</span></div>
+            <div class="it"><b>协议</b><span>待定</span></div>
+          </div>
+          <div class="btns"><button class="gh" type="button">前往 GitHub</button><button class="c" type="button">G</button><button class="c" type="button">B</button><button class="c" type="button">T</button><button class="c" type="button">M</button></div>
+          <div class="feat-grid">
+            <div class="feat"><b>多引擎驱动</b><span>FLUX.2 Klein / Z-Image-Turbo，统一界面</span></div>
+            <div class="feat"><b>六层 LoRA</b><span>串联叠加，禁用自动重连链路</span></div>
+            <div class="feat"><b>SeedVR2 超分</b><span>ema_vae + 3B DiT，多档最短边</span></div>
+            <div class="feat"><b>双图对比</b><span>Eses h/v/s 拼接，直观比对</span></div>
+            <div class="feat"><b>显存预留</b><span>ReservedVRAM 保护显存稳定</span></div>
+            <div class="feat"><b>本地运行</b><span>驱动本地 ComfyUI，数据不出机器</span></div>
+          </div>
+        </div>
+        <p class="ref-note">作者 / GitHub 仓库地址 / 社交账号 / 开源协议为真实信息，确认后填入；「待补充 / 待定」标记将在实施时替换。</p>
+      </div>
+      <div class="ref-card">
+        <h3>参考来源</h3>
+        <p class="p" style="margin-bottom:10px">另一项目 SeedVR2 的「关于」页（C:\Users\Doro\Seedvr2）：应用内板块，非官网。页面结构：项目卡（logo + 名称 + 副标题 + 简介）→ 作者/版本/协议三列 → GitHub + 社交按钮行 → 技术特性 2×3 网格。</p>
+        <p class="p" style="margin-bottom:10px">我们沿用其信息结构，视觉换成 Figma 化线框语言（浅灰画布 / 薰衣草紫 / 点阵背景 / 注释气泡），并以「底抽屉」切入而非独立页面，保持主界面极简。</p>
+        <div class="adapt">
+          <span class="a">项目卡 · 三列信息</span>
+          <span class="a">GitHub + 社交按钮</span>
+          <span class="a">特性 2×3 网格</span>
+          <span class="a">底抽屉切入</span>
+          <span class="a">Figma 线框视觉</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="doc-foot">
+    <span>草案 v1 · 2026-08-08 · 三层结构：主板块 5 + 抽屉 4 + 悬浮窗 2</span>
+    <span>确认后按板块逐个实施；如对数量/归属有异议，直接标注即可。</span>
+  </div>
+</main>
+</body>
+</html>

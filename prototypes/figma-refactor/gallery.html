@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Image MultiModel · 图片展示</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --seed-bg:#f5f5f5;--seed-fg:#1a1a1a;--seed-primary:#a78bfa;--seed-accent:#8b7bd8;--seed-surface:#ffffff;--seed-radius:8px;
+  --bg:var(--seed-bg);--surface:var(--seed-surface);
+  --surface-2:color-mix(in srgb,var(--seed-fg) 6%,var(--seed-surface));
+  --surface-3:color-mix(in srgb,var(--seed-fg) 11%,var(--seed-surface));
+  --ink:var(--seed-fg);
+  --ink-soft:color-mix(in srgb,var(--seed-fg) 66%,var(--seed-surface));
+  --ink-faint:color-mix(in srgb,var(--seed-fg) 46%,var(--seed-surface));
+  --ink-3:color-mix(in srgb,var(--seed-fg) 30%,var(--seed-surface));
+  --accent:var(--seed-primary);--accent-strong:var(--seed-accent);
+  --accent-deep:color-mix(in srgb,var(--seed-accent) 80%,#000);
+  --accent-soft:color-mix(in srgb,var(--seed-primary) 12%,var(--seed-surface));
+  --accent-15:color-mix(in srgb,var(--seed-primary) 15%,transparent);
+  --accent-25:color-mix(in srgb,var(--seed-primary) 25%,transparent);
+  --accent-40:color-mix(in srgb,var(--seed-primary) 40%,transparent);
+  --wire:color-mix(in srgb,var(--seed-fg) 15%,var(--seed-surface));
+  --wire-strong:color-mix(in srgb,var(--seed-fg) 30%,var(--seed-surface));
+  --dot:color-mix(in srgb,var(--seed-fg) 8%,var(--seed-surface));
+  --overlay:rgba(255,255,255,.92);
+  --red:#ef4444;--green:#22c55e;--amber:#f59e0b;
+  --on-accent:#fff;
+  --figma-1:#f24e1e;--figma-2:#ff7262;--figma-3:#a259ff;--figma-4:#1abcfe;--figma-5:#0acf83;
+  --sans:'Inter',system-ui,sans-serif;
+  --radius:var(--seed-radius);--radius-sm:calc(var(--seed-radius) - 2px);
+  --ctl-pad:5px 9px;--ctl-h:30px;--gap:12px;--space:20px;--topbar-h:52px;--statusbar-h:30px;
+}
+[data-theme="dark"]{--seed-bg:#17171a;--seed-fg:#ececec;--seed-surface:#232327;--overlay:rgba(24,24,28,.93)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer}
+select,input{font-family:inherit;font-size:12px;color:var(--ink);background:var(--surface-2);border:1px solid transparent;border-radius:var(--radius-sm);padding:var(--ctl-pad);height:var(--ctl-h);outline:none}
+select:hover,input:hover{border-color:var(--wire)}
+select:focus,input:focus{background:var(--surface);border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-15)}
+.topbar{position:fixed;top:0;left:0;right:0;height:var(--topbar-h);background:var(--surface);border-bottom:1px solid var(--wire);display:flex;align-items:center;justify-content:space-between;padding:0 14px;z-index:50}
+.logo{display:flex;align-items:center;gap:10px;user-select:none}
+.figma-logo{display:flex;align-items:center}
+.figma-logo .fl{width:13px;height:22px}
+.figma-logo .fl-1{background:var(--figma-1);border-radius:7px 0 0 7px}
+.figma-logo .fl-2{background:var(--figma-2);border-radius:0 7px 7px 0}
+.figma-logo .fl-3{background:var(--figma-3);border-radius:7px}
+.logo-text{font-size:13px;font-weight:600}
+.logo-text i{font-style:normal;color:var(--ink-faint);font-weight:400}
+.topbar-right{display:flex;align-items:center;gap:8px}
+.icon-btn{width:var(--ctl-h);height:var(--ctl-h);border:1px solid transparent;background:var(--surface);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--ink-soft)}
+.icon-btn:hover{background:var(--surface-2);color:var(--ink)}
+.share-btn{background:var(--accent-strong);color:var(--on-accent);border:none;border-radius:var(--radius-sm);padding:6px 14px;font-size:12px;font-weight:500;height:var(--ctl-h);white-space:nowrap}
+.share-btn:hover{background:var(--accent-deep)}
+.avatar{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--figma-3),var(--figma-5));border:2px solid var(--surface);box-shadow:0 0 0 1px var(--wire);flex-shrink:0}
+.layout{min-height:100vh;padding-top:var(--topbar-h);padding-bottom:var(--statusbar-h)}
+.content{max-width:1240px;margin:0 auto;padding:var(--space);position:relative}
+.page-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap}
+.page-head h1{font-size:17px;font-weight:700}
+.page-head h1 .no{color:var(--accent);font-weight:800;margin-right:8px}
+.page-head .hint{font-size:10.5px;color:var(--ink-faint)}
+/* 筛选 chips */
+.filter-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.f-chip{font-size:11px;padding:4px 12px;border:1px solid var(--wire);background:var(--surface);color:var(--ink-soft);border-radius:6px;cursor:pointer}
+.f-chip:hover{color:var(--ink);border-color:var(--ink-3)}
+.f-chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.filter-row .sp{flex:1}
+/* 瀑布流 */
+.masonry{display:grid;grid-template-columns:repeat(4,1fr);gap:11px}
+.g-card{border:1px solid var(--wire);border-radius:10px;overflow:hidden;background:var(--surface);position:relative;transition:all .12s;cursor:pointer}
+.g-card:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.ph{height:150px;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-size:9px;letter-spacing:.1em;background:var(--surface-2);position:relative}
+.ph::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--seed-fg) 4%,transparent),color-mix(in srgb,var(--seed-fg) 4%,transparent) 6px,transparent 6px,transparent 12px)}
+.g-meta{padding:8px 10px;display:flex;flex-direction:column;gap:2px;border-top:1px solid var(--wire)}
+.g-meta b{font-size:11.5px;font-weight:600}
+.g-meta span{font-size:9.5px;color:var(--ink-faint)}
+.g-type{position:absolute;top:8px;left:8px;font-size:8.5px;font-weight:600;padding:2px 7px;border-radius:9px;background:var(--surface);border:1px solid var(--wire);color:var(--ink-soft);z-index:2}
+.g-fav{position:absolute;top:7px;right:7px;border:none;background:var(--surface);border:1px solid var(--wire);border-radius:50%;width:22px;height:22px;color:var(--ink-3);font-size:11px;z-index:2}
+.g-fav.on{color:var(--amber);border-color:color-mix(in srgb,var(--amber) 45%,var(--surface))}
+/* 悬浮查看器 */
+.viewer{position:fixed;left:120px;top:120px;width:560px;min-height:380px;background:var(--surface);border:1px solid var(--wire);border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.22);z-index:120;display:none;flex-direction:column;resize:both;overflow:hidden}
+.viewer.show{display:flex}
+.v-head{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--wire);cursor:grab;user-select:none;background:var(--surface-2)}
+.v-head:active{cursor:grabbing}
+.v-head b{font-size:12px;font-weight:600}
+.v-head .seed{font-size:9.5px;color:var(--ink-faint)}
+.v-head .sp{flex:1}
+.v-tools{display:flex;gap:4px}
+.v-tools button{border:1px solid var(--wire);background:var(--surface);border-radius:5px;width:24px;height:24px;font-size:11px;color:var(--ink-soft)}
+.v-tools button:hover{border-color:var(--accent);color:var(--accent)}
+.v-tools button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.v-body{flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--seed-fg) 4%,var(--seed-surface));padding:14px;min-height:260px}
+.v-img{width:420px;height:250px;border:1px dashed var(--wire-strong);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-size:10px;letter-spacing:.1em;background:var(--surface-2);position:relative;transition:transform .15s}
+.v-img::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(0,0,0,.03),rgba(0,0,0,.03) 6px,transparent 6px,transparent 12px);border-radius:8px}
+.v-img.compare{display:grid;grid-template-columns:1fr 1fr;gap:2px;background:var(--surface)}
+.v-img.compare .half{display:flex;align-items:center;justify-content:center;font-size:8.5px;color:var(--ink-faint);background:var(--surface-2);position:relative;border-radius:7px}
+.v-img.compare .half::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(0,0,0,.03),rgba(0,0,0,.03) 5px,transparent 5px,transparent 10px);border-radius:7px}
+.v-foot{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-top:1px solid var(--wire);font-size:10px;color:var(--ink-faint)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:var(--radius-sm);border:1px solid transparent;background:var(--surface-2);color:var(--ink);padding:var(--ctl-pad);height:var(--ctl-h);font-size:12px;font-weight:500;transition:all .12s;text-decoration:none;white-space:nowrap}
+.btn:hover{background:var(--surface-3)}
+.btn-primary{background:var(--accent-strong);color:var(--on-accent)}
+.btn-primary:hover{background:var(--accent-deep)}
+.btn-sm{padding:3px 8px;height:23px;font-size:10.5px;border:1px solid var(--wire);background:var(--surface)}
+/* 底栏 */
+.statusbar{position:fixed;bottom:0;left:0;right:0;height:var(--statusbar-h);background:var(--surface);border-top:1px solid var(--wire);display:flex;align-items:center;gap:18px;padding:0 12px;font-size:10.5px;color:var(--ink-soft);z-index:90}
+.sb-item{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex-shrink:0}
+.dot.green{background:var(--green)}
+.sb-right{margin-left:auto;display:flex;gap:14px}
+/* 原型导航 */
+.proto-nav{position:fixed;right:16px;top:calc(var(--topbar-h) + 12px);z-index:92;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.proto-btn{background:var(--surface);color:var(--ink-soft);border:1px solid var(--wire);border-radius:var(--radius-sm);padding:7px 13px;font-size:11.5px;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.proto-btn:hover{border-color:var(--accent);color:var(--accent)}
+.proto-panel{display:none;background:var(--surface);border:1px solid var(--wire);border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.14);padding:8px;min-width:196px}
+.proto-panel.show{display:block}
+.proto-panel a{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--radius-sm);color:var(--ink);text-decoration:none;font-size:12.5px}
+.proto-panel a:hover{background:var(--surface-2)}
+.proto-panel a.cur{color:var(--accent-strong);font-weight:600}
+.proto-panel .pt{font-size:10px;color:var(--ink-faint);padding:5px 10px 3px;letter-spacing:.05em}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:10px;font-size:10px;border:1px solid var(--wire-strong);color:var(--ink-soft);background:var(--surface)}
+.chip.ok{color:var(--green);border-color:color-mix(in srgb,var(--green) 45%,var(--surface));background:color-mix(in srgb,var(--green) 8%,var(--surface))}
+.chip.red{color:var(--red);border-color:color-mix(in srgb,var(--red) 45%,var(--surface))}
+/* ============ 顶层浮层：设置(底) / 状态(顶) / 队列(悬浮球) ============ */
+.scrim2{position:fixed;inset:0;background:rgba(0,0,0,.28);opacity:0;pointer-events:none;transition:opacity .2s;z-index:78}
+.scrim2.show{opacity:1;pointer-events:auto}
+.set-drawer{position:fixed;left:50%;bottom:var(--statusbar-h);transform:translate(-50%,115%);width:min(880px,calc(100vw - 32px));max-height:min(640px,calc(100vh - var(--topbar-h) - var(--statusbar-h) - 16px));background:var(--surface);border:1px solid var(--wire);border-radius:14px 14px 0 0;box-shadow:0 -10px 40px rgba(0,0,0,.16);transition:transform .24s;z-index:80;display:flex;flex-direction:column}
+.set-drawer.open{transform:translate(-50%,0)}
+.stat-drawer{position:fixed;top:var(--topbar-h);left:50%;transform:translate(-50%,-115%);width:min(880px,calc(100vw - 32px));background:var(--surface);border:1px solid var(--wire);border-radius:0 0 14px 14px;box-shadow:0 10px 40px rgba(0,0,0,.16);transition:transform .24s;z-index:80;display:none;flex-direction:column}
+.stat-drawer.open{transform:translate(-50%,0);display:flex}
+.ov-head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--wire);font-size:12.5px;font-weight:600}
+.ov-head .no{color:var(--accent);font-weight:700;margin-right:6px}
+.ov-head .hint{font-size:10px;color:var(--ink-faint);font-weight:400;margin-left:8px}
+.ov-body{padding:12px 14px;overflow-y:auto}
+.ov-sec{margin-bottom:12px}
+.ov-sec h4{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:8px}
+.sg{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.sg .lbl{font-size:11px;color:var(--ink-soft);width:110px;flex-shrink:0}
+.sg input[type=text],.sg select{flex:1;min-width:180px}
+.stat-bars{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+.stat-bar{border:1px solid var(--wire);border-radius:8px;padding:9px 11px}
+.stat-bar .k{font-size:10px;color:var(--ink-faint);display:flex;justify-content:space-between}
+.stat-bar .v{font-size:15px;font-weight:700;margin:3px 0 5px}
+.stat-bar .bar{height:5px;border-radius:5px;background:var(--surface-2);overflow:hidden}
+.stat-bar .bar i{display:block;height:100%;background:var(--accent)}
+.back-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px dashed var(--wire);font-size:11.5px}
+.back-row:last-child{border-bottom:none}
+.sb-click{cursor:pointer}
+.sb-click:hover{color:var(--accent)}
+.queue-pill{position:fixed;right:16px;bottom:44px;z-index:85;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--wire);border-radius:20px;padding:7px 14px;font-size:11.5px;font-weight:600;color:var(--ink-soft);box-shadow:0 4px 14px rgba(0,0,0,.12);cursor:pointer}
+.queue-pill:hover{border-color:var(--accent);color:var(--accent)}
+.queue-pill .qd{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0}
+.queue-pill .qd.busy{background:var(--amber)}
+.queue-pill .qd.run{background:var(--accent)}
+.queue-pill .pct{color:var(--accent-strong);font-variant-numeric:tabular-nums}
+.queue-pop{position:fixed;right:16px;bottom:82px;z-index:86;width:300px;background:var(--surface);border:1px solid var(--wire);border-radius:12px;box-shadow:0 10px 36px rgba(0,0,0,.16);padding:10px;display:none}
+.queue-pop.show{display:block}
+.queue-pop .qp-head{display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:700;color:var(--ink-faint);letter-spacing:.05em;margin-bottom:8px;text-transform:uppercase}
+.q-item{display:flex;align-items:center;gap:9px;padding:7px 8px;border:1px solid var(--wire);border-radius:8px;margin-bottom:6px;background:var(--surface)}
+.q-item:last-child{margin-bottom:0}
+.q-item .t{flex:1;min-width:0}
+.q-item .t b{display:block;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.q-item .t span{font-size:9px;color:var(--ink-faint)}
+.q-item .p{font-size:10px;font-weight:600;color:var(--accent-strong)}
+@media (max-width:760px){.stat-bars{grid-template-columns:1fr}.set-drawer{width:min(880px,94vw)}}
+@media (max-width:1100px){.masonry{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:760px){.masonry{grid-template-columns:repeat(2,1fr)}.viewer{width:calc(100vw - 24px);left:12px;top:90px}}
+</style>
+</head>
+<body>
+
+<div class="proto-nav" data-component="Proto Nav">
+  <div class="proto-panel" id="protoPanel">
+    <div class="pt">Figma 线框原型 · 页面导航</div>
+    <a href="../index.html">首页仪表盘</a>
+    <a href="generate.html">生图工作台</a>
+    <a href="gallery.html" class="cur">图片展示</a>
+    <a href="history.html">历史记录</a>
+    <a href="batch.html">批量模式</a>
+    <a href="presets.html">预设管理</a>
+  </div>
+  <button class="proto-btn" id="protoBtn" type="button">原型导航 ▾</button>
+</div>
+
+<header class="topbar" data-component="Topbar">
+  <div class="logo"><span class="figma-logo"><span class="fl fl-1"></span><span class="fl fl-2"></span><span class="fl fl-3"></span></span><span class="logo-text">Image MultiModel <i>/ 图片展示</i></span></div>
+  <div class="topbar-right">
+    <button class="icon-btn" id="themeToggle" title="主题切换" type="button">◐</button>
+    <button class="icon-btn" id="setOpen" title="设置" type="button">⚙︎</button>
+    <select style="width:172px"><option>全部引擎</option><option>FLUX.2 Klein-9B Distilled</option><option>Z-Image-Turbo</option></select>
+    <button class="share-btn" type="button">分享</button>
+    <span class="avatar"></span>
+  </div>
+</header>
+
+<div class="layout">
+  <main class="content" data-component="Gallery Content">
+    <div class="page-head">
+      <h1><span class="no">/</span>图片展示</h1>
+      <span class="hint">共 1,284 张 · 点击卡片弹出悬浮查看器（可拖动 / 缩放 / 对比）</span>
+    </div>
+    <div class="filter-row" data-component="Filter Chips">
+      <button class="f-chip on" type="button">全部</button>
+      <button class="f-chip" type="button">原图</button>
+      <button class="f-chip" type="button">超分</button>
+      <button class="f-chip" type="button">对比图</button>
+      <button class="f-chip" type="button">★ 收藏</button>
+      <span class="sp"></span>
+      <select style="width:120px" aria-label="排序"><option>按时间倒序</option><option>按尺寸</option><option>按引擎</option></select>
+    </div>
+
+    <div class="masonry" id="masonry" data-component="Gallery Grid"></div>
+  </main>
+</div>
+
+<!-- 悬浮查看器 -->
+<div class="viewer" id="viewer" data-component="Floating Viewer">
+  <div class="v-head" id="vHead">
+    <b id="vTitle">图片查看</b>
+    <span class="seed" id="vSeed">#—</span>
+    <span class="sp"></span>
+    <span class="v-tools">
+      <button id="vCompare" title="对比模式" aria-label="对比模式" type="button">⇄</button>
+      <button id="vZoomOut" title="缩小" aria-label="缩小" type="button">−</button>
+      <span style="font-size:10px;align-self:center;min-width:34px;text-align:center" id="vZoomVal">100%</span>
+      <button id="vZoomIn" title="放大" aria-label="放大" type="button">＋</button>
+      <button id="vFav" title="收藏" aria-label="收藏" type="button">☆</button>
+      <button id="vClose" title="关闭" aria-label="关闭" type="button">✕</button>
+    </span>
+  </div>
+  <div class="v-body">
+    <div class="v-img" id="vImg"><span id="vImgLabel">PREVIEW</span></div>
+  </div>
+  <div class="v-foot">
+    <span id="vMeta">FLUX.2 · 1024² · 08-08 15:24</span>
+    <span><button class="btn btn-sm" type="button">下载</button> <button class="btn btn-sm" type="button">重绘</button></span>
+  </div>
+</div>
+
+<!-- 设置底抽屉 -->
+<div class="scrim2" id="setScrim" data-component="Scrim"></div>
+<aside class="set-drawer" id="setDrawer" data-component="Settings Drawer">
+  <div class="ov-head"><span><span class="no">/</span>设置<span class="hint">底抽屉 · 全局配置</span></span><button class="icon-btn" id="setClose" type="button">✕</button></div>
+  <div class="ov-body">
+    <div class="ov-sec"><h4>引擎与模型</h4>
+      <div class="sg"><span class="lbl">默认引擎</span><select><option>FLUX.2 Klein-9B Distilled</option><option>Z-Image-Turbo</option></select></div>
+      <div class="sg"><span class="lbl">工作流目录</span><input type="text" value="workflows/"></div>
+      <div class="sg"><span class="lbl">LoRA 目录</span><input type="text" value="loras/"></div>
+      <div class="sg"><span class="lbl">SeedVR2 模型</span><input type="text" value="models/seedvr2/"></div>
+      <div class="sg"><span class="lbl"></span><button class="btn" type="button">完整资源扫描</button><span class="hint" style="align-self:center">loras/ 23 个 · 模型 2 个 · 全部就绪</span></div>
+    </div>
+    <div class="ov-sec"><h4>运行</h4>
+      <div class="sg"><span class="lbl">心跳轮询</span><select><option>每 30s</option><option>每 60s</option></select></div>
+      <div class="sg"><span class="lbl">自动拉起后端</span><select><option>on（auto_spawn_if_dead）</option><option>off</option></select></div>
+      <div class="sg"><span class="lbl">负载均衡</span><select><option>轮询</option><option>最少连接</option></select></div>
+    </div>
+    <div class="ov-sec"><h4>保留策略</h4>
+      <div class="sg"><span class="lbl">历史保留</span><select><option>90 天 / 100 GB</option><option>30 天 / 50 GB</option><option>永久</option></select></div>
+    </div>
+    <div class="ov-sec"><h4>配置</h4>
+      <div class="sg"><span class="lbl"></span><button class="btn" type="button">导出配置 JSON</button><button class="btn" type="button">导入配置 JSON</button><span class="hint" style="align-self:center">config.yaml</span></div>
+    </div>
+  </div>
+</aside>
+
+<!-- 状态顶抽屉 -->
+<aside class="stat-drawer" id="statDrawer" data-component="Status Drawer">
+  <div class="ov-head"><span><span class="no">/</span>系统状态<span class="hint">顶抽屉 · 点击底栏状态区展开</span></span><button class="icon-btn" id="statClose" type="button">✕</button></div>
+  <div class="ov-body">
+    <div class="stat-bars">
+      <div class="stat-bar"><div class="k"><span>GPU 显存</span><span>42%</span></div><div class="v">16.2 / 24 GB</div><div class="bar"><i style="width:67%"></i></div></div>
+      <div class="stat-bar"><div class="k"><span>系统内存</span><span>18%</span></div><div class="v">11.8 / 64 GB</div><div class="bar"><i style="width:18%"></i></div></div>
+      <div class="stat-bar"><div class="k"><span>磁盘 outputs/</span><span>3%</span></div><div class="v">12.6 / 480 GB</div><div class="bar"><i style="width:3%"></i></div></div>
+    </div>
+    <div class="ov-sec"><h4>ComfyUI 后端</h4>
+      <div class="back-row"><span class="dot green"></span><b>local</b><span style="color:var(--ink-faint)">127.0.0.1:8188</span><span class="chip ok">在线</span><span style="margin-left:auto;color:var(--ink-faint)">12ms</span><button class="btn btn-sm" type="button">测试</button></div>
+      <div class="back-row"><span class="dot gray"></span><b>gpu-cluster</b><span style="color:var(--ink-faint)">192.168.1.50:8188</span><span class="chip red">离线</span><span style="margin-left:auto;color:var(--ink-faint)">—</span><button class="btn btn-sm" type="button">测试</button></div>
+    </div>
+    <div class="ov-sec"><h4>引擎与资源</h4>
+      <div class="back-row"><b>FLUX.2 Klein-9B</b><span style="color:var(--ink-faint)">fp8mixed · 12GB</span><span class="chip ok">已加载</span></div>
+      <div class="back-row"><b>Z-Image-Turbo</b><span style="color:var(--ink-faint)">bf16 · 10GB</span><span class="chip">未加载</span></div>
+      <div class="back-row"><b>LoRA 资源</b><span style="color:var(--ink-faint)">loras/ · 23 个文件</span><span class="chip ok">就绪</span></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px"><button class="btn" type="button">刷新状态</button></div>
+  </div>
+</aside>
+
+<!-- 队列悬浮球 -->
+<div class="queue-pill" id="queuePill" data-component="Queue Pill"><span class="qd" id="qpDot"></span><span id="qpText">队列 1·0</span><span class="pct" id="qpPct" style="display:none"></span></div>
+<div class="queue-pop" id="queuePop" data-component="Queue Popover">
+  <div class="qp-head"><span>任务队列</span><button class="icon-btn" id="qpClose" style="width:20px;height:20px;font-size:10px" type="button">✕</button></div>
+  <div class="q-item"><div class="t"><b>88421 · 亚洲女性肖像</b><span>采样中 · steps 8/8</span></div><span class="p">42%</span></div>
+  <div class="q-item"><div class="t"><b>88397 · 赛博朋克夜景</b><span>排队中</span></div><span class="p">—</span></div>
+  <div style="margin-top:8px;text-align:right"><button class="btn btn-sm" type="button">取消当前</button></div>
+</div>
+
+<footer class="statusbar" data-component="Statusbar">
+  <div class="sb-item sb-click" id="sbConn"><span class="dot green"></span>CONN: LOCAL:8188 · 12MS</div>
+  <div class="sb-item sb-click" id="sbQueue">QUEUE 1·0</div>
+  <div class="sb-right">
+    <div class="sb-item">GPU 16.2/24GB</div>
+    <div class="sb-item">ENGINE: FLUX.2 KLEIN</div>
+  </div>
+</footer>
+
+<script>
+var cards=[
+ ['PORTRAIT','亚洲女性肖像','原图','FLUX.2 · 1024² · 88421','88421','★'],
+ ['CYBER','赛博朋克夜景','超分','FLUX.2 · 2048² · 88397','88397',''],
+ ['ZEN','日本庭院枯山水','对比图','Z-Turbo · 4096×2048 · 88355','88355',''],
+ ['STAGE','韩式女团舞台照','原图','Z-Turbo · 1024² · 88321','88321',''],
+ ['FILM','老式胶片相机静物','超分','FLUX.2 · 3072×1536 · 88290','88290','★'],
+ ['NIGHT','城市夜景长曝','对比图','FLUX.2 · 4096×2048 · 88264','88264',''],
+ ['FLOWER','微观花卉微距','原图','FLUX.2 · 1024² · 88212','88212',''],
+ ['CAT','布偶猫肖像','超分','Z-Turbo · 2048² · 88178','88178',''],
+ ['MOUNTAIN','雪山日出','对比图','FLUX.2 · 3072×1536 · 88123','88123',''],
+ ['FOOD','日式料理特写','原图','Z-Turbo · 1024² · 88067','88067','★'],
+ ['MECH','机械装甲概念','超分','FLUX.2 · 2048² · 87990','87990',''],
+ ['SPACE','深空星云','对比图','FLUX.2 · 4096×2048 · 87921','87921','']
+];
+var masonry=document.getElementById('masonry');
+cards.forEach(function(c,i){
+  var d=document.createElement('div');d.className='g-card';d.dataset.i=i;
+  d.innerHTML='<span class="g-type">'+c[2]+'</span><button class="g-fav'+(c[5]==='★'?' on':'')+'" type="button">'+(c[5]==='★'?'★':'☆')+'</button><div class="ph">'+c[0]+'</div><div class="g-meta"><b>'+c[1]+'</b><span>'+c[3]+'</span></div>';
+  d.querySelector('.g-fav').addEventListener('click',function(ev){ev.stopPropagation();this.classList.toggle('on');this.textContent=this.classList.contains('on')?'★':'☆';});
+  d.addEventListener('click',function(){openViewer(i);});
+  masonry.appendChild(d);
+});
+/* 悬浮查看器 */
+var viewer=document.getElementById('viewer'),vImg=document.getElementById('vImg'),vImgLabel=document.getElementById('vImgLabel');
+var vTitle=document.getElementById('vTitle'),vSeed=document.getElementById('vSeed'),vMeta=document.getElementById('vMeta'),vZoomVal=document.getElementById('vZoomVal');
+var zoom=100,compare=false,cur=0;
+function openViewer(i){
+  cur=i;zoom=100;compare=false;
+  vTitle.textContent=cards[i][1];vSeed.textContent=cards[i][4];vMeta.textContent=cards[i][3];
+  vImgLabel.textContent=cards[i][0];
+  viewer.classList.add('show');
+  renderImg();
+}
+function renderImg(){
+  vImg.style.transform='scale('+(zoom/100)+')';
+  vImg.className='v-img'+(compare?' compare':'');
+  vZoomVal.textContent=zoom+'%';
+  if(compare){
+    vImg.innerHTML='<div class="half">BEFORE · 1024²</div><div class="half">AFTER · 2048²</div>';
+  }else{
+    vImg.innerHTML='<span id="vImgLabel">'+cards[cur][0]+'</span>';
+  }
+  document.getElementById('vCompare').classList.toggle('on',compare);
+}
+document.getElementById('vCompare').addEventListener('click',function(){compare=!compare;renderImg();});
+document.getElementById('vZoomIn').addEventListener('click',function(){zoom=Math.min(200,zoom+25);renderImg();});
+document.getElementById('vZoomOut').addEventListener('click',function(){zoom=Math.max(50,zoom-25);renderImg();});
+document.getElementById('vFav').addEventListener('click',function(){this.classList.toggle('on');this.textContent=this.classList.contains('on')?'★':'☆';});
+document.getElementById('vClose').addEventListener('click',function(){viewer.classList.remove('show');});
+/* 拖动 */
+var dragging=false,dx=0,dy=0;
+document.getElementById('vHead').addEventListener('pointerdown',function(e){
+  dragging=true;dx=e.clientX-viewer.offsetLeft;dy=e.clientY-viewer.offsetTop;
+  this.setPointerCapture(e.pointerId);
+});
+document.getElementById('vHead').addEventListener('pointermove',function(e){
+  if(!dragging)return;
+  viewer.style.left=(e.clientX-dx)+'px';viewer.style.top=(e.clientY-dy)+'px';
+});
+document.getElementById('vHead').addEventListener('pointerup',function(){dragging=false;});
+/* 主题 / 导航 */
+var themeBtn=document.getElementById('themeToggle');
+themeBtn.addEventListener('click',function(){
+  var dark=document.documentElement.getAttribute('data-theme')==='dark';
+  document.documentElement.setAttribute('data-theme',dark?'light':'dark');
+  themeBtn.textContent=dark?'◐':'◑';
+});
+document.getElementById('protoBtn').addEventListener('click',function(){document.getElementById('protoPanel').classList.toggle('show');});
+/* ===== 设置 / 状态 / 队列 浮层 ===== */
+var setD=document.getElementById('setDrawer'),setSc=document.getElementById('setScrim');
+function openSet(){setD.classList.add('open');setSc.classList.add('show');}
+function closeSet(){setD.classList.remove('open');setSc.classList.remove('show');}
+document.getElementById('setOpen').addEventListener('click',openSet);
+document.getElementById('setClose').addEventListener('click',closeSet);
+setSc.addEventListener('click',closeSet);
+var statD=document.getElementById('statDrawer');
+function openStat(){statD.classList.add('open');}
+document.querySelectorAll('.sb-click').forEach(function(el){el.addEventListener('click',openStat);});
+document.getElementById('statClose').addEventListener('click',function(){statD.classList.remove('open');});
+var qpop=document.getElementById('queuePop');
+document.getElementById('queuePill').addEventListener('click',function(){qpop.classList.toggle('show');});
+document.getElementById('qpClose').addEventListener('click',function(e){e.stopPropagation();qpop.classList.remove('show');});
+document.querySelector('.queue-pop .btn-sm').addEventListener('click',function(){qpop.classList.remove('show');});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeSet();statD.classList.remove('open');qpop.classList.remove('show');}});
+document.addEventListener('keydown',function(e){if(e.key==='Escape')viewer.classList.remove('show');});
+</script>
+</body>
+</html>
