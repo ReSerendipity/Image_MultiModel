@@ -91,8 +91,12 @@ def test_generate_invalid_payload_422(client: TestClient) -> None:
 
 
 def test_presets_create_ok(client: TestClient) -> None:
+    """预设创建可写（唯一名称，保证测试幂等）"""
+    import uuid
+
+    name = f"契约测试预设-{uuid.uuid4().hex[:8]}"
     r = client.post(
         "/api/presets",
-        json={"name": "契约测试预设", "engine_name": "flux2_klein_9b_distilled", "config": {"steps": 8}},
+        json={"name": name, "engine_name": "flux2_klein_9b_distilled", "config": {"steps": 8}},
     )
     assert r.status_code == 200
