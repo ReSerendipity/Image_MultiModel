@@ -2,6 +2,7 @@
 clean_launch.py — 启动加固（附录 E1）
 
 安全启动 Image MultiModel 应用：
+- 自动检测并使用 WinPython（不使用系统 Python）
 - 检查 Python 版本
 - 检查依赖
 - 设置环境变量
@@ -16,6 +17,27 @@ from pathlib import Path
 # ── 项目根目录 ───────────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 BIN_DIR = Path(__file__).resolve().parent
+
+# ── WinPython 自动检测 ───────────────────────────────────────
+# 优先使用项目内的 WPy64 目录，其次查找参考项目的 WinPython
+def find_winpython():
+    """查找 WinPython python.exe 路径"""
+    # 1. 项目内的 WinPython
+    for wpy_dir in PROJECT_ROOT.glob("WPy64-*"):
+        py = wpy_dir / "python" / "python.exe"
+        if py.exists():
+            return str(py)
+    # 2. 参考项目 Seedvr2 的 WinPython
+    ref_wpy = Path(r"C:\Users\Doro\Seedvr2\WPy64-312101\python\python.exe")
+    if ref_wpy.exists():
+        return str(ref_wpy)
+    # 3. 参考项目 TTS_MultiModel 的 WinPython
+    ref_wpy2 = Path(r"C:\Users\Doro\TTS_MultiModel\WPy64-312101\python\python.exe")
+    if ref_wpy2.exists():
+        return str(ref_wpy2)
+    # 4. 回退到当前 Python（如果 WinPython 不存在）
+    return sys.executable
+
 
 # ── 环境变量（附录 E1）──────────────────────────────────────
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
@@ -34,6 +56,7 @@ def check_python_version():
         print(f"[ERROR] Python 3.10+ required, got {sys.version}")
         sys.exit(1)
     print(f"[OK] Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")
+    print(f"[OK] Python executable: {sys.executable}")
 
 
 def check_dependencies():
@@ -95,12 +118,23 @@ def check_models():
             print(f"[WARN] {d}/ not found")
 
 
+def check_winpython():
+    """检查 WinPython 环境"""
+    wpy_path = find_winpython()
+    if "WPy64" in wpy_path:
+        print(f"[OK] WinPython detected: {wpy_path}")
+    else:
+        print(f"[WARN] WinPython not found, using: {wpy_path}")
+    return wpy_path
+
+
 def launch():
     """启动应用"""
     print("\n" + "=" * 60)
     print("  Image MultiModel — Launching...")
     print("=" * 60)
 
+    check_winpython()
     check_python_version()
     check_dependencies()
     check_config()
@@ -132,4 +166,10 @@ def launch():
 
 
 if __name__ == "__main__":
-    launch()
+    # 如果不是 WinPython 在运行，重启为 WinPython
+    wpy = find_winpython()
+    if "WPy64" in wpy and "WPy64" not in sys.executable:
+        print(f"[INFO] Relaunching with WinPython: {wpy}")
+        os.execv(wpy, [wpy, __file__])
+    else:
+        launch()

@@ -19,6 +19,8 @@ PRD 与 WEBAPP_GUIDE 存在 6 处不一致，按用户已确认决策裁决如�
 | 目录结构 | `bin/integrated_app/`（5.2，与参考项目对齐） | `app/`（第 4 节） | **bin/integrated_app/**，静态单页放 `static/`，`app/` 方案作废 |
 | i18n | FR-2.11.1：YAML + HTMX data-i18n | 前端 JS 字典 + data-i18n | **前端 JS 字典**（沿用原型实现）+ localStorage 持久化 + 防闪烁（附录 E2 原则）；后端错误文案并入前端字典 |
 | API 形态 | HTMX form + hx-sse | REST JSON + 轮询 | **REST JSON 为主 + SSE 单连接推送**（PRD 2.9 事件 + 附录 C2） |
+| HTTP 客户端 | httpx + aiosqlite（PRD 附录） | — | **保留 aiohttp + sqlite3**（理由：aiohttp 与 ComfyUI WebSocket 生态兼容、sqlite3 同步已够用，参考项目 Seedvr2/TTS_MultiModel 已验证可行） |
+| Python 版本 | 3.12+（PRD 目标） | — | **3.12.10 已验证**（WinPython WPy64-312101），3.14.6 亦兼容（39 测试绿）；发布便携包锁定 3.12 LTS |
 
 里程碑映射：PRD M0~M6（16 周，功能导向）为主干线；WEBAPP_GUIDE M0~M3（骨架/执行/数据）并入对应阶段（见 §9）。
 

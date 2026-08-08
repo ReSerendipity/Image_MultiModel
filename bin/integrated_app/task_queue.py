@@ -94,7 +94,7 @@ class TaskQueue:
             try:
                 cb(task_id, status, extra or {})
             except Exception as e:
-                logger.warning(f"Status callback error: e}")
+                logger.warning(f"Status callback error: {e}")
 
     def generate_task_id(self) -> str:
         """生成唯一任务 ID"""

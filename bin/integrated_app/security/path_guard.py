@@ -8,6 +8,7 @@ security/path_guard.py — 路径穿越守卫
 from __future__ import annotations
 
 import os
+import urllib.parse
 from pathlib import Path
 from typing import List, Optional, Union
 
@@ -54,11 +55,22 @@ class PathGuard:
         Raises:
             PathGuardError: 如果路径不在白名单内
         """
-        p = Path(user_path)
+        # 解码 URL 编码（防止 %2e%2e 绕过）
+        if isinstance(user_path, str):
+            decoded = urllib.parse.unquote(user_path)
+        else:
+            decoded = str(user_path)
+        p = Path(decoded)
 
-        # 如果是相对路径，相对于 project_root 解析
+        # 如果是相对路径，相对于 base_dir 或 project_root 解析
         if not p.is_absolute():
-            p = self.project_root / p
+            if base_dir:
+                bp = Path(base_dir)
+                if not bp.is_absolute():
+                    bp = self.project_root / bp
+                p = bp / p
+            else:
+                p = self.project_root / p
 
         # 规范化路径（消除 .., ., symlinks）
         try:
@@ -99,7 +111,7 @@ class PathGuard:
 
     def safe_join(self, base_dir: str, *parts: str) -> Path:
         """
-        安全拼接路径。
+        安全拼接路径（相对于 base_dir 解析）。
 
         Args:
             base_dir: 白名单基础目录 key
@@ -108,8 +120,11 @@ class PathGuard:
         Returns:
             解析后的绝对路径
         """
-        joined = Path(*parts)
-        return self.resolve(joined, base_dir=base_dir)
+        bp = Path(base_dir)
+        if not bp.is_absolute():
+            bp = self.project_root / bp
+        joined = bp.joinpath(*parts)
+        return self.resolve(str(joined), base_dir=base_dir)
 
     def _is_within(self, path: Path, base: Path) -> bool:
         """检查 path 是否在 base 目录内"""
