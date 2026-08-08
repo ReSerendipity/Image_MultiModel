@@ -13,11 +13,25 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from ..config import get_config, save_config, reload_config
-from ..config_models import AppConfig
+from ..config_models import AppConfig, scan_resource_files
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/config", tags=["config"])
+
+
+@router.get("/loras")
+async def list_loras() -> Dict[str, Any]:
+    """GET /api/config/loras — 扫描 LoRA 目录，返回相对路径列表（前端下拉用）"""
+    cfg = get_config()
+    try:
+        files = scan_resource_files(
+            "lora", cfg.models, cfg.project_root, (".safetensors",)
+        )
+    except Exception as e:
+        logger.error(f"LoRA scan failed: {e}")
+        raise HTTPException(status_code=500, detail=f"LoRA scan failed: {e}")
+    return {"loras": files, "count": len(files), "mode": cfg.models.model_source_mode}
 
 
 class ConfigUpdateRequest(BaseModel):

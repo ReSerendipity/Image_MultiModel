@@ -7,6 +7,13 @@
 | 检查对象 | 对照 `MASTER_PLAN.md`（v1.0 执行依据）审计当前代码库 |
 | 检查结论 | 骨架完成度高（M0 主体 + M1 雏形），但 **2 个阻断项**（应用无法启动 / 前端未接线）+ **若干缺口**，未达 M0 验收 |
 
+> **执行记录（2026-08-08 复查更新）**
+> - R1 / R2 / Y1~Y6：✅ 已全部解决（git `c4da858`，102 测试全绿，M0 冒烟：首页/health/config/SSE 全部 200）
+> - **F1 生成主链路：✅ 已闭环**（本次修复：① 删除残留模拟函数与监听（startGen/cancelGen/renderOut 定时器）；② `startGenReal` 请求字段与元素选择对齐后端 `GenerateRequest` 全部字段（LoRA 用 `#loraStack` 选择器、SeedVR2 用 upscaleRes/upscaleSeed/colorCorr、补 color_correction/axis/vram_mode/output_prefix）；③ SSE 路径 `/api/events` 与后端一致；④ 补 `sb-gpu` 状态栏元素使 gpu_status SSE 生效；⑤ 展示后端 `estimated_time_s` 预计耗时）
+> - **F3 LoRA 下拉：✅ 已闭环**（后端新增 `GET /api/config/loras` 扫描端点，复用 `scan_resource_files('lora')`；前端打开高级参数抽屉即拉取填充 6 个下拉（按文件名保留默认、缺失回退禁用），设置抽屉「完整资源扫描」按钮联动刷新。实测返回 64 个真实 LoRA 文件，mode=shared）
+> - 已实测：`POST /api/generate` 返回业务错误"引擎不可用"而非 422 → 请求体与 Schema 完全对齐；前端无裸 `startGen()/cancelGen()/renderOut()` 残留、`Math.random` 假进度 = 0
+> - 剩余：F4 估算走后端（可选增强）；**真实出图联调需本机启动 ComfyUI + 模型**（M2 验收点）
+
 ---
 
 ## 0. 当前进度定位

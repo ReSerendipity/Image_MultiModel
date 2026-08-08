@@ -592,7 +592,7 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
         <div class="acc-body">
           <div class="fgrid">
             <div class="fgroup"><label>输出格式</label><select disabled><option>png（固定）</option></select></div>
-            <div class="fgroup"><label>文件名前缀模板</label><input value="{engine}" maxlength="80"><div class="hint">{date}/{engine}/{seed}/{task_id} · ≤80</div></div>
+            <div class="fgroup"><label>文件名前缀模板</label><input id="outputPrefix" value="{engine}" maxlength="80"><div class="hint">{date}/{engine}/{seed}/{task_id} · ≤80</div></div>
           </div>
         </div>
       </div>
@@ -732,7 +732,7 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
       <div class="sg"><span class="lbl">工作流目录</span><input type="text" value="workflows/"></div>
       <div class="sg"><span class="lbl">LoRA 目录</span><input type="text" value="loras/"></div>
       <div class="sg"><span class="lbl">SeedVR2 模型</span><input type="text" value="models/seedvr2/"></div>
-      <div class="sg"><span class="lbl"></span><button class="btn" type="button">完整资源扫描</button><span class="hint" style="align-self:center">loras/ 23 个 · 模型 2 个 · 全部就绪</span></div>
+      <div class="sg"><span class="lbl"></span><button class="btn" id="scanBtn" type="button">完整资源扫描</button><span class="hint" id="scanHint" style="align-self:center">loras/ 0 个 · 待扫描</span></div>
     </div>
     <div class="ov-sec"><h4>运行</h4>
       <div class="sg"><span class="lbl">心跳轮询</span><select><option>每 30s</option><option>每 60s</option></select></div>
@@ -835,7 +835,7 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
   <div class="sb-item sb-click" id="sbConn"><span class="dot green"></span>CONN: LOCAL:8188 · 12MS</div>
   <div class="sb-item sb-click" id="sbQueue">QUEUE 1·0</div>
   <div class="sb-right">
-    <div class="sb-item">GPU 16.2/24GB</div>
+    <div class="sb-item sb-gpu">GPU 16.2/24GB</div>
     <div class="sb-item">ENGINE: FLUX.2 KLEIN</div>
     <span class="zoom"><button class="z-btn" id="zOut" type="button" aria-label="缩小">−</button><span class="z-val" id="zVal">100%</span><button class="z-btn" id="zIn" type="button" aria-label="放大">＋</button></span>
   </div>
@@ -880,6 +880,7 @@ function openRight(key){
   document.getElementById(m[2]).classList.add('active');
   drawer.classList.toggle('wide',m[3]);
   drawerFoot.classList.toggle('hide',key!=='adv');
+  if(key==='adv')loadLoras();
   drawer.classList.add('open');scrim.classList.add('show');
 }
 function closeRight(){drawer.classList.remove('open');scrim.classList.remove('show');}
@@ -949,14 +950,10 @@ var progFill=document.getElementById('progFill'),phaseText=document.getElementBy
 var outGrid=document.getElementById('outGrid');
 var qpDot=document.getElementById('qpDot'),qpText=document.getElementById('qpText'),qpPct=document.getElementById('qpPct'),qpop=document.getElementById('queuePop');
 var timer=null,progress=0;
-var phases=[[5,'排队中…'],[40,'采样中 · steps 8/8 (dpmpp_3m_sde_gpu)'],[72,'SeedVR2 超分 2048 · chunk 1/1'],[90,'Eses 对比拼接 (horizontal)'],[100,'保存与入库']];
-function startGen(){if(timer)return;progress=0;genBtn.disabled=true;genProgress.classList.add('show');progFill.style.width='0%';phaseText.textContent='排队中…';qpDot.className='qd run';qpPct.style.display='';qpText.textContent='生成中';timer=setInterval(function(){progress+=Math.random()*2.4+0.7;if(progress>=100){clearInterval(timer);timer=null;genBtn.disabled=false;phaseText.textContent='完成 · 3 张输出 · 耗时 42.3s';progFill.style.width='100%';qpDot.className='qd';qpPct.style.display='none';qpText.textContent='队列 0·0 · 完成';renderOut();}else{progFill.style.width=progress+'%';var cur=phases[0];phases.forEach(function(p){if(progress>=p[0])cur=p;});phaseText.textContent=cur[1]+' · '+Math.floor(progress)+'%';qpPct.textContent=Math.floor(progress)+'%';}},180);}
-function cancelGen(){if(!timer)return;clearInterval(timer);timer=null;genBtn.disabled=false;phaseText.textContent='已取消 (status=cancelled)';progFill.style.width='0%';genProgress.classList.remove('show');qpDot.className='qd';qpPct.style.display='none';qpText.textContent='队列 1·0';}
-function renderOut(){var imgs=[['原直通图','1024×1024 · PNG · seed 88421','1/1'],['SeedVR2 超分','2048×2048 · PNG · seed 88421','1/1'],['Eses 对比图','4096×2048 · PNG · seed 88421','2/1']];outGrid.innerHTML='';imgs.forEach(function(x){var c=document.createElement('div');c.className='r-card';c.style.setProperty('--ar',x[2]);c.innerHTML='<div class="ph-img">'+x[0].toUpperCase()+'<div class="r-actions"><button class="btn btn-sm" type="button">下载</button><button class="btn btn-sm" type="button">收藏</button><button class="btn btn-sm" type="button">重绘</button></div></div><div class="r-meta"><b>'+x[0]+'</b><span>'+x[1]+'</span></div>';outGrid.appendChild(c);});}
-genBtn.addEventListener('click',function(){var e=estCount();if(e.total>=5000){if(!window.confirm('⚠ 将生成 '+e.total+' 张（batch='+e.n+'，开 SeedVR2 chunk=4）。预计 '+Math.ceil(e.total/3000)+' 小时，确认？（模拟）'))return;}else if(e.total>=500){if(!window.confirm('⚠ 将生成 '+e.total+' 张，预计 '+(e.total*1.5/60).toFixed(0)+' 分钟，确认？（模拟）'))return;}startGen();});
+/* 生成流程由下方 F1 真实层接管（startGenReal / cancelGenReal / renderOutReal） */
 document.getElementById('queuePill').addEventListener('click',function(){qpop.classList.toggle('show');});
 document.getElementById('qpClose').addEventListener('click',function(e){e.stopPropagation();qpop.classList.remove('show');});
-document.querySelector('.queue-pop .btn-sm').addEventListener('click',function(){cancelGen();qpop.classList.remove('show');});
+/* (队列取消已由 F1 真实层接管) */
 /* ---------- 图片展示（抽屉内 + 悬浮查看器） ---------- */
 var gCards=[['PORTRAIT','亚洲女性肖像','原图','FLUX.2 · 1024² · 88421','88421','1/1'],['CYBER','赛博朋克夜景','超分','FLUX.2 · 2048² · 88397','88397','1/1'],['ZEN','日本庭院枯山水','对比图','Z-Turbo · 4096×2048 · 88355','88355','2/1'],['STAGE','韩式女团舞台照','原图','Z-Turbo · 1024² · 88321','88321','1/1'],['FILM','老式胶片相机静物','超分','FLUX.2 · 3072×1536 · 88290','88290','2/1'],['NIGHT','城市夜景长曝','对比图','FLUX.2 · 4096×2048 · 88264','88264','2/1'],['FLOWER','微观花卉微距','原图','FLUX.2 · 1024² · 88212','88212','1/1'],['CAT','布偶猫肖像','超分','Z-Turbo · 2048² · 88178','88178','1/1']];
 var gMasonry=document.getElementById('gMasonry');
@@ -1090,6 +1087,12 @@ evt.addEventListener('gpu_status',function(e){
 // 覆盖 startGen → POST /api/generate
 function startGenReal(){
   if(timer)return;
+  var loraSels=document.querySelectorAll('#loraStack .lora-name');
+  var loraSliders=document.querySelectorAll('#loraStack .r2 input[type=range]');
+  function loraName(i){var s=loraSels[i];if(!s)return '';var v=s.value;return(v==='— 禁用 —')?'':v;}
+  function loraStrength(i){var s=loraSliders[i];return s?(+s.value||0):0;}
+  var axisEl=document.querySelector('input[name="axis"]:checked');
+  var outPrefix=document.getElementById('outputPrefix');
   var cfg={
     positive_prompt:posPrompt.value||'',
     negative_prompt:negPrompt.value||'',
@@ -1099,25 +1102,24 @@ function startGenReal(){
     height:+document.getElementById('height').value||1024,
     seed:+document.getElementById('seed').value||-1,
     batch_size:+document.getElementById('batchSize').value||1,
-    lora_1_name:document.getElementById('lora1').value||'',
-    lora_1_strength:+document.getElementById('lora1s').value||1.0,
-    lora_2_name:document.getElementById('lora2').value||'',
-    lora_2_strength:+document.getElementById('lora2s').value||0.7,
-    lora_3_name:document.getElementById('lora3').value||'',
-    lora_3_strength:+document.getElementById('lora3s').value||0.5,
-    lora_4_name:document.getElementById('lora4').value||'',
-    lora_4_strength:+document.getElementById('lora4s').value||0.4,
-    lora_5_name:document.getElementById('lora5').value||'',
-    lora_5_strength:+document.getElementById('lora5s').value||0.3,
-    lora_6_name:document.getElementById('lora6').value||'',
-    lora_6_strength:+document.getElementById('lora6s').value||0.2,
+    lora_1_name:loraName(0),lora_1_strength:loraStrength(0),
+    lora_2_name:loraName(1),lora_2_strength:loraStrength(1),
+    lora_3_name:loraName(2),lora_3_strength:loraStrength(2),
+    lora_4_name:loraName(3),lora_4_strength:loraStrength(3),
+    lora_5_name:loraName(4),lora_5_strength:loraStrength(4),
+    lora_6_name:loraName(5),lora_6_strength:loraStrength(5),
     seedvr2_enable:document.getElementById('seedvr2Toggle').checked,
-    seedvr2_resolution:+document.getElementById('seedvr2Res').value||2048,
-    seedvr2_seed:+document.getElementById('seedvr2Seed').value||-1,
+    seedvr2_resolution:+document.getElementById('upscaleRes').value||2048,
+    seedvr2_seed:+document.getElementById('upscaleSeed').value||-1,
+    seedvr2_color_correction:document.getElementById('colorCorr').value||'lab',
     eses_enable:document.getElementById('esesToggle').checked,
+    eses_compare_axis:axisEl?axisEl.value:'horizontal',
     vram_enable:document.getElementById('vramToggle').checked,
     vram_reserved_gb:+document.getElementById('vramGb').value||0.6,
+    vram_mode:document.getElementById('vramMode').value||'auto',
     vram_seed:+document.getElementById('vramSeed').value||-1,
+    output_format:'png',
+    output_prefix:outPrefix?outPrefix.value:'{engine}',
     engine_name:document.getElementById('engineSelect').value
   };
   genBtn.disabled=true;
@@ -1128,7 +1130,7 @@ function startGenReal(){
   API.post('/generate',cfg).then(function(r){
     if(r.task_id){
       currentTaskId=r.task_id;
-      phaseText.textContent='排队中…';
+      phaseText.textContent=r.estimated_time_s?('排队中…（预计 '+(r.estimated_time_s>=60?Math.ceil(r.estimated_time_s/60)+' 分钟':Math.ceil(r.estimated_time_s)+'s')+'）'):'排队中…';
       if(r.warning)console.warn('[Gen] Warning:',r.warning);
     }else{
       genBtn.disabled=false;
@@ -1177,6 +1179,27 @@ genBtn.onclick=function(){
 // 覆盖取消按钮
 document.querySelector('.queue-pop .btn-sm').onclick=function(){cancelGenReal();qpop.classList.remove('show');};
 
+/* ---------- F3: LoRA 下拉 ← 后端资源扫描 ---------- */
+var _lorasLoaded=false;
+function loadLoras(){
+  if(_lorasLoaded)return;
+  fetch('/api/config/loras').then(function(r){return r.json();}).then(function(d){
+    var sels=document.querySelectorAll('#loraStack .lora-name');
+    if(!sels.length)return;
+    var items=d.loras||[];
+    sels.forEach(function(sel){
+      var cur=sel.value;
+      sel.innerHTML='<option>— 禁用 —</option>';
+      var match=null;
+      items.forEach(function(p){var o=document.createElement('option');o.value=p;o.textContent=p.split('/').pop();sel.appendChild(o);if(p.split('/').pop()===cur)match=p;});
+      sel.value=match||'— 禁用 —';
+    });
+    _lorasLoaded=true;
+    var h=document.getElementById('scanHint');if(h)h.textContent='loras/ '+d.count+' 个 · 模式 '+(d.mode==='portable'?'portable':'shared');
+  }).catch(function(e){console.warn('[LoRA] load failed:',e);});
+}
+var scanBtn=document.getElementById('scanBtn');
+if(scanBtn)scanBtn.addEventListener('click',function(){_lorasLoaded=false;loadLoras();});
 /* ---------- F2: 设置顶抽屉 ---------- */
 // 进入设置抽屉时加载配置
 var _origOpenSet=openSet;
