@@ -260,6 +260,19 @@ class WorkflowManager:
                 if name in wmap:
                     v = widgets[wmap[name]]
                     if v is not None:
+                        sp = spec.get("required", {}).get(name) or spec.get("optional", {}).get(name)
+                        # COMBO（如 lora_name）：值需与 ComfyUI 选项完全一致（Windows 用反斜杠路径）
+                        # 兼容两种格式：旧式 spec[0] 为选项 list；新式 spec[0]=='COMBO' + options 在 spec[1]
+                        if sp and (sp[0] == "COMBO" or isinstance(sp[0], list)):
+                            opts = []
+                            if sp[0] == "COMBO":
+                                opts = (sp[1] if len(sp) > 1 else {}).get("options") or []
+                            elif isinstance(sp[0], list):
+                                opts = sp[0]
+                            if isinstance(v, str) and v not in opts:
+                                alt = v.replace("/", "\\") if "/" in v else v.replace("\\", "/")
+                                if alt in opts:
+                                    v = alt
                         inputs[name] = v
                     continue
                 # 无 widget 且未链接：COMBO 用首选项兜底

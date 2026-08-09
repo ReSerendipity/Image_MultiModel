@@ -125,6 +125,7 @@ class ComfyEngine:
         self,
         config: GenerationConfig,
         on_progress: Optional[ProgressCallback] = None,
+        max_wait_s: int = 1200,
     ) -> List[str]:
         """
         执行文生图推理。
@@ -161,6 +162,7 @@ class ComfyEngine:
         # 3. WS 监听进度；WS 断开/超时后转 HTTP 轮询 history，直到出结果或出错
         await self._client.connect_ws()
         ws_alive = True
+        t_start = time.time()
 
         def _handle_msg(msg: Dict[str, Any]) -> Optional[str]:
             """处理一条 WS 消息；返回 'done' 表示正常结束"""
@@ -197,6 +199,8 @@ class ComfyEngine:
             if self._cancel_requested:
                 await self._client.interrupt()
                 raise asyncio.CancelledError("Generation cancelled by user")
+            if time.time() - t_start > max_wait_s:
+                raise RuntimeError(f"Generation timed out after {max_wait_s}s")
 
             if ws_alive:
                 msg = await self._client.ws_recv()
