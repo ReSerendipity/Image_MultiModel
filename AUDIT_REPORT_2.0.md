@@ -13,6 +13,7 @@
 > - **F3 LoRA 下拉：✅ 已闭环**（后端新增 `GET /api/config/loras` 扫描端点，复用 `scan_resource_files('lora')`；前端打开高级参数抽屉即拉取填充 6 个下拉（按文件名保留默认、缺失回退禁用），设置抽屉「完整资源扫描」按钮联动刷新。实测返回 64 个真实 LoRA 文件，mode=shared）
 > - **契约测试：✅ 已补充**（新增 `tests/test_api_contract.py` 7 例：health/config/loras/列表端点 200、生成合法体非 422/500、非法体 422、预设创建；全套 **109 测试全绿**）
 > - **F4 估算：决策为保持前端**（"预计生成 N 张"依赖实时表单态，前端即时计算是设计使然；后端已提供 `estimated_time_s` 预计耗时并展示）
+> - **M6 部分前置：✅ 已补充**（git `615f4bd`：`watermark.py` DCT 频域水印（numpy-only，嵌入 product_id|task_id|timestamp）+ 4 例测试；`scripts/setup_symlinks.ps1`（shared 模式 Junction 维护）、`scripts/pack_portable.ps1`（便携包 7 步）、`scripts/verify_watermark.py`（溯源验证 CLI）；requirements 补 numpy/pillow。全套 **113 测试全绿**）
 > - 已实测：`POST /api/generate` 返回业务错误"引擎不可用"而非 422 → 请求体与 Schema 完全对齐；前端无裸 `startGen()/cancelGen()/renderOut()` 残留、`Math.random` 假进度 = 0
 > - 剩余：**真实出图联调需本机启动 ComfyUI + 模型**（M2 验收点）；F4 保持前端估算（见上）
 
