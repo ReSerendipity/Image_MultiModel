@@ -130,6 +130,147 @@ class WorkflowManager:
 
         return wf
 
+    # ── UI 格式 → ComfyUI API 格式（含子图展开 + bypass 移除重连）──
+    def to_api_format(
+        self,
+        wf: Dict[str, Any],
+        object_info: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """
+        将 patched 的 UI 格式工作流（含子图 definitions）转换为 ComfyUI /prompt
+        需要的 API 格式：{"<id>": {"class_type": ..., "inputs": {...}}}。
+
+        处理：
+        1) 子图展开：子图输入（-10 → 字面值）、子图输出（-20 → 上游 origin）
+        2) bypass 节点（mode=4 / 预览链 / 空名 LoRA）从图中移除并递归重连链路
+        3) widgets_values → 具名 inputs（依赖 /object_info 的输入顺序）
+        """
+        # ── 1. 节点与子图 ──
+        top_nodes = list(wf.get("nodes", []))
+        subs = wf.get("definitions", {}).get("subgraphs", []) or []
+        sub = subs[0] if subs else None
+        sub_nodes = list(sub.get("nodes", [])) if sub else []
+        nodes_by_id: Dict[int, Dict[str, Any]] = {}
+        for n in top_nodes + sub_nodes:
+            nodes_by_id[n["id"]] = n
+
+        subgraph_id: Optional[int] = None
+        sub_widgets: List[Any] = []
+        if sub:
+            for n in top_nodes:
+                if n.get("type") == sub.get("id"):
+                    subgraph_id = n["id"]
+                    sub_widgets = list(n.get("widgets_values") or [])
+
+        # ── 2. 链接（兼容 list / dict 两种格式）──
+        raw_links: List[Any] = list(wf.get("links", []))
+        if sub:
+            raw_links.extend(sub.get("links", []))
+        links: List[Dict[str, Any]] = []
+        for L in raw_links:
+            if isinstance(L, (list, tuple)) and len(L) >= 6:
+                links.append({
+                    "id": L[0], "origin_id": L[1], "origin_slot": L[2],
+                    "target_id": L[3], "target_slot": L[4], "type": L[5],
+                })
+            elif isinstance(L, dict):
+                links.append(L)
+
+        # ── 3. 确定移除节点 ──
+        removed: set = set()
+        for nid, n in nodes_by_id.items():
+            t = n.get("type", "")
+            if t in ("ImageScaleToTotalPixels", "PreviewImage", "Fast Groups Bypasser (rgthree)"):
+                removed.add(nid)
+            elif n.get("mode") == 4:
+                removed.add(nid)
+            elif t == "LoraLoaderModelOnly" and not (n.get("widgets_values") or [None])[0]:
+                removed.add(nid)  # 空名 = 该层禁用 → 移除并重连
+
+        # ── 4. bypass 上游映射 + 子图输出映射 ──
+        in_of: Dict[tuple, tuple] = {}
+        for L in links:
+            if L["target_id"] in removed:
+                in_of[(L["target_id"], L["target_slot"])] = (L["origin_id"], L["origin_slot"])
+        sub_out: Dict[int, tuple] = {}
+        for L in links:
+            if L["target_id"] == -20:
+                sub_out[L["target_slot"]] = (L["origin_id"], L["origin_slot"])
+
+        memo: Dict[tuple, tuple] = {}
+
+        def ro(oid: int, osl: int, depth: int = 0) -> tuple:
+            """递归解析 origin：-10=子图输入值 / subgraph=子图输出 / removed=上游"""
+            key = (oid, osl)
+            if key in memo:
+                return memo[key]
+            if depth > 20:
+                return key
+            if oid == -10:
+                r = ("#value", osl)
+            elif oid == subgraph_id:
+                r = ro(*sub_out.get(osl, (oid, osl)), depth + 1)
+            elif oid in removed:
+                r = ro(*in_of.get(key, (oid, osl)), depth + 1)
+            else:
+                r = key
+            memo[key] = r
+            return r
+
+        # ── 5. 生成 API prompt ──
+        def _is_primitive(t0: Any) -> bool:
+            return isinstance(t0, list) or t0 in ("STRING", "INT", "FLOAT", "BOOLEAN", "SEED", "COMBO")
+
+        prompt: Dict[str, Dict[str, Any]] = {}
+        for nid, n in nodes_by_id.items():
+            if nid in removed or nid in (subgraph_id, -10, -20):
+                continue
+            ntype = n.get("type", "")
+            spec = object_info.get(ntype, {}).get("input", {})
+            oi_in = list(spec.get("required", {})) + list(spec.get("optional", {}))
+            # 槽位名 = UI 图节点自身 inputs 顺序（与 object_info 顺序可能不同）
+            node_inputs = n.get("inputs") or []
+            in_names = [str(i.get("name", idx)) for idx, i in enumerate(node_inputs)]
+            # widgets 按 object_info 的原始输入顺序对齐
+            widget_names = [nm for nm in oi_in if _is_primitive((spec.get("required", {}).get(nm) or spec.get("optional", {}).get(nm))[0])]
+            widgets = list(n.get("widgets_values") or [])
+            wmap: Dict[str, int] = {}
+            for wi, nm in enumerate(widget_names):
+                if wi >= len(widgets):
+                    break
+                wmap[nm] = wi
+
+            linked: Dict[int, tuple] = {}
+            for L in links:
+                if L["target_id"] == nid and L["target_id"] not in removed:
+                    linked[L["target_slot"]] = ro(L["origin_id"], L["origin_slot"])
+
+            inputs: Dict[str, Any] = {}
+            for idx, name in enumerate(in_names):
+                if idx in linked:
+                    oid, osl = linked[idx]
+                    if oid == "#value":
+                        inputs[name] = sub_widgets[osl] if osl < len(sub_widgets) else None
+                    else:
+                        inputs[name] = [str(oid), osl]  # ComfyUI API 要求节点 id 为字符串
+                    continue
+                if name in wmap:
+                    v = widgets[wmap[name]]
+                    if v is not None:
+                        inputs[name] = v
+                    continue
+                # 无 widget 且未链接：COMBO 用首选项兜底
+                sp = spec.get("required", {}).get(name) or spec.get("optional", {}).get(name)
+                if sp:
+                    sp_cfg = sp[1] if len(sp) > 1 else {}
+                    if sp[0] == "COMBO" and sp_cfg.get("options"):
+                        inputs[name] = sp_cfg["options"][0]
+                    elif isinstance(sp[0], list) and sp[0]:
+                        inputs[name] = sp[0][0]
+            prompt[str(nid)] = {"class_type": ntype, "inputs": inputs}
+
+        return prompt
+
     def _resolve_seeds(self, config: GenerationConfig) -> None:
         """seed=-1 时生成实际值并回填三个独立 seed 字段"""
         if config.seed == -1:

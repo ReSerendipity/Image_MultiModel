@@ -47,6 +47,7 @@ class ComfyEngine:
         self._ready = False
         self._current_prompt_id: Optional[str] = None
         self._cancel_requested = False
+        self._object_info: Dict[str, Any] = {}
 
     @property
     def name(self) -> str:
@@ -102,6 +103,13 @@ class ComfyEngine:
         if on_progress:
             on_progress(100, "Engine ready", {})
 
+        # 缓存节点定义（UI→API 转换需要）
+        try:
+            self._object_info = await self._client.get_object_info()
+        except Exception as e:
+            logger.warning(f"Failed to fetch object_info: {e}")
+            self._object_info = {}
+
         self._ready = True
         logger.info(f"ComfyEngine '{self._name}' loaded")
 
@@ -138,11 +146,16 @@ class ComfyEngine:
 
         workflow_data = self._workflow_mgr.patch(config)
 
-        # 2. 提交到 ComfyUI
+        # 2. 转换为 ComfyUI API 格式（子图展开 + bypass 重连 + 具名 inputs）
+        api_data = self._workflow_mgr.to_api_format(workflow_data, self._object_info or {})
+        if not api_data:
+            raise RuntimeError("Patched workflow produced empty API prompt")
+
+        # 3. 提交到 ComfyUI
         if on_progress:
             on_progress(10, "Queuing prompt...", {})
 
-        prompt_id = await self._client.queue_prompt(workflow_data)
+        prompt_id = await self._client.queue_prompt(api_data)
         self._current_prompt_id = prompt_id
 
         # 3. WS 监听进度
@@ -170,8 +183,13 @@ class ComfyEngine:
 
             elif msg_type == "executing":
                 data = msg.get("data", {})
-                node_id = data.get("node_id")
-                if node_id and on_progress:
+                node_id = data.get("node_id") if "node_id" in data else data.get("node")
+                if node_id is None or node_id == 0:
+                    # ComfyUI 以 executing node=null 标记执行结束
+                    if on_progress:
+                        on_progress(100, "Completed", {})
+                    break
+                if on_progress:
                     on_progress(90, f"Executing node {node_id}", {})
 
             elif msg_type == "executed":
@@ -204,12 +222,24 @@ class ComfyEngine:
         logger.info(f"ComfyEngine '{self._name}' cancel requested")
 
     async def _fetch_outputs(self, prompt_id: str) -> List[str]:
-        """从 ComfyUI 历史获取输出文件并保存到本地"""
+        """从 ComfyUI 历史获取输出文件并保存到本地（history 写入有延迟，带重试）"""
         if not self._client:
             return []
 
-        history = await self._client.get_history(prompt_id)
-        outputs_data = history.get(prompt_id, {}).get("outputs", {})
+        outputs_data: Dict[str, Any] = {}
+        await asyncio.sleep(1.0)  # 等 history 落库
+        for attempt in range(40):
+            history = await self._client.get_history(prompt_id)
+            outputs_data = history.get(prompt_id, {}).get("outputs", {})
+            if outputs_data:
+                break
+            await asyncio.sleep(0.5)
+        if not outputs_data:
+            # 兜底：拉全量 history 按 id 查找
+            all_history = await self._client.get_history("")
+            outputs_data = all_history.get(prompt_id, {}).get("outputs", {})
+        if not outputs_data:
+            logger.warning(f"No outputs in history for {prompt_id} after retries")
 
         cfg = get_config()
         output_base = Path(cfg.project_root) / cfg.output.base_dir

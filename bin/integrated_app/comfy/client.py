@@ -109,10 +109,11 @@ class ComfyClient:
         async with self._http_session.get("/object_info") as resp:
             return await resp.json()
 
-    async def get_history(self, prompt_id: str) -> Dict[str, Any]:
-        """获取执行历史"""
+    async def get_history(self, prompt_id: str = "") -> Dict[str, Any]:
+        """获取执行历史；prompt_id 为空时返回全量历史"""
         assert self._http_session is not None
-        async with self._http_session.get(f"/history/{prompt_id}") as resp:
+        path = f"/history/{prompt_id}" if prompt_id else "/history"
+        async with self._http_session.get(path) as resp:
             return await resp.json()
 
     async def get_image(self, filename: str, subfolder: str = "", folder_type: str = "output") -> bytes:
@@ -123,10 +124,12 @@ class ComfyClient:
             return await resp.read()
 
     async def connect_ws(self) -> None:
-        """建立 WebSocket 连接"""
+        """建立 WebSocket 连接（需带 clientId 才会收到本任务的执行事件）"""
         assert self._http_session is not None
-        self._ws = await self._http_session.ws_connect(self.ws_url)
-        logger.info(f"ComfyUI WS connected: {self.ws_url}")
+        ws_url = self.ws_url
+        sep = "&" if "?" in ws_url else "?"
+        self._ws = await self._http_session.ws_connect(f"{ws_url}{sep}clientId={self.client_id}")
+        logger.info(f"ComfyUI WS connected: {ws_url}")
 
     async def ws_recv(self) -> Optional[Dict[str, Any]]:
         """接收一条 WS 消息"""
