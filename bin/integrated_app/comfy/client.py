@@ -86,9 +86,13 @@ class ComfyClient:
         assert self._http_session is not None
         payload = {"prompt": workflow_data, "client_id": self.client_id}
         async with self._http_session.post("/prompt", json=payload) as resp:
-            data = await resp.json()
             if resp.status != 200:
-                raise RuntimeError(f"ComfyUI /prompt error: {data}")
+                try:
+                    body = await resp.json()
+                except Exception:
+                    body = await resp.text()
+                raise RuntimeError(f"ComfyUI /prompt error {resp.status}: {body}")
+            data = await resp.json()
             prompt_id = data.get("prompt_id", "")
             logger.info(f"ComfyUI prompt queued: {prompt_id}")
             return prompt_id

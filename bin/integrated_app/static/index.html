@@ -438,8 +438,8 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
     <span class="ico-wrap" data-component="Engine Menu">
       <button class="icon-btn" id="engIcon" title="切换模型" type="button">◈</button>
       <div class="ico-pop" id="engMenu">
-        <button class="ip-item on" data-v="FLUX.2 Klein-9B Distilled" type="button">FLUX.2 Klein-9B Distilled</button>
-        <button class="ip-item" data-v="Z-Image-Turbo" type="button">Z-Image-Turbo</button>
+        <button class="ip-item on" data-v="flux2_klein_9b_distilled" type="button">FLUX.2 Klein-9B Distilled</button>
+        <button class="ip-item" data-v="z_image_turbo" type="button">Z-Image-Turbo</button>
       </div>
     </span>
     <span class="ico-wrap" data-component="Language Menu">
@@ -453,8 +453,8 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
       </div>
     </span>
     <select id="engineSelect" style="display:none" aria-label="引擎">
-      <option>FLUX.2 Klein-9B Distilled</option>
-      <option>Z-Image-Turbo</option>
+      <option value="flux2_klein_9b_distilled">FLUX.2 Klein-9B Distilled</option>
+      <option value="z_image_turbo">Z-Image-Turbo</option>
     </select>
     <select id="langSelect" style="display:none" aria-label="语言">
       <option value="zh-CN">简体中文</option>
@@ -939,7 +939,7 @@ document.getElementById('b100').addEventListener('click',function(){var e=docume
 document.getElementById('restoreBtn').addEventListener('click',function(){document.getElementById('cfg').value=1.0;document.getElementById('steps').value=8;document.getElementById('width').value=1024;document.getElementById('height').value=1024;document.getElementById('seed').value=-1;document.getElementById('batchSize').value=1;document.getElementById('seedvr2Toggle').checked=true;document.getElementById('esesToggle').checked=true;document.getElementById('vramToggle').checked=true;document.getElementById('vramGb').value=0.6;document.getElementById('upscaleSeed').value=-1;document.getElementById('vramSeed').value=-1;updateEst();});
 /* ---------- 估算 + 快照 ---------- */
 function estCount(){var n=+document.getElementById('batchSize').value||1;var coef=(document.getElementById('seedvr2Toggle').checked?2:1)+(document.getElementById('esesToggle').checked?1:0);return {n:n,coef:coef,total:n*coef};}
-function syncChips(){document.getElementById('snapRes').textContent=document.getElementById('width').value+' × '+document.getElementById('height').value;document.getElementById('snapSteps').textContent=document.getElementById('steps').value;document.getElementById('snapCfg').textContent=document.getElementById('cfg').value;document.getElementById('snapOut').textContent=estCount().total;document.getElementById('snapEngine').textContent=document.getElementById('engineSelect').value.indexOf('FLUX')>-1?'FLUX.2 Klein':'Z-Image-Turbo';}
+function syncChips(){document.getElementById('snapRes').textContent=document.getElementById('width').value+' × '+document.getElementById('height').value;document.getElementById('snapSteps').textContent=document.getElementById('steps').value;document.getElementById('snapCfg').textContent=document.getElementById('cfg').value;document.getElementById('snapOut').textContent=estCount().total;document.getElementById('snapEngine').textContent=document.getElementById('engineSelect').value.indexOf('flux2')>-1?'FLUX.2 Klein':'Z-Image-Turbo';}
 function updateEst(){var e=estCount(),line=document.getElementById('estLine');document.getElementById('bsWarn').style.display=e.n>500?'':'none';document.getElementById('bsWarn').style.color=e.n>5000?'var(--red)':'var(--amber)';line.innerHTML='预计生成 <b>'+e.total+'</b> 张 = 1 Prompt × '+e.n+' batch × (SeedVR2'+(e.coef===3?'×2':'')+' + Eses'+(e.coef===3?'×1':'')+')';line.className='est-line'+(e.total>=5000?' red':(e.total>=500?' yellow':''));document.getElementById('warn500').classList.toggle('show',e.total>=500&&e.total<5000);document.getElementById('warn5000').classList.toggle('show',e.total>=5000);syncChips();}
 ['batchSize','seedvr2Toggle','esesToggle','width','height','steps','cfg'].forEach(function(id){var el=document.getElementById(id);el.addEventListener('input',updateEst);el.addEventListener('change',updateEst);});
 document.getElementById('engineSelect').addEventListener('change',syncChips);

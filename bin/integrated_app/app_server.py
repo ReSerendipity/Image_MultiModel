@@ -11,6 +11,7 @@ import asyncio
 import logging
 import os
 import sys
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
@@ -20,10 +21,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .config import get_config, load_config
+from .comfy.engine import ComfyEngine
+from .engine_interface import GenerationConfig
 from .history_db import HistoryDB
 from .sse import get_sse_bus
 from .task_queue import TaskQueue
 from .model_registry import get_model_registry
+from .middleware.csrf import CSRFMiddleware
 from .middleware.request_id import RequestIDMiddleware
 from .middleware.rate_limit import RateLimitMiddleware
 
@@ -104,12 +108,14 @@ async def lifespan(app: FastAPI):
             **(extra or {}),
         })
 
-    # 由于 TaskQueue 回调是同步的，需要包装为异步
+    # TaskQueue 回调运行在 worker 线程 → 用主循环线程安全投递
+    main_loop = asyncio.get_event_loop()
+
     def sync_on_progress(task_id, progress, phase, extra):
-        asyncio.ensure_future(on_progress(task_id, progress, phase, extra))
+        asyncio.run_coroutine_threadsafe(on_progress(task_id, progress, phase, extra), main_loop)
 
     def sync_on_status(task_id, status, extra=None):
-        asyncio.ensure_future(on_status(task_id, status, extra))
+        asyncio.run_coroutine_threadsafe(on_status(task_id, status, extra), main_loop)
 
     task_queue.add_progress_callback(sync_on_progress)
     task_queue.add_status_callback(sync_on_status)
@@ -117,14 +123,63 @@ async def lifespan(app: FastAPI):
     # 启动 SSE 心跳
     asyncio.ensure_future(sse_bus.start_heartbeat())
 
-    # 启动 TaskQueue Worker（空 worker，M1 阶段接通引擎）
+    # 启动 TaskQueue Worker（M2：接通 ComfyEngine 真实推理）
     def worker_func(task):
-        logger.info(f"Worker processing task: {task.task_id}")
-        # M0 阶段：空处理，直接标记完成
-        # M1+ 阶段：调用 ComfyEngine.infer_txt2img()
-        task.status = "completed"
-        task.result = []
-        history_db.update_task_status(task.task_id, "completed")
+        logger.info(f"Worker processing task: {task.task_id} ({task.engine})")
+        started = time.time()
+        try:
+            cfg = get_config()
+            ecfg = cfg.models.engines.get(task.engine)
+            if not ecfg:
+                raise RuntimeError(f"Engine '{task.engine}' not found in config")
+            engine = ComfyEngine(
+                name=task.engine,
+                display_name=getattr(ecfg, "display_name", task.engine),
+                config={
+                    "workflow_file": ecfg.workflow_file,
+                    "parameter_schema": ecfg.parameter_schema,
+                    "comfy_backend_preference": getattr(ecfg, "comfy_backend_preference", "local"),
+                },
+            )
+            gen = GenerationConfig(**task.config)
+
+            def prog(pct, phase, extra):
+                task.progress = pct
+                task.phase = phase
+                task_queue._notify_progress(task.task_id, pct, phase, extra or {})
+                if task.cancel_requested and not engine._cancel_requested:
+                    asyncio.create_task(engine.cancel())
+
+            async def run():
+                await engine.load(on_progress=prog)
+                if task.cancel_requested:
+                    await engine.cancel()
+                    raise asyncio.CancelledError("cancelled before start")
+                return await engine.infer_txt2img(gen, on_progress=prog)
+
+            outputs = asyncio.run(run())
+            task.result = outputs or []
+            history_db.update_task_status(
+                task.task_id, "completed",
+                processing_time_s=time.time() - started,
+                output_count=len(outputs or []),
+                thumbnail=(outputs[0] if outputs else ""),
+            )
+            out_types = ("original", "upscaled", "compare")
+            for i, p in enumerate(outputs or []):
+                history_db.add_output(
+                    task.task_id, p, "png",
+                    output_type=out_types[i] if i < len(out_types) else "original",
+                )
+        except asyncio.CancelledError:
+            history_db.update_task_status(task.task_id, "cancelled")
+            task.error = "cancelled"
+            return
+        except Exception as e:
+            logger.exception(f"Task {task.task_id} worker error")
+            history_db.update_task_status(task.task_id, "failed", error=str(e))
+            task.error = str(e)
+            raise
 
     await task_queue.start(worker_func)
     app.state.task_queue = task_queue
@@ -166,6 +221,10 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # CSRF（POST/PUT/DELETE 需 X-CSRF-Token 头）
+    if config.security.basic_auth.enabled or config.security.api_token.enabled:
+        app.add_middleware(CSRFMiddleware)
 
     # RequestID
     app.add_middleware(RequestIDMiddleware)

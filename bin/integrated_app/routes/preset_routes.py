@@ -60,7 +60,7 @@ async def create_preset(req: PresetCreate, request: Request) -> Dict[str, Any]:
         raise HTTPException(409, detail=str(e))
 
 
-@router.get("/{preset_id}")
+@router.get("/{preset_id:int}")
 async def get_preset(preset_id: int, request: Request) -> Dict[str, Any]:
     """GET /api/presets/{id} — 获取预设详情"""
     history_db: HistoryDB = request.app.state.history_db

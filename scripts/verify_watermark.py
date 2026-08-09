@@ -21,6 +21,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from bin.integrated_app import watermark  # noqa: E402
 
+# Windows 控制台默认 GBK 无法编码 ✅/❌ → 强制 UTF-8 输出
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 
 def load_array(path: str) -> np.ndarray:
     p = Path(path)
@@ -66,7 +70,7 @@ def main() -> int:
         print(f"task_id   : {task_id}")
         print(f"timestamp : {ts}")
         ok = pid == args.product_id
-        print(f"校验     : {'✅ 匹配 product_id' if ok else '❌ product_id 不匹配'}")
+        print("校验     : ✅ 匹配 product_id" if ok else "校验     : ❌ product_id 不匹配")
         return 0 if ok else 1
     print("校验     : ❌ 未提取到有效载荷")
     return 1
