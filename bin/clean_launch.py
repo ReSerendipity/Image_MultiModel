@@ -10,8 +10,12 @@ clean_launch.py — 启动加固（附录 E1）
 """
 
 import os
+import socket
 import subprocess
 import sys
+import threading
+import time
+import webbrowser
 from pathlib import Path
 
 # ── 项目根目录 ───────────────────────────────────────────────
@@ -157,6 +161,34 @@ def launch():
 
     from integrated_app.config import load_config
     cfg = load_config()
+
+    # 根据配置自动打开浏览器
+    auto_open = getattr(cfg.server, "auto_open_browser", False)
+    if auto_open:
+        def _auto_open_browser(ip, port, timeout=300):
+            url = f"http://{ip}:{port}"
+            print(f"[INFO] 等待服务就绪后将自动打开浏览器: {url}")
+            start_time = time.time()
+            while time.time() - start_time < timeout:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                    sock.settimeout(1)
+                    if sock.connect_ex((ip, int(port))) == 0:
+                        break
+                time.sleep(1)
+            else:
+                print(f"[WARN] 等待服务就绪超时（{timeout}s），未自动打开浏览器")
+                return
+            time.sleep(2)
+            print(f"[INFO] 服务就绪，正在弹出网页: {url}")
+            webbrowser.open(url)
+
+        threading.Thread(
+            target=_auto_open_browser,
+            args=(cfg.server.host, cfg.server.port),
+            daemon=True,
+            name="auto-open-browser",
+        ).start()
+
     uvicorn.run(
         "integrated_app.app_server:app",
         host=cfg.server.host,

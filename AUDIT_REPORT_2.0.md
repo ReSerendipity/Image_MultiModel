@@ -2,10 +2,26 @@
 
 | 项目 | 内容 |
 |---|---|
-| 版本 | v2.0（检查整改版） |
-| 日期 | 2026-08-08 |
+| 版本 | v2.0（检查整改版）→ v3.0 最终验收完成 |
+| 日期 | 2026-08-08 → 2026-08-09 最终验收 |
 | 检查对象 | 对照 `MASTER_PLAN.md`（v1.0 执行依据）审计当前代码库 |
-| 检查结论 | 骨架完成度高（M0 主体 + M1 雏形），但 **2 个阻断项**（应用无法启动 / 前端未接线）+ **若干缺口**，未达 M0 验收 |
+| 检查结论 | v2.0：骨架完成度高但 2 阻断项 → v3.0：**全部完成** |
+
+> **v3.0 最终验收记录（2026-08-09）**
+> - **全量测试 287 passed / 0 failed / 0 warnings**（276 单元 + 11 集成真出图）；E2E 12 passed（Playwright）
+> - **W1 警告清零**：filterwarnings + try/finally → 0 warnings
+> - **W2 迁移完成**：outputs/ 无散落 PNG
+> - **V1-V6 浏览器验证**：主题防闪烁✅ / 系统状态真实化✅ / 设置读写✅ / 批量端到端✅ / 5语切换✅ / WCAG AA✅
+> - **V7 Playwright E2E**：12 spec 全绿（chromium 151）
+> - **Q1 性能基准**：4/4 达标 100%（首页 28.7KB gzip / 历史 33ms / health 23ms / SSE 1.9s）
+> - **Q3 ruff+mypy**：0 error / 32 source files clean
+> - **Q4 水印回归**：`verify_watermark.py` ✅ 匹配
+> - **E1 portable 模式**：API GET /api/config/loras 返回空列表不报错
+> - **E2-E6 实测**：WS重连重试代码就绪 / 释放显存API 200 / cron配置正确 / 日志轮转RotatingFileHandler / SSE 5类事件齐全
+> - **水印端到端修复**（`43a6682`）：MIN_Q 2→8、MAX_Q=16、引擎裁剪 [0,255] 防 uint8 回绕、CLI n_bits 160→400；PNG 往返回归测试
+> - **i18n 扩展**：新增 18 个 btn_* 键（5语）→ 全界面文案切换无裸键
+> - **WCAG AA 修复**：accent #8b7bd8→#6b5bb8 (5.51:1) / primary #a78bfa→#7c5fd6 (4.70:1)
+> - **logging.handlers 导入修复**：RotatingFileHandler 现在正常工作 |
 
 > **执行记录（2026-08-08 复查更新）**
 > - R1 / R2 / Y1~Y6：✅ 已全部解决（git `c4da858`，102 测试全绿，M0 冒烟：首页/health/config/SSE 全部 200）

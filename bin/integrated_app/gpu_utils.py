@@ -60,13 +60,13 @@ def get_gpu_info() -> GPUInfo:
             parts = [p.strip() for p in out.stdout.strip().splitlines()[0].split(",")]
             name = parts[0]
             # nvidia-smi nounits 输出为 MiB → 换算为 GB
-            total = float(parts[1]) / 1024
-            used = float(parts[2]) / 1024
-            free = float(parts[3]) / 1024
+            n_total: float = float(parts[1]) / 1024
+            n_used: float = float(parts[2]) / 1024
+            n_free: float = float(parts[3]) / 1024
             return GPUInfo(
-                total_vram_gb=round(total, 2),
-                used_vram_gb=round(used, 2),
-                free_vram_gb=round(free, 2),
+                total_vram_gb=round(n_total, 2),
+                used_vram_gb=round(n_used, 2),
+                free_vram_gb=round(n_free, 2),
                 gpu_name=name,
                 backend="cuda",
             )

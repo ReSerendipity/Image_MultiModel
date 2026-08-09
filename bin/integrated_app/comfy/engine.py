@@ -470,7 +470,7 @@ class ComfyEngine:
                         if scale < 1.0:
                             thumb = img.resize(
                                 (int(w * scale), int(h * scale)),
-                                PILImage.LANCZOS,
+                                getattr(PILImage, 'Resampling', PILImage).LANCZOS,
                             )
                         else:
                             thumb = img

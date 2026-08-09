@@ -34,11 +34,11 @@ class TestGenerateProgress:
         assert saved in ("light", "dark")
 
     def test_progress_bar_exists(self, page, base_url):
-        """进度条元素存在"""
+        """进度条元素存在（不一定可见，仅验证 DOM 结构）"""
         page.goto(base_url)
-        page.wait_for_selector("#genProgress")
-        page.wait_for_selector("#progFill")
-        page.wait_for_selector("#phaseText")
+        page.wait_for_selector("#genProgress", state="attached")
+        page.wait_for_selector("#progFill", state="attached")
+        page.wait_for_selector("#phaseText", state="attached")
 
     def test_free_vram_button(self, page, base_url):
         """D3: 释放显存按钮存在"""

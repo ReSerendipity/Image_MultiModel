@@ -11,7 +11,7 @@
 <style>
 /* ============ 种子令牌 ============ */
 :root{
-  --seed-bg:#f5f5f5;--seed-fg:#1a1a1a;--seed-primary:#a78bfa;--seed-accent:#8b7bd8;--seed-surface:#ffffff;--seed-radius:8px;--seed-density:1;
+  --seed-bg:#f5f5f5;--seed-fg:#1a1a1a;--seed-primary:#7c5fd6;--seed-accent:#6b5bb8;--seed-surface:#ffffff;--seed-radius:8px;--seed-density:1;
   --bg:var(--seed-bg);--surface:var(--seed-surface);
   --surface-2:color-mix(in srgb,var(--seed-fg) 6%,var(--seed-surface));
   --surface-3:color-mix(in srgb,var(--seed-fg) 11%,var(--seed-surface));
@@ -464,7 +464,7 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
       <option value="ja-JP">日本語</option>
       <option value="ko-KR">한국어</option>
     </select>
-    <button class="share-btn" type="button">分享</button>
+    <button class="share-btn" type="button" data-i18n="btn_share">分享</button>
     <span class="avatar"></span>
   </div>
 </header>
@@ -476,8 +476,8 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
 
     <div class="prompt-card" data-component="Prompt Input">
       <textarea id="posPrompt" placeholder="描述你想生成的画面，例如：一位亚洲女性肖像，柔和自然光，浅景深，胶片质感…">一位亚洲女性肖像，柔和自然光，浅景深，胶片质感，细节丰富</textarea>
-      <div class="meta"><span class="ln" id="posMeta">28 字符 · ≈42 token</span><span><button class="btn btn-sm" id="clearPos" type="button">清空</button> <button class="btn btn-sm" id="copyPos" type="button">复制</button></span></div>
-      <button class="neg-toggle" id="negToggle" type="button">＋ 负向提示词</button>
+      <div class="meta"><span class="ln" id="posMeta">28 字符 · ≈42 token</span><span><button class="btn btn-sm" id="clearPos" type="button" data-i18n="btn_clear">清空</button> <button class="btn btn-sm" id="copyPos" type="button" data-i18n="btn_copy">复制</button></span></div>
+      <button class="neg-toggle" id="negToggle" type="button" data-i18n="neg_add">＋ 负向提示词</button>
       <div class="neg-box" id="negBox" data-component="Negative Prompt">
         <textarea id="negPrompt" placeholder="不希望出现的内容，例如：低质量、模糊、变形…（可为空）"></textarea>
         <div class="meta"><span class="ln" id="negMeta">0 字符</span><span><button class="btn btn-sm" type="button">清空</button> <button class="btn btn-sm" type="button">复制</button></span></div>
@@ -491,7 +491,7 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
     </div>
 
     <div class="gen-row" data-component="Actions Row">
-      <button class="btn-gen" id="genBtn" type="button">▶ 生成</button>
+      <button class="btn-gen" id="genBtn" type="button" data-i18n="btn_generate">▶ 生成</button>
       <div class="snap-row" data-component="Param Snapshot">
         <span class="snap">引擎 <b id="snapEngine">FLUX.2 Klein</b></span>
         <span class="snap">分辨率 <b id="snapRes">1024 × 1024</b></span>
@@ -513,11 +513,11 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
     <!-- 模块入口 -->
     <div class="mod-row" data-component="Module Launcher">
       <span class="lbl">模块</span>
-      <button class="mod-btn" id="drawerToggle" type="button">⚙ 高级参数</button>
-      <button class="mod-btn" id="openGallery" type="button">▦ 图片展示</button>
-      <button class="mod-btn" id="openHistory" type="button">◷ 历史记录</button>
-      <button class="mod-btn" id="openBatch" type="button">▤ 批量模式</button>
-      <button class="mod-btn" id="openPresets" type="button">▣ 预设管理</button>
+      <button class="mod-btn" id="drawerToggle" type="button" data-i18n="btn_advanced">⚙ 高级参数</button>
+      <button class="mod-btn" id="openGallery" type="button" data-i18n="btn_gallery">▦ 图片展示</button>
+      <button class="mod-btn" id="openHistory" type="button" data-i18n="btn_history">◷ 历史记录</button>
+      <button class="mod-btn" id="openBatch" type="button" data-i18n="btn_batch">▤ 批量模式</button>
+      <button class="mod-btn" id="openPresets" type="button" data-i18n="btn_presets">▣ 预设管理</button>
     </div>
 
     <section class="results" data-component="Results">
@@ -620,9 +620,9 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
 
   </div>
   <div class="drawer-foot" id="drawerFoot">
-    <button class="btn btn-ghost" id="restoreBtn" type="button">恢复默认</button>
-    <button class="btn btn-ghost" id="freeVramBtn" type="button" title="释放 ComfyUI 显存">释放显存</button>
-    <button class="btn btn-primary" id="drawerDone" type="button">完成</button>
+    <button class="btn btn-ghost" id="restoreBtn" type="button" data-i18n="btn_restore_default">恢复默认</button>
+    <button class="btn btn-ghost" id="freeVramBtn" type="button" title="释放 ComfyUI 显存" data-i18n="btn_free_vram">释放显存</button>
+    <button class="btn btn-primary" id="drawerDone" type="button" data-i18n="btn_done">完成</button>
   </div>
 </aside>
 
@@ -632,7 +632,7 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
   <div class="drawer-body">
     <div class="hist-sec" id="histList">
       <div class="hist-toolbar">
-        <div class="search"><span>⌕</span><input placeholder="搜索 Prompt / seed…" aria-label="搜索"></div>
+        <div class="search"><span>⌕</span><input id="histSearch" placeholder="搜索 Prompt / seed…" aria-label="搜索" data-i18n-ph="search_placeholder"></div>
         <select aria-label="状态筛选" style="min-width:92px"><option>状态</option><option>成功</option><option>失败</option></select>
         <select aria-label="引擎筛选" style="min-width:92px"><option>引擎</option><option>FLUX.2</option><option>Z-Turbo</option></select>
       </div>
@@ -683,8 +683,8 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
   <div class="ov-head"><span><span class="no">/</span>批量模式<span class="hint">底抽屉 · Prompt 文件 / 参数网格</span></span><button class="icon-btn" id="batchClose" type="button">✕</button></div>
   <div class="ov-body">
     <div class="tabs">
-      <button class="tab active" data-t="bpane-file" type="button">Prompt 文件</button>
-      <button class="tab" data-t="bpane-grid" type="button">参数网格</button>
+      <button class="tab active" data-t="bpane-file" type="button" data-i18n="batch_prompt_file">Prompt 文件</button>
+      <button class="tab" data-t="bpane-grid" type="button" data-i18n="batch_param_grid">参数网格</button>
     </div>
     <section class="tabpane active" id="bpane-file">
       <div class="dropzone" id="dropzone"><b>拖拽或点击上传 Prompt 文件</b><p>支持 .txt / .csv · 每行一个 Prompt</p></div>
@@ -713,7 +713,7 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
         <div class="big-est" id="bEst">预计生成 <b>180</b> 张 = (52 + 8) × 1 × 3</div>
         <div class="warn-box yellow" id="bWarn500">⚠ 超过 500 张：建议夜间生成</div>
         <div class="warn-box red" id="bWarn5000">⚠ 超过 5000 张：断点续跑 + 二次确认</div>
-        <div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-primary" style="flex:1" type="button">▶ 生成批次</button><button class="btn btn-ghost" type="button">取消</button></div>
+        <div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-primary" style="flex:1" type="button" data-i18n="btn_generate_batch">▶ 生成批次</button><button class="btn btn-ghost" type="button" data-i18n="btn_cancel">取消</button></div>
       </div>
       <div class="b-panel" data-component="Batch Queue">
         <h3>任务队列</h3>
@@ -846,14 +846,14 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
 <script>
 /* ---------- i18n ---------- */
 var I18N={
-'zh-CN':{nav_home:'首页',nav_generate:'生图',nav_batch:'批量',nav_history:'历史',nav_status:'状态',nav_settings:'设置',sub:'支持 简中/繁中/英/日/韩 直接输入 · 默认 FLUX.2 Klein 蒸馏配置，开箱即用',preset:'预设',save_preset:'保存当前为预设',recent:'最近生成',neg_add:'＋ 负向提示词',neg_hide:'− 收起负向提示词',phase_connecting:'连接中',phase_loading_workflow:'加载工作流',phase_engine_ready:'引擎就绪',phase_patching:'打补丁',phase_queuing:'排队中',phase_sampling:'采样中',phase_executing:'执行节点',phase_image_saved:'已保存',phase_completed:'完成',phase_cancelling:'取消中'},
-'zh-TW':{nav_home:'首頁',nav_generate:'生圖',nav_batch:'批量',nav_history:'歷史',nav_status:'狀態',nav_settings:'設定',sub:'支援 簡中/繁中/英/日/韓 直接輸入 · 預設 FLUX.2 Klein 蒸餾配置',preset:'預設',save_preset:'儲存目前為預設',recent:'最近生成',neg_add:'＋ 負向提示詞',neg_hide:'− 收起負向提示詞',phase_connecting:'連接中',phase_loading_workflow:'載入工作流程',phase_engine_ready:'引擎就緒',phase_patching:'修補中',phase_queuing:'排隊中',phase_sampling:'採樣中',phase_executing:'執行節點',phase_image_saved:'已儲存',phase_completed:'完成',phase_cancelling:'取消中'},
-'en-US':{nav_home:'Home',nav_generate:'Generate',nav_batch:'Batch',nav_history:'History',nav_status:'Status',nav_settings:'Settings',sub:'Type in zh-CN/zh-TW/en/ja/ko directly · FLUX.2 Klein defaults',preset:'Preset',save_preset:'Save as preset',recent:'Recent',neg_add:'＋ Negative prompt',neg_hide:'− Hide negative prompt',phase_connecting:'Connecting',phase_loading_workflow:'Loading workflow',phase_engine_ready:'Engine ready',phase_patching:'Patching',phase_queuing:'Queuing',phase_sampling:'Sampling',phase_executing:'Executing',phase_image_saved:'Image saved',phase_completed:'Completed',phase_cancelling:'Cancelling'},
-'ja-JP':{nav_home:'ホーム',nav_generate:'生成',nav_batch:'バッチ',nav_history:'履歴',nav_status:'ステータス',nav_settings:'設定',sub:'簡中/繁中/英/日/韓を直接入力可',preset:'プリセット',save_preset:'プリセット保存',recent:'最近の生成',neg_add:'＋ ネガティブプロンプト',neg_hide:'− 閉じる',phase_connecting:'接続中',phase_loading_workflow:'ワークフロー読み込み中',phase_engine_ready:'エンジン準備完了',phase_patching:'パッチ適用中',phase_queuing:'キューに追加中',phase_sampling:'サンプリング中',phase_executing:'ノード実行中',phase_image_saved:'保存済み',phase_completed:'完了',phase_cancelling:'キャンセル中'},
-'ko-KR':{nav_home:'홈',nav_generate:'생성',nav_batch:'배치',nav_history:'기록',nav_status:'상태',nav_settings:'설정',sub:'중국어/번체/영어/일어/한국어 직접 입력',preset:'프리셋',save_preset:'현재를 프리셋으로 저장',recent:'최근 생성',neg_add:'＋ 네거티브 프롬프트',neg_hide:'− 접기',phase_connecting:'연결 중',phase_loading_workflow:'워크플로 로드 중',phase_engine_ready:'엔진 준비 완료',phase_patching:'패치 적용 중',phase_queuing:'대기열 추가 중',phase_sampling:'샘플링 중',phase_executing:'노드 실행 중',phase_image_saved:'저장됨',phase_completed:'완료',phase_cancelling:'취소 중'}
+'zh-CN':{nav_home:'首页',nav_generate:'生图',nav_batch:'批量',nav_history:'历史',nav_status:'状态',nav_settings:'设置',sub:'支持 简中/繁中/英/日/韩 直接输入 · 默认 FLUX.2 Klein 蒸馏配置，开箱即用',preset:'预设',save_preset:'保存当前为预设',recent:'最近生成',neg_add:'＋ 负向提示词',neg_hide:'− 收起负向提示词',btn_generate:'▶ 生成',btn_advanced:'⚙ 高级参数',btn_gallery:'▦ 图片展示',btn_history:'◷ 历史记录',btn_batch:'▤ 批量模式',btn_presets:'▣ 预设管理',btn_share:'分享',btn_clear:'清空',btn_copy:'复制',btn_free_vram:'释放显存',btn_restore_default:'恢复默认',btn_done:'完成',btn_generate_batch:'▶ 生成批次',btn_cancel:'取消',batch_prompt_file:'Prompt 文件',batch_param_grid:'参数网格',search_placeholder:'搜索',phase_connecting:'连接中',phase_loading_workflow:'加载工作流',phase_engine_ready:'引擎就绪',phase_patching:'打补丁',phase_queuing:'排队中',phase_sampling:'采样中',phase_executing:'执行节点',phase_image_saved:'已保存',phase_completed:'完成',phase_cancelling:'取消中'},
+'zh-TW':{nav_home:'首頁',nav_generate:'生圖',nav_batch:'批量',nav_history:'歷史',nav_status:'狀態',nav_settings:'設定',sub:'支援 簡中/繁中/英/日/韓 直接輸入 · 預設 FLUX.2 Klein 蒸餾配置',preset:'預設',save_preset:'儲存目前為預設',recent:'最近生成',neg_add:'＋ 負向提示詞',neg_hide:'− 收起負向提示詞',btn_generate:'▶ 生成',btn_advanced:'⚙ 進階參數',btn_gallery:'▦ 圖片展示',btn_history:'◷ 歷史記錄',btn_batch:'▤ 批量模式',btn_presets:'▣ 預設管理',btn_share:'分享',btn_clear:'清空',btn_copy:'複製',btn_free_vram:'釋放顯存',btn_restore_default:'恢復預設',btn_done:'完成',btn_generate_batch:'▶ 生成批次',btn_cancel:'取消',batch_prompt_file:'Prompt 檔案',batch_param_grid:'參數網格',search_placeholder:'搜尋',phase_connecting:'連接中',phase_loading_workflow:'載入工作流程',phase_engine_ready:'引擎就緒',phase_patching:'修補中',phase_queuing:'排隊中',phase_sampling:'採樣中',phase_executing:'執行節點',phase_image_saved:'已儲存',phase_completed:'完成',phase_cancelling:'取消中'},
+'en-US':{nav_home:'Home',nav_generate:'Generate',nav_batch:'Batch',nav_history:'History',nav_status:'Status',nav_settings:'Settings',sub:'Type in zh-CN/zh-TW/en/ja/ko directly · FLUX.2 Klein defaults',preset:'Preset',save_preset:'Save as preset',recent:'Recent',neg_add:'＋ Negative prompt',neg_hide:'− Hide negative prompt',btn_generate:'▶ Generate',btn_advanced:'⚙ Advanced',btn_gallery:'▦ Gallery',btn_history:'◷ History',btn_batch:'▤ Batch',btn_presets:'▣ Presets',btn_share:'Share',btn_clear:'Clear',btn_copy:'Copy',btn_free_vram:'Free VRAM',btn_restore_default:'Reset',btn_done:'Done',btn_generate_batch:'▶ Generate Batch',btn_cancel:'Cancel',batch_prompt_file:'Prompt File',batch_param_grid:'Param Grid',search_placeholder:'Search',phase_connecting:'Connecting',phase_loading_workflow:'Loading workflow',phase_engine_ready:'Engine ready',phase_patching:'Patching',phase_queuing:'Queuing',phase_sampling:'Sampling',phase_executing:'Executing',phase_image_saved:'Image saved',phase_completed:'Completed',phase_cancelling:'Cancelling'},
+'ja-JP':{nav_home:'ホーム',nav_generate:'生成',nav_batch:'バッチ',nav_history:'履歴',nav_status:'ステータス',nav_settings:'設定',sub:'簡中/繁中/英/日/韓を直接入力可',preset:'プリセット',save_preset:'プリセット保存',recent:'最近の生成',neg_add:'＋ ネガティブプロンプト',neg_hide:'− 閉じる',btn_generate:'▶ 生成',btn_advanced:'⚙ 詳細設定',btn_gallery:'▦ ギャラリー',btn_history:'◷ 履歴',btn_batch:'▤ バッチ',btn_presets:'▣ プリセット',btn_share:'共有',btn_clear:'クリア',btn_copy:'コピー',btn_free_vram:'VRAM解放',btn_restore_default:'デフォルトに戻す',btn_done:'完了',btn_generate_batch:'▶ バッチ生成',btn_cancel:'キャンセル',batch_prompt_file:'Promptファイル',batch_param_grid:'パラメータグリッド',search_placeholder:'検索',phase_connecting:'接続中',phase_loading_workflow:'ワークフロー読み込み中',phase_engine_ready:'エンジン準備完了',phase_patching:'パッチ適用中',phase_queuing:'キューに追加中',phase_sampling:'サンプリング中',phase_executing:'ノード実行中',phase_image_saved:'保存済み',phase_completed:'完了',phase_cancelling:'キャンセル中'},
+'ko-KR':{nav_home:'홈',nav_generate:'생성',nav_batch:'배치',nav_history:'기록',nav_status:'상태',nav_settings:'설정',sub:'중국어/번체/영어/일어/한국어 직접 입력',preset:'프리셋',save_preset:'현재를 프리셋으로 저장',recent:'최근 생성',neg_add:'＋ 네거티브 프롬프트',neg_hide:'− 접기',btn_generate:'▶ 생성',btn_advanced:'⚙ 고급 매개변수',btn_gallery:'▦ 갤러리',btn_history:'◷ 기록',btn_batch:'▤ 배치',btn_presets:'▣ 프리셋',btn_share:'공유',btn_clear:'지우기',btn_copy:'복사',btn_free_vram:'VRAM 해제',btn_restore_default:'기본값 복원',btn_done:'완료',btn_generate_batch:'▶ 배치 생성',btn_cancel:'취소',batch_prompt_file:'Prompt 파일',batch_param_grid:'매개변수 그리드',search_placeholder:'검색',phase_connecting:'연결 중',phase_loading_workflow:'워크플로 로드 중',phase_engine_ready:'엔진 준비 완료',phase_patching:'패치 적용 중',phase_queuing:'대기열 추가 중',phase_sampling:'샘플링 중',phase_executing:'노드 실행 중',phase_image_saved:'저장됨',phase_completed:'완료',phase_cancelling:'취소 중'}
 };
 var langSel=document.getElementById('langSelect');
-function applyLang(l){document.documentElement.setAttribute('data-lang',l);var d=I18N[l]||I18N['zh-CN'];document.querySelectorAll('[data-i18n]').forEach(function(el){var k=el.getAttribute('data-i18n');if(d[k])el.textContent=d[k];});}
+function applyLang(l){document.documentElement.setAttribute('data-lang',l);var d=I18N[l]||I18N['zh-CN'];document.querySelectorAll('[data-i18n]').forEach(function(el){var k=el.getAttribute('data-i18n');if(d[k])el.textContent=d[k];});document.querySelectorAll('[data-i18n-ph]').forEach(function(el){var k=el.getAttribute('data-i18n-ph');if(d[k])el.placeholder=d[k];});/* 动态元素：negToggle 根据开关状态设置 */var nt=document.getElementById('negToggle');if(nt){var open=nt.classList.contains('open');nt.textContent=open?(d.neg_hide||'− '):(d.neg_add||'＋ ');}}
 function trPhase(phase){var l=document.documentElement.getAttribute('data-lang')||'zh-CN';var d=I18N[l]||I18N['zh-CN'];return d[phase]||phase;}
 langSel.addEventListener('change',function(e){applyLang(e.target.value);});
 /* 顶栏图标菜单：引擎 / 语言 */
@@ -862,11 +862,11 @@ function closeMenus(){engMenu.classList.remove('show');langMenu.classList.remove
 document.getElementById('engIcon').addEventListener('click',function(e){e.stopPropagation();langMenu.classList.remove('show');engMenu.classList.toggle('show');});
 document.getElementById('langIcon').addEventListener('click',function(e){e.stopPropagation();engMenu.classList.remove('show');langMenu.classList.toggle('show');});
 document.querySelectorAll('#engMenu .ip-item').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('#engMenu .ip-item').forEach(function(x){x.classList.remove('on');});b.classList.add('on');document.getElementById('engineSelect').value=b.dataset.v;document.getElementById('engineSelect').dispatchEvent(new Event('change'));closeMenus();});});
-document.querySelectorAll('#langMenu .ip-item').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('#langMenu .ip-item').forEach(function(x){x.classList.remove('on');});b.classList.add('on');langSel.value=b.dataset.l;applyLang(b.dataset.l);closeMenus();});});
+document.querySelectorAll('#langMenu .ip-item').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('#langMenu .ip-item').forEach(function(x){x.classList.remove('on');});b.classList.add('on');langSel.value=b.dataset.l;localStorage.setItem('imm_lang',b.dataset.l);applyLang(b.dataset.l);closeMenus();});});
 document.addEventListener('click',function(e){if(!e.target.closest('.ico-wrap'))closeMenus();});
 /* ---------- 主题 ---------- */
 var themeBtn=document.getElementById('themeToggle');
-themeBtn.addEventListener('click',function(){var dark=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',dark?'light':'dark');themeBtn.textContent=dark?'◐':'◑';});
+/* 主题切换持久化逻辑在 F10 节统一处理，此处不再绑定 */
 /* ---------- 原型信息 ---------- */
 document.getElementById('protoBtn').addEventListener('click',function(){document.getElementById('protoPanel').classList.toggle('show');});
 /* ---------- 抽屉总控 ---------- */
@@ -1022,8 +1022,6 @@ document.getElementById('zIn').addEventListener('click',function(){zi=Math.min(z
   applyLang(savedLang);
 })();
 // 主题切换 → 持久化
-themeBtn.removeEventListener('click',function(){}); // 移除旧监听（无法移除匿名函数，改为覆盖）
-var _origThemeClick=themeBtn.onclick;
 themeBtn.onclick=function(){
   var dark=document.documentElement.getAttribute('data-theme')==='dark';
   var newTheme=dark?'light':'dark';

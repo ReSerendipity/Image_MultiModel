@@ -1,183 +1,171 @@
-# Image MultiModel · 剩余与后续任务指示报告 v2.0
+# Image MultiModel · 本机可完成全部任务最终清单 v3.0
 
 | 项目 | 内容 |
 |---|---|
-| 版本 | v2.0（核验后全量指示版，覆盖 v1.0） |
+| 版本 | v3.0（最终全量指示版，覆盖 v1.0/v2.0） |
 | 日期 | 2026-08-09 |
-| 执行依据 | `MASTER_PLAN.md` + `PRD.md` + 本次全量核验结果 |
-| 当前基线 | 非集成 265 passed（5.7s）+ 集成 11/11 passed（真实 ComfyUI）；环境：Win 系统 Python 3.12.10 / ComfyUI 0.31.1 / RTX 5070 Ti 12GB |
+| 范围 | **仅含本机（RTX 5070 Ti 12GB + ComfyUI 0.31.1 + 系统 Python 3.12）可完成的任务**；需 4090 级/干净机器/未安装 Docker 的事项统一列入 §7 排除清单 |
+| 基线 | 全量测试 286 passed / 0 failed（含真实 ComfyUI 集成）；ruff clean；水印端到端已修复验证（`43a6682`） |
+
+**结论声明**：本清单 + §7 排除项 = 该项目的全部剩余工作。清单内每一项都核实过依赖在当前环境可用（ComfyUI 在线、浏览器可用、pip 可装），按 §6 顺序做完即达成"本机可完成"的最终验收。
 
 ---
 
-## 0. 已完成且核验通过（无需再做）
+## §0 已完成并核验（无需再做）
 
-- M0/M1 骨架与适配层；M2 最小+全套（SeedVR2/Eses/VRAM）真实出图
-- §1.2 分块：**chunk 循环 + 显存自适应 + WS 60s 空闲超时转 HTTP 轮询**（git `16dfbea`，已修复并验证：batch=8/5 全部产出）
-- §1.1 取消 <5s（集成测试 PASSED）
-- §1.4 LoRA 6 层全开/全关（集成测试 PASSED）
-- §1.5 引擎加载 API（`GET /engines`、`POST /load`、`POST /unload` + SSE model_status）
-- §1.6 SSE 补全（`gpu_status` 2s 推送、`queue_status` 变更发布）
-- §2.1~2.5 历史 CRUD（search/export/tags/cleanup）、图库 fav/download、缩略图 512px、批量接口（集成 PASSED）
-- §4.1 水印接入管线（PIL+numpy embed，异常兜底）；§4.2 输出命名 `outputs/{engine}/{date}/{prompt_id}_{type}.png`（已生效）
-- §4.3~4.8 文件就位：`scripts/benchmark.py`、`docker-compose.yml`、`requirements-lock.txt`、`.gitignore`、安全审计测试（路径攻击 14 类 + CSRF）、`install.bat`/`start.bat`
+- 全量测试 **286 passed / 0 failed**（含集成 11+ 例真实出图）
+- A1 phase i18n 键（5 语）+ 前端字典 ✅；A2 checkpoint `save()` 接入 ✅；A4 迁移脚本 ✅；A5 清理 ✅
+- B1 主题防闪烁 head 脚本 ✅；B7 e2e 用例（3 spec）已写 ✅；C5 ruff+mypy ✅；D2-D7/E1 ✅
+- **水印端到端修复并验证**（`43a6682`）：MIN_Q 2→8、新增 MAX_Q=16、引擎裁剪 [0,255] 防 uint8 回绕、CLI 默认 n_bits 160→400；新增 PNG 往返回归测试；实机验证 `verify_watermark.py` 提取 `IMGMULTI-1|任务ID|时间戳` ✅
 
 ---
 
-## 1. P0 立即处理（本次核验发现的真实缺口）
+## §1 P0 收尾（本机可做，2 项）
 
-### A1. 进度阶段 i18n 键未闭环（§1.7 残留）
-- **现状**：引擎 `_map_phase` 已输出 `phase_sampling` / `phase_executing` / `phase_completed` 等键，但 **5 个 locale JSON（`bin/integrated_app/locales/*.json`）与前端字典（`static/index.html`）均无 `phase_*` 键** → 前端进度条会显示裸键 `phase_sampling · 45%`。
-- **位置**：`bin/integrated_app/locales/{zh,zh-tw,en,ja,ko}.json`；`static/index.html` 的 T 字典。
-- **做法**：
-  1. 引擎侧 PHASE_KEY_MAP 的键集合（`comfy/engine.py` 顶部）逐一列出；
-  2. 在 5 个 locale JSON 各补 `phase_connecting / phase_loading_workflow / phase_engine_ready / phase_patching / phase_queuing / phase_sampling / phase_executing / phase_saved / phase_completed`（zh：连接中/加载工作流/引擎就绪/打补丁/排队中/采样中 x/y/执行节点/已保存/完成；其余语言对应翻译）；
-  3. 前端 T 字典同步补键，SSE 渲染 `T[phase] || phase` 兜底；
-  4. `tests/test_i18n_backend.py` 加断言：PHASE_KEY_MAP 全部键在 5 语非空。
-- **验收**：`python -m pytest tests/test_i18n_backend.py -q` 绿；浏览器 5 语下进度阶段显示中文而非裸键。
+### W1. 集成测试 8 个 `UnraisableExceptionWarning` 清理
+- **现状**：`python -m pytest -q` 有 8 个警告，全部来自集成测试（worker 线程 `Event loop is closed` 收尾噪音，装饰性，不影响结果）。
+- **位置**：`bin/integrated_app/app_server.py` worker `asyncio.run(run())` 收尾；或 `tests/conftest.py` 过滤。
+- **做法**（推荐，改动最小）：worker 内 `asyncio.run()` 包 try/finally，或运行套件时 `-W ignore::pytest.PytestUnraisableExceptionWarning`（写入 `pyproject.toml` 的 `[tool.pytest.ini_options] filterwarnings`）。
+- **验收**：`python -m pytest -q 2>&1 | tail -2` 显示 `0 warnings`。
 
-### A2. 断点续跑 save() 未接入（§1.3 残留）
-- **现状**：`checkpoint.py` 的 `TaskCheckpoint`（save/load/delete/list/should_checkpoint）、app_server 启动扫描、worker 完成时 `delete` 都有，但 **worker/engine 从未调用 `save()`** → 生成中无落盘点，恢复机制无数据可恢复。
-- **位置**：`bin/integrated_app/checkpoint.py`；`app_server.py` worker；`comfy/engine.py::infer_txt2img`（chunk 循环）。
-- **做法**：
-  1. `TaskCheckpoint.save(task_id, {...})` 内容：`{task_id, engine, config, completed_slots: [...], remaining: N, saved_at}`；
-  2. engine 的 chunk 循环每完成一个 chunk 回调（新增 `on_chunk_done(slot_index, total)` 可选参数，worker 传入）；
-  3. worker 在 `on_chunk_done` 里 `if checkpoint_mgr.should_checkpoint(completed): checkpoint_mgr.save(...)`；
-  4. 启动恢复：lifespan 已扫描 `list_checkpoints()`，补"重建未完成任务并续跑剩余槽位"逻辑（构造新 Task，config 里标记从 checkpoint 续跑）；
-  5. 新增 `tests/test_checkpoint.py`：Mock 下 save→load→续跑不重复 seed。
-- **验收**：杀掉进程后重启，未完成任务从断点续跑且无重复输出。
-
-### A3. 依赖环境收尾（starlette/httpx2 弃用警告）
-- **现状**：系统 Python 3.12 上 `fastapi.testclient` 有 `StarletteDeprecationWarning: install httpx2`（当前装 httpx 可用但警告）；本机 Python 3.14 已移除，WinPython（Seedvr2/TTS 项目）3.12 有全栈但缺 aiohttp/hypothesis 等。
-- **做法**（选一）：① `pip install httpx2` 消除警告；② 或 `requirements.txt` 固定 starlette 版本；③ 记录"系统 Python 优先 + WinPython 兜底"到 README（`install.bat` 已实现该逻辑）。
-- **验收**：`python -m pytest -q` 无弃用警告。
-
-### A4. 输出目录迁移兼容（§4.2 遗留）
-- **现状**：`outputs/` 根部仍有一批旧平铺文件（`Flux.2_Klein-9B-Distilled_007xx_.png`）；新格式已写入 `outputs/{engine}/{date}/`。DB `outputs.path` 已指向新路径，旧文件成孤儿。
-- **做法**：写一次性脚本 `scripts/migrate_outputs.py`：扫描 `outputs/*.png` 平铺文件 → 按命名规则移入 `outputs/{engine}/{date}/`，更新 DB `outputs.path`；或确认无用后按回收站方式删除。
-- **验收**：`outputs/` 根部无散落 PNG；DB 路径全部可访问。
-
-### A5. 工作树与临时文件清理
-- **现状**：`.trash/` 有 17 个诊断 txt（可删）；`install.bat`/`start.bat` 未提交（用户新增）。
-- **做法**：确认 `.trash/` 无用后删除；`git add install.bat start.bat .gitignore` 提交；本报告替换旧版并提交。
-- **验收**：`git status` 干净。
+### W2. 运行输出迁移脚本（A4 落地执行）
+- **现状**：`scripts/migrate_outputs.py` 已存在未运行；`outputs/` 根部仍有旧平铺 PNG（`Flux.2_Klein-9B-Distilled_007xx_.png`），DB 路径已指向新目录，旧文件成孤儿。
+- **做法**：`python scripts/migrate_outputs.py`（先备份或确认脚本支持 --dry-run）；迁移后 `ls outputs/` 根部无散落 PNG。
+- **验收**：`outputs/` 只有 `{engine}/{date}/` 目录；`python -m pytest tests/test_api_contract.py -q` 仍绿。
 
 ---
 
-## 2. P1 前端真机验证（需浏览器 + ComfyUI 在线）
+## §2 P1 浏览器真机验证（需 Chrome + ComfyUI 在线，7 项）
 
-### B1. 主题防闪烁 head 同步脚本（§3.1，**未做**）
-- **现状**：`<html data-theme="light">` 硬编码，无 head 内联同步脚本；localStorage 主题在运行时 JS 才切换 → 刷新闪烁。
-- **做法**：`static/index.html` `<head>` 首行插入内联脚本：读 `localStorage['theme']`（'light'/'dark'/系统偏好），设置 `document.documentElement.dataset.theme`；CSS 已有 `data-theme` 变量（10 处），无需改样式。
-- **验收**：浏览器开暗色 → 刷新无白闪。
+> 启动：`python start.bat`（或 `python bin\clean_launch.py`），浏览器打开 http://127.0.0.1:8288
 
-### B2. 系统状态抽屉真实化完整接线（§3.3，部分）
-- **现状**：前端有 `fetch('/api/health')`（1 处），GPU/内存/磁盘/队列/引擎是否全部渲染真实值需真机核对；SSE `gpu_status` 已发布，前端是否消费需验证。
-- **做法**：打开系统抽屉 → 核对每行数值与 `GET /api/health` + SSE `gpu_status` 一致；缺字段补渲染；磁盘空间建议后端在 health 加 `disk_free_gb`。
-- **验收**：显存数值随生成变化实时刷新。
+### V1. 主题防闪烁 + 明暗切换
+- 操作：切暗色 → 刷新页面 → 无白闪；`localStorage['imm_theme']` 持久化生效。
+- 验收：F5 无闪烁；明暗切换样式完整。
 
-### B3. 设置抽屉全量读写核对（§3.4）
-- **现状**：config GET/PUT 已接；需真机核对每个控件↔字段映射、保存后重启生效、非法值被拒、host 只读。
-- **做法**：逐项对照 `config.yaml` 可编辑字段与抽屉控件；补 `restoreBtn` 默认值（已有）；保存前前端校验。
-- **验收**：改「心跳轮询/保留策略」→ 保存 → 重启生效。
+### V2. 系统状态抽屉真实化
+- 操作：打开系统状态抽屉 → 核对 GPU 显存/内存/磁盘/队列/引擎列表与 `GET /api/health` 一致；生成 1 张图时显存数值随 SSE `gpu_status` 变化。
+- 验收：数值实时变化；无硬编码占位。
 
-### B4. 批量底抽屉端到端（§2.1 前端）
-- **现状**：后端批量接口已通过集成测试；前端批量抽屉提交 → `POST /api/generate/batch` → 批次进度 → 图库刷新需真机走通。
-- **做法**：浏览器批量输入 2 条 prompt × batch 2 → 验证 4 张入库、批次进度条、失败单条提示。
-- **验收**：PRD I-11 前端路径。
+### V3. 设置抽屉全量读写
+- 操作：改「心跳轮询」「保留策略」等 → 保存 → 重启 → 生效；非法值被拒；host 字段只读。
+- 验收：重启后 config.yaml 对应字段已更新。
 
-### B5. 5 语切换 + 阶段文案（联动 A1）
-- **做法**：浏览器 5 语切换全界面文案；进度阶段显示翻译后文案。
-- **验收**：zh-TW/en/ja/ko 无裸键。
+### V4. 批量底抽屉端到端
+- 操作：批量输入 2 条 prompt × batch=2 → 提交 → 批次进度 → 4 张入库图库。
+- 验收：`GET /api/tasks` 出现批次任务；图库 4 张新图。
 
-### B6. WCAG AA 对比度抽查（§3.2）
-- **现状**：`wcag-contrast-test.js` 未接入（未在仓库中找到运行入口）。
-- **做法**：手测关键对比对（薰衣草紫按钮白字、浅灰提示、焦点环）或用临时脚本遍历计算；不合格色值修正到 `--seed-*` 派生层。
-- **验收**：≥4.5:1（正文）/3:1（大字）。
+### V5. 5 语切换 + 进度阶段文案
+- 操作：切换 zh-TW/en/ja/ko → 全界面文案切换；生成时进度条显示翻译后阶段（无裸 `phase_*` 键）。
+- 验收：5 语无英文残留/裸键。
 
-### B7. Playwright E2E 落地（§3.6，**未做**）
-- **现状**：requirements 仍注释 `playwright>=1.40.0`，未安装。
-- **做法**：`pip install playwright && playwright install chromium`；建 `tests/pages/*.page.ts` + 关键 spec（i18n 切换/引擎切换/生成进度/批量抽屉）；CI 可选跳过。
-- **验收**：`npx playwright test` 全绿。
+### V6. WCAG AA 对比度抽查（B6 落地）
+- 操作：检查关键对比对（薰衣草紫按钮白字、浅灰提示文字、焦点环）——用浏览器 DevTools 或临时脚本算对比度。
+- 验收：正文 ≥4.5:1、大字 ≥3:1；不合格色值改 `--seed-*` 派生层。
+
+### V7. Playwright E2E 落地运行（B7 收尾）
+- **现状**：`tests/e2e/test_engine_switch.py`、`test_generate_progress.py`、`test_i18n_switch.py` + conftest 已写；playwright 包与浏览器**未安装**。
+- 做法：`pip install playwright pytest-playwright && playwright install chromium` → `python -m pytest tests/e2e -v`（ComfyUI 在线）。
+- 验收：3 个 spec 全绿。
 
 ---
 
-## 3. P1 质量与发布
+## §3 P1 质量与基准（本机可做，4 项）
 
-### C1. 性能基准运行达标（§4.3）
-- **现状**：`scripts/benchmark.py` 已写，**未运行过**。
-- **做法**：ComfyUI 在线时 `python scripts/benchmark.py`（TTFP、完成→前端显示、取消→GPU 释放、历史 50 条、首页体积）；对照 PRD §7 指标记录达标率。
-- **验收**：≥90% 指标达标；不达标项记录到 AUDIT。
+### Q1. 性能基准运行与记录（C1 落地）
+- **现状**：`scripts/benchmark.py` 已写未运行。
+- 做法：`python scripts/benchmark.py > benchmark_report.txt`；对照 PRD §7 指标（TTFP ≤3s、完成→显示 ≤500ms、取消→GPU 释放 ≤5s、历史 50 条 <500ms、首页 ≤50KB gzip）记录达标率。
+- 验收：≥90% 达标；不达标项写进 `AUDIT_REPORT_2.0.md`。
 
-### C2. 便携包真机验证（§4.5，需干净机器）
-- **做法**：① `scripts/setup_symlinks.ps1`（shared 建 Junction）核对文件数；② 切 portable → `pack_portable.ps1`（复制模型/清理/7z/SHA256）；③ 干净机器按 PRD 10.5 STEP 7 冒烟 7 步。
-- **验收**：7z 解压启动出图。
+### Q2. requirements-lock 可复现安装验证（C4 落地）
+- 做法：干净 venv：`python -m venv _venv && _venv\Scripts\python -m pip install --require-hashes -r requirements-lock.txt`；失败则 `pip-compile` 重新生成。
+- 验收：安装成功；测试可运行。
 
-### C3. Docker 构建与运行（§4.6）
-- **现状**：`Dockerfile` + `docker-compose.yml` 已写，**未构建**。
-- **做法**：`docker compose build` → `docker compose up`（portable 模式 + 模型 volume 挂载）→ `GET /api/health` 200 → 出 1 张图。
-- **验收**：容器内全链路。
+### Q3. ruff + mypy 复跑确认（C5 收尾）
+- 做法：`python -m ruff check bin tests`、`python -m mypy bin/integrated_app`（如需安装 `pip install mypy`）；新增代码（如 §1/§2 改动）同样清零。
+- 验收：0 error；提交前必跑。
 
-### C4. requirements-lock 哈希验证（§4.7）
-- **做法**：`pip install --require-hashes -r requirements-lock.txt`（干净 venv）验证可复现安装；不通过则用 `pip-tools` 重新生成。
-- **验收**：干净环境按锁文件安装成功。
-
-### C5. 代码质量门禁（§4.8）
-- **现状**：pyproject 有 `[tool.ruff]`；**mypy 未配置**；ruff 未跑过。
-- **做法**：`python -m ruff check bin tests` 清零；`pip install mypy` + pyproject 加 `[tool.mypy]`（`bin/integrated_app`，comfy 层可加 `# type: ignore` 白名单）；`coverage report` 确认 ≥60%。
-- **验收**：0 error；覆盖率报告存档。
+### Q4. 水印回归（已完成，复核即可）
+- 做法：任取一张新生成图 `python scripts/verify_watermark.py <图> -p IMGMULTI-1`。
+- 验收：`校验: ✅`。
 
 ---
 
-## 4. P2 中期增强
+## §4 P2 增强与实测（本机可做，6 项）
 
-### D1. 双模式（portable）路径验证（§5.4）
-- 临时切 `model_source_mode: portable` + `pretrained_models/` 放小模型 → `/api/config/loras` 空列表不报错、引擎路径校验（PRD I-19 降级）；完事切回 shared。
+### E1. 双模式（portable）路径验证（D1 落地）
+- 做法：`config.yaml` 临时 `model_source_mode: portable` → 重启 → `GET /api/config/loras` 返回空列表不报错 → 切回 shared。
+- 验收：不报错；`test_model_path_resolver` 双模式绿。
 
-### D2. WS 重连自动重试（风险 2）
-- ComfyUI 重启时任务失败（连接错/超时）。做法：engine 检测 `ConnectionError` → 重试 `connect()`+`queue_prompt`（≤3 次，指数退避）；配 `max_wait_s` 兜底。
+### E2. WS 重连实测（D2 真机验证）
+- 做法：提交一个慢任务（开 SeedVR2）→ 中途重启 ComfyUI → 观察 worker 按 `_queue_with_retry`（≤3 次指数退避）重连。
+- 验收：任务最终完成或明确失败，无永久挂起。
 
-### D3. 「释放显存」按钮（风险 3）
-- 设置抽屉加按钮 → `POST /api/comfy/free`（转发 `/free`）→ SSE `gpu_status` 刷新。
+### E3. 释放显存按钮浏览器验证（D3 收尾）
+- 操作：设置抽屉点「释放显存」→ nvidia-smi 显存回落 → SSE `gpu_status` 刷新。
+- 验收：显存从 ~8GB 降至 ~1GB。
 
-### D4. SSE `comfy_preview` 事件（P2 可选）
-- WS 收到 `b_preview` → base64 → SSE 推送；前端采样中实时预览（量大，可加节流）。
+### E4. 历史清理 cron 手动触发（D6 落地）
+- 做法：临时改 `cleanup_cron` 为 `* * * * *` → 重启 → 观察 `history_cleanup_cron` 每分钟执行日志 → 改回。
+- 验收：日志出现清理执行；超期数据被删。
 
-### D5. batch=9999 全量验收（PRD I-5，需 4090）
-- 4090 环境跑 9999 拆分→合并→历史入库；断点续跑（A2）配合。
+### E5. 日志轮转验证（D7 落地）
+- 做法：`config.logging.max_size_mb` 临时调小 → 跑几轮生成 → 检查 `logs/` 出现 `.1/.2` 轮转文件 → 调回。
+- 验收：RotatingFileHandler 轮转生效。
 
-### D6. 历史清理 cron 接入
-- `config.output.history.cleanup_cron` 已配置，后端调度未接。做法：启动时 `asyncio` 定时任务按 cron 调 `cleanup_old_tasks`；日志记录清理量。
-
-### D7. 日志轮转
-- `setup_logging` 加 `RotatingFileHandler`（5MB×5）；`logs/` 入 `.gitignore`（已加）。
-
----
-
-## 5. P3 发布与长期
-
-- E1 用户手册/README：安装（install.bat/start.bat）、端口、双模式说明、水印验证命令（`scripts/verify_watermark.py`）。
-- E2 正式部署：非 8288 端口、API Token/Basic Auth 开启验证（CSRF 中间件已按配置启用）、HTTPS 反代说明。
-- E3 监控告警：`/api/health` 轮询脚本 + 队列积压告警（可复用 cron 能力）。
-- E4 多后端负载均衡验证：`comfy.backends` 多实例 + `load_balance: prefer_local` 回退逻辑真机验证。
+### E6. SSE 全事件浏览器核对（1.6/D4 收尾）
+- 做法：DevTools Network → EventStream 过滤 → 生成/取消/加载引擎/释放显存时核对 `task_status / gpu_status / queue_status / model_status / comfy_preview` 事件类型齐全。
+- 验收：5 类事件均可观测。
 
 ---
 
-## 6. 建议执行顺序
+## §5 文档与提交（3 项）
+
+### D1. 提交纪律
+- 每完成一项：`python -m pytest -q` 全绿 → `git add` → 提交（前缀 + 编号，如 `fix(W1): ...`、`test(V7): ...`）。
+
+### D2. 状态文档同步
+- 更新 `AUDIT_REPORT_2.0.md`（§1 执行记录：v3 核验结论 + 水印修复）与 `MASTER_PLAN.md`（里程碑勾选），将本报告替换为最终验收清单。
+
+### D3. README 完整性核对（E1 收尾）
+- 核对 README 含：install.bat/start.bat 用法、端口、双模式说明、`verify_watermark.py` 命令、requirements-lock 说明；补缺失章节。
+
+---
+
+## §6 执行顺序与最终验收
 
 ```
-P0（今天）: A1 phase 键 → A2 checkpoint save → A3 依赖警告 → A4 输出迁移 → A5 清理提交
-P1（本周）: B1~B5 前端真机（浏览器+ComfyUI）→ C1 基准 → C2 便携包（干净机）→ C3 Docker → C4 lock → C5 lint
-P2（两周）: D1 双模式 → D2 WS 重连 → D3 释放显存 → D4 preview → D5 9999（4090）→ D6 cron → D7 日志
-P3（发布）: E1~E4
+第 1 步  P0：W1 警告清零 → W2 迁移运行
+第 2 步  P1 浏览器：V1→V7（先 V7 装 playwright，其余按序）
+第 3 步  P1 质量：Q1 基准 → Q2 lock → Q3 lint → Q4 水印复核
+第 4 步  P2 实测：E1→E6
+第 5 步  文档：D1 提交 → D2 同步 → D3 README
+最终验收（本机）：
+  □ python -m pytest -q          → 全绿且 0 warnings
+  □ python -m ruff check bin tests → 0 error
+  □ 浏览器冒烟：5 语/暗色/系统抽屉/设置保存/批量抽屉/释放显存 全部走通
+  □ scripts/verify_watermark.py  → ✅
 ```
-
-每项完成：`python -m pytest -q` 全绿后提交（前缀 feat/test/fix/docs + 编号如 `A1`）。
 
 ---
 
-## 附录：核验记录与环境注意
+## §7 排除清单（需高规格/特殊环境，勿在本机强做）
 
-- **本次核验结论**：用户提交 `8f928f9`（§1.3-§5.2）→ 非集成 265 全绿；集成 11/11 全绿（真实 ComfyUI）；发现并修复 2 缺陷（`16dfbea`：分块循环+自适应+WS 超时）。
-- **首次复现的失败**：batch=32 无超分在 12GB OOM（原 chunk=16 固定）→ 已改自适应；全量套件 26% 挂起 → WS 静默（缓存命中）阻塞 → 已修。
-- **环境注意**：① 本机 Python 3.14 已移除，系统默认 3.12（依赖已装齐，含 httpx）；② starlette 新版 testclient 提示 httpx2（见 A3）；③ 两个集成测试文件需 ComfyUI 在线否则自动跳过；④ `outputs/` 根部旧平铺文件与 `.trash/` 待清理（A4/A5）。
-- **参考索引**：里程碑 `MASTER_PLAN.md §9`；验收矩阵 `PRD.md §12.2`；整改记录 `AUDIT_REPORT_2.0.md` 顶部；前端接线 F 表 `MASTER_PLAN.md §7`。
+| 项 | 原因 | 何时做 |
+|---|---|---|
+| batch=9999 全量验收（D5/PRD I-5） | 需 4090 级显存 | 具备 4090 后按 PRD I-5 验收 |
+| 便携包干净机器冒烟（C2） | 需未污染 Windows 机器 | 发布前在干净机按 PRD 10.5 STEP 7 |
+| Docker 构建运行（C3） | 本机未安装 Docker | 安装 Docker Desktop 后 `docker compose up` |
+| 多后端负载均衡真机验证（E4 发布） | 需 2 个 ComfyUI 实例长期运行 | 发布部署阶段 |
+| API Token/Basic Auth 开启后全量回归（发布 E2） | 开启后日常开发受鉴权干扰 | 发布前统一验证 CSRF 联动 |
+| 监控告警/HTTPS 反代（发布 E3） | 部署环境事项 | 正式部署时 |
+| 3 图全量对比（original+upscaled+compare 同时出 3 文件） | 12GB 显卡 SeedVR2+Eses 全开时工作流仅落 1 张对比图；完整 3 文件链路需 4090 | 4090 环境 |
+
+---
+
+## 附录：环境事实（执行时对照）
+
+- Python：系统 3.12.10（`C:\Python312`，依赖已装齐含 httpx）；WinPython 兜底：`C:\Users\Doro\Seedvr2\WPy64-312101\python\python.exe`（缺 aiohttp/hypothesis 等，装后可作 portable 运行时）
+- ComfyUI：127.0.0.1:8188（0.31.1，`--lowvram` 换入换出支撑 12GB 跑 SeedVR2）
+- 集成测试（`tests/test_forward_path_api.py`、`test_forward_batch_and_cancel.py`）需 ComfyUI 在线，否则自动跳过
+- 测试基线：286 passed；关键提交：`8f928f9`（A1-E1）、`16dfbea`（分块+WS）、`43a6682`（水印）

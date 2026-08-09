@@ -204,12 +204,15 @@ class WorkflowManager:
                 return memo[key]
             if depth > 20:
                 return key
+            r: tuple
             if oid == -10:
                 r = ("#value", osl)
             elif oid == subgraph_id:
-                r = ro(*sub_out.get(osl, (oid, osl)), depth + 1)
+                _so = sub_out.get(osl, (oid, osl))
+                r = ro(_so[0], _so[1], depth + 1)
             elif oid in removed:
-                r = ro(*in_of.get(key, (oid, osl)), depth + 1)
+                _io = in_of.get(key, (oid, osl))
+                r = ro(_io[0], _io[1], depth + 1)
             else:
                 r = key
             memo[key] = r
@@ -262,7 +265,7 @@ class WorkflowManager:
                         # COMBO（如 lora_name）：值需与 ComfyUI 选项完全一致（Windows 用反斜杠路径）
                         # 兼容两种格式：旧式 spec[0] 为选项 list；新式 spec[0]=='COMBO' + options 在 spec[1]
                         if sp and (sp[0] == "COMBO" or isinstance(sp[0], list)):
-                            opts = []
+                            opts: list = []
                             if sp[0] == "COMBO":
                                 opts = (sp[1] if len(sp) > 1 else {}).get("options") or []
                             elif isinstance(sp[0], list):

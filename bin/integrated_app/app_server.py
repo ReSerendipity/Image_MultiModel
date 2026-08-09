@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import logging.handlers
 import sys
 import time
 from contextlib import asynccontextmanager
@@ -108,7 +109,7 @@ async def lifespan(app: FastAPI):
                 "format": extra.get("preview_format", "jpg"),
             })
 
-    async def on_status(task_id: str, status, extra: dict = None):
+    async def on_status(task_id: str, status, extra: dict | None = None):
         await sse_bus.publish("task_status", {
             "task_id": task_id,
             "status": status.value if hasattr(status, "value") else str(status),

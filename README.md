@@ -52,9 +52,16 @@
    ```bat
    start.bat
    ```
-7. 浏览器自动打开 Web UI
+7. 浏览器自动打开 Web UI（默认地址 `http://127.0.0.1:8288`）
 
 > 💡 **优势**：多个项目（SeedVR2、TTS_MultiModel、Image_MultiModel）共享一套 Python + PyTorch + 依赖，避免每个项目重复 1~2GB 的 WinPython 环境。
+
+> 📌 **默认端口**：`8288`（可在 `config.yaml` → `server.port` 修改）；ComfyUI 默认端口 `8188`（可在 ComfyUI 启动参数修改）。
+
+> 📌 **模型路径模式**（`config.yaml` → `models.model_source_mode`）：
+> - `shared`（默认）：模型路径直接指向 ComfyUI 的 `models/` 目录，与 ComfyUI 共享模型文件，无需复制。
+> - `portable`：模型路径指向项目内 `pretrained_models/` 目录，适合便携包模式（完全自包含）。
+> - 切换模式后重启应用即可生效。
 
 ---
 
@@ -144,7 +151,7 @@ Image_MultiModel/
 ├── start.bat                    # ✅ Windows 启动脚本（统一风格，优先系统 Python）
 ├── install.bat                  # ✅ Windows 安装脚本（统一风格）
 ├── requirements.txt             # ✅ Python 依赖清单（已补充完整）
-├── requirements-lock.txt        # 依赖哈希锁文件
+├── requirements-lock.txt        # 依赖哈希锁文件（可复现安装：`pip install --require-hashes -r requirements-lock.txt`）
 ├── config.yaml                  # 应用配置（ComfyUI 地址 / 工作流路径 / 端口等）
 ├── pyproject.toml               # 工具配置（pytest / ruff / coverage）
 └── Dockerfile                   # Docker 构建
