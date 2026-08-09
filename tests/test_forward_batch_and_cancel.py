@@ -47,6 +47,22 @@ def _free_vram() -> None:
         pass
 
 
+def _free_vram_gb() -> float:
+    """当前可用显存（GB），用于硬件自适应 batch"""
+    try:
+        import subprocess
+
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.free", "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if out.returncode == 0 and out.stdout.strip():
+            return float(out.stdout.strip().splitlines()[0]) / 1024
+    except Exception:
+        pass
+    return 0.0
+
+
 pytestmark = pytest.mark.skipif(not _comfy_online(), reason="ComfyUI 不在线，跳过前向路径集成测试")
 
 
@@ -135,26 +151,34 @@ class TestBatchChunk:
     """PRD 4.3.2: batch 分块（chunk≤16 无超分，chunk≤4 开超分）"""
 
     def test_batch_chunk_no_upscale(self, client: TestClient) -> None:
-        """batch_size=32（无超分）→ 2×chunk16 → 多张输出"""
+        """batch 分块（无超分）：输出数量 == batch（证明分块循环完整产出）
+
+        大显存机器（≥16GB）用 batch=32（2×chunk16 语义）；
+        低显存机器自适应降为 batch=8（8×chunk1，chunk 由引擎按显存自适应）。
+        """
         _free_vram()
+        vram = _free_vram_gb()
+        batch = 32 if vram >= 16 else 8
         d = _submit_and_wait(
             client,
-            _base_payload(batch_size=32, seedvr2_enable=False),
+            _base_payload(batch_size=batch, seedvr2_enable=False),
             timeout_s=600,
         )
         assert d["status"] == "completed", d.get("error")
-        assert d.get("output_count", 0) >= 1
+        assert d.get("output_count", 0) == batch, f"期望 {batch} 张，实际 {d.get('output_count')}"
 
     def test_batch_chunk_with_upscale(self, client: TestClient) -> None:
-        """batch_size=9（开超分）→ 3×chunk4 → 多张输出"""
+        """batch 分块（开超分）：输出数量 == batch（3×chunk4 语义；低显存自适应降级）"""
         _free_vram()
+        vram = _free_vram_gb()
+        batch = 9 if vram >= 16 else 5
         d = _submit_and_wait(
             client,
-            _base_payload(batch_size=9, seedvr2_enable=True, eses_enable=False),
+            _base_payload(batch_size=batch, seedvr2_enable=True, eses_enable=False),
             timeout_s=600,
         )
         assert d["status"] == "completed", d.get("error")
-        assert d.get("output_count", 0) >= 1
+        assert d.get("output_count", 0) == batch, f"期望 {batch} 张，实际 {d.get('output_count')}"
 
 
 # ── §1.4 LoRA 6 层全开/全关对比 ───────────────────────────────

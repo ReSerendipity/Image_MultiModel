@@ -10,12 +10,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from ..config import get_config
 from ..engine_interface import GenerationConfig, ProgressCallback
+from ..gpu_utils import estimate_vram_requirement, get_gpu_info, recommend_chunk_size
 from .client import ComfyClient
 from .workflow import WorkflowManager
 
@@ -155,39 +157,85 @@ class ComfyEngine:
         on_progress: ProgressCallback | None = None,
         max_wait_s: int = 1200,
     ) -> list[str]:
-        """
-        执行文生图推理。
-
-        流程:
-        1. WorkflowManager.patch(config) → 生成 patched workflow
-        2. client.queue_prompt(workflow) → 提交到 ComfyUI
-        3. WS 监听进度 → on_progress 回调
-        4. 保存输出 → 返回文件路径列表
-        """
+        """执行文生图推理（batch>chunk 时分块循环提交，chunk 按显存自适应）"""
         if not self._ready or not self._client or not self._workflow_mgr:
             raise RuntimeError("Engine not ready, please load first")
 
         self._cancel_requested = False
+        total = max(1, config.batch_size)
+        chunk = self._adaptive_chunk(config)
+        if chunk < recommend_chunk_size(total, config.seedvr2_enable):
+            logger.warning(
+                f"batch={total} → 自适应 chunk={chunk}（低显存模式，"
+                f"共 {(total + chunk - 1) // chunk} 次提交）"
+            )
 
-        # 1. Patch 工作流
-        if on_progress:
-            on_progress(5, _map_phase("Patching workflow..."), {})
+        submitted = 0
+        all_outputs: list[str] = []
+        while submitted < total:
+            if self._cancel_requested:
+                await self._client.interrupt()
+                raise asyncio.CancelledError("Generation cancelled by user")
+            cur = min(chunk, total - submitted)
+            base_pct = int(submitted / total * 100)
+            span_pct = cur / total * 100
+            chunk_cfg = replace(config, batch_size=cur)
+            outs = await self._run_chunk(
+                chunk_cfg, on_progress, max_wait_s, base_pct, span_pct
+            )
+            all_outputs.extend(outs)
+            submitted += cur
+        self._current_prompt_id = None
+        return all_outputs
 
-        workflow_data = self._workflow_mgr.patch(config)
+    def _adaptive_chunk(self, config: GenerationConfig) -> int:
+        """按可用显存自适应 chunk 大小（低显存机型自动下调，避免 OOM）"""
+        chunk = recommend_chunk_size(config.batch_size, config.seedvr2_enable)
+        if chunk <= 1 or config.batch_size <= 1:
+            return chunk
+        ecfg = get_config().models.engines.get(self._name)
+        evram = float(ecfg.vram_gb) if ecfg else 12.0
+        avail = max(get_gpu_info().free_vram_gb, 0.1)
+        while chunk > 1:
+            need = estimate_vram_requirement(
+                evram, config.width, config.height, chunk,
+                config.seedvr2_enable, multisample_rule=1.0, headroom_gb=0.5,
+            )
+            if need <= avail * 1.3:  # 允许少量超出，低显存换入换出兜底
+                break
+            chunk = max(1, chunk // 2)
+        return chunk
 
-        # 2. 转换为 ComfyUI API 格式（子图展开 + bypass 重连 + 具名 inputs）
+    async def _run_chunk(
+        self,
+        chunk_cfg: GenerationConfig,
+        on_progress: ProgressCallback | None,
+        max_wait_s: int,
+        base_pct: int,
+        span_pct: float,
+    ) -> list[str]:
+        """提交单个 chunk 并等待完成，返回该 chunk 的输出路径"""
+        if not self._client or not self._workflow_mgr:
+            raise RuntimeError("Engine not ready")
+
+        def sp(pct: int, phase: str, extra: dict) -> None:
+            """把 chunk 内进度映射到整体进度"""
+            if on_progress:
+                on_progress(base_pct + int(pct * span_pct / 100), phase, extra)
+
+        # 1. Patch + 转换
+        sp(2, _map_phase("Patching workflow..."), {})
+        workflow_data = self._workflow_mgr.patch(chunk_cfg)
         api_data = self._workflow_mgr.to_api_format(workflow_data, self._object_info or {})
         if not api_data:
             raise RuntimeError("Patched workflow produced empty API prompt")
 
-        # 3. 提交到 ComfyUI
-        if on_progress:
-            on_progress(10, _map_phase("Queuing prompt..."), {})
-
+        # 2. 提交
+        sp(10, _map_phase("Queuing prompt..."), {})
         prompt_id = await self._client.queue_prompt(api_data)
         self._current_prompt_id = prompt_id
 
-        # 3. WS 监听进度；WS 断开/超时后转 HTTP 轮询 history，直到出结果或出错
+        # 3. WS 监听；WS 断开/超时后转 HTTP 轮询 history，直到出结果或出错
         await self._client.connect_ws()
         ws_alive = True
         t_start = time.time()
@@ -200,26 +248,21 @@ class ComfyEngine:
                 value = data.get("value", 0)
                 max_val = data.get("max", 1)
                 pct = 10 + int(value / max_val * 80) if max_val > 0 else 10
-                if on_progress:
-                    on_progress(pct, _map_phase(f"Sampling {value}/{max_val}"), {})
+                sp(pct, _map_phase(f"Sampling {value}/{max_val}"), {})
             elif msg_type == "executing":
                 node_id = data.get("node_id") if "node_id" in data else data.get("node")
                 if node_id is None or node_id == 0:
-                    if on_progress:
-                        on_progress(100, _map_phase("Completed"), {})
+                    sp(100, _map_phase("Completed"), {})
                     return "done"
-                if on_progress:
-                    on_progress(90, _map_phase(f"Executing node {node_id}"), {})
+                sp(90, _map_phase(f"Executing node {node_id}"), {})
             elif msg_type == "executed":
-                if on_progress:
-                    on_progress(95, _map_phase("Image saved"), data)
+                sp(95, _map_phase("Image saved"), data)
             elif msg_type == "execution_error":
                 raise RuntimeError(f"ComfyUI execution error: {data}")
             elif msg_type == "execution_interrupted":
                 raise asyncio.CancelledError("Generation interrupted")
             elif msg_type == "execution_success":
-                if on_progress:
-                    on_progress(100, _map_phase("Completed"), {})
+                sp(100, _map_phase("Completed"), {})
                 return "done"
             return None
 
@@ -231,7 +274,12 @@ class ComfyEngine:
                 raise RuntimeError(f"Generation timed out after {max_wait_s}s")
 
             if ws_alive:
-                msg = await self._client.ws_recv()
+                try:
+                    msg = await asyncio.wait_for(self._client.ws_recv(), timeout=60)
+                except asyncio.TimeoutError:
+                    # WS 静默（缓存命中/执行过快无事件）→ 转 HTTP 轮询兜底
+                    ws_alive = False
+                    continue
                 if msg is None:
                     ws_alive = False  # WS 关闭 → 转 HTTP 轮询
                     continue
@@ -250,15 +298,12 @@ class ComfyEngine:
                 if "execution_interrupted" in types:
                     raise asyncio.CancelledError("Generation interrupted")
                 if entry.get("outputs"):
-                    if on_progress:
-                        on_progress(100, _map_phase("Completed"), {})
+                    sp(100, _map_phase("Completed"), {})
                     break
             await asyncio.sleep(2)
 
         # 4. 获取输出
-        outputs = await self._fetch_outputs(prompt_id)
-        self._current_prompt_id = None
-        return outputs
+        return await self._fetch_outputs(prompt_id)
 
     async def cancel(self) -> None:
         """取消当前推理"""
