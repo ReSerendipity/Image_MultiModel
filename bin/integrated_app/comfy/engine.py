@@ -36,12 +36,13 @@ class ComfyEngine:
         display_name: str = "",
         display_name_en: str = "",
         config: Optional[Dict[str, Any]] = None,
+        client: Optional[ComfyClient] = None,
     ) -> None:
         self._name = name
         self._display_name = display_name or name
         self._display_name_en = display_name_en or name
         self._config = config or {}
-        self._client: Optional[ComfyClient] = None
+        self._client: Optional[ComfyClient] = client
         self._workflow_mgr: Optional[WorkflowManager] = None
         self._ready = False
         self._current_prompt_id: Optional[str] = None
@@ -71,12 +72,13 @@ class ComfyEngine:
         if not backend:
             raise RuntimeError(f"ComfyUI backend '{backend_name}' not found in config")
 
-        self._client = ComfyClient(
-            base_url=backend.base_url,
-            ws_url=backend.ws_url,
-            auth_token=backend.auth_token,
-            client_id_prefix=backend.client_id_prefix,
-        )
+        if self._client is None:
+            self._client = ComfyClient(
+                base_url=backend.base_url,
+                ws_url=backend.ws_url,
+                auth_token=backend.auth_token,
+                client_id_prefix=backend.client_id_prefix,
+            )
 
         if on_progress:
             on_progress(40, "Connecting HTTP...", {})
