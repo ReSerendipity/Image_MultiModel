@@ -6,13 +6,10 @@ tests/test_config_save.py — 配置写回 + reload 测试
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 import yaml
 
-from integrated_app.config import load_config, get_config, save_config, reload_config
-from integrated_app.config_models import AppConfig
+from integrated_app.config import load_config, reload_config, save_config
 
 
 @pytest.fixture

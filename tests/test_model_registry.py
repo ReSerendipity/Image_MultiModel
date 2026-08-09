@@ -6,12 +6,12 @@ tests/test_model_registry.py — 引擎注册表桥接测试
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
-from integrated_app.model_registry import ModelRegistry, get_model_registry
 from integrated_app.engine_interface import InMemoryEngineRegistry
+from integrated_app.model_registry import ModelRegistry, get_model_registry
 
 
 class TestInMemoryEngineRegistry:

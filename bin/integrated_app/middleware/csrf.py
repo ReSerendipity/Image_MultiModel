@@ -7,7 +7,6 @@ middleware/csrf.py — CSRF 防护中间件
 from __future__ import annotations
 
 import secrets
-from typing import Optional
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware

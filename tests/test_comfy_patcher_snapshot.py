@@ -5,7 +5,6 @@ test_comfy_patcher_snapshot.py — 4 大开关 on/off 组合快照比对
 4 大开关: LoRA / SeedVR2 / Eses / VRAM on/off → patch 后 JSON 快照比对
 """
 
-import json
 import sys
 from pathlib import Path
 

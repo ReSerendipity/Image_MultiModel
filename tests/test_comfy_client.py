@@ -7,7 +7,6 @@ tests/test_comfy_client.py — ComfyUI HTTP+WebSocket 客户端 Mock 测试
 
 from __future__ import annotations
 
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

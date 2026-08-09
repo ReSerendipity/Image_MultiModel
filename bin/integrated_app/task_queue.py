@@ -11,9 +11,10 @@ import asyncio
 import logging
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ class Task:
     """队列中的任务"""
     task_id: str
     engine: str
-    config: Dict[str, Any]
+    config: dict[str, Any]
     mode: str = "txt2img"  # txt2img | batch
     status: TaskStatus = TaskStatus.PENDING
     created_at: float = field(default_factory=time.time)
@@ -40,10 +41,10 @@ class Task:
     completed_at: float = 0.0
     progress: int = 0  # 0-100
     phase: str = ""
-    result: Optional[List[str]] = None  # 输出文件路径列表
+    result: list[str] | None = None  # 输出文件路径列表
     error: str = ""
     cancel_requested: bool = False
-    batch_id: Optional[str] = None  # 批量任务的批次 ID
+    batch_id: str | None = None  # 批量任务的批次 ID
 
 
 class TaskQueue:
@@ -64,32 +65,32 @@ class TaskQueue:
         max_timeout_s: int = 86400,
     ) -> None:
         self._queue: asyncio.Queue[Task] = asyncio.Queue(maxsize=maxsize)
-        self._tasks: Dict[str, Task] = {}
-        self._worker_task: Optional[asyncio.Task] = None
-        self._current_task: Optional[Task] = None
+        self._tasks: dict[str, Task] = {}
+        self._worker_task: asyncio.Task | None = None
+        self._current_task: Task | None = None
         self._cancel_event = asyncio.Event()
         self._cancel_timeout_s = cancel_timeout_s
         self._max_timeout_s = max_timeout_s
         self._running = False
-        self._progress_callbacks: List[Callable[[str, int, str, Dict], None]] = []
-        self._status_callbacks: List[Callable[[str, TaskStatus, Optional[Dict]], None]] = []
+        self._progress_callbacks: list[Callable[[str, int, str, dict], None]] = []
+        self._status_callbacks: list[Callable[[str, TaskStatus, dict | None], None]] = []
 
-    def add_progress_callback(self, cb: Callable[[str, int, str, Dict], None]) -> None:
+    def add_progress_callback(self, cb: Callable[[str, int, str, dict], None]) -> None:
         """注册进度回调（task_id, progress, phase, extra）"""
         self._progress_callbacks.append(cb)
 
-    def add_status_callback(self, cb: Callable[[str, TaskStatus, Optional[Dict]], None]) -> None:
+    def add_status_callback(self, cb: Callable[[str, TaskStatus, dict | None], None]) -> None:
         """注册状态变更回调（task_id, status, extra）"""
         self._status_callbacks.append(cb)
 
-    def _notify_progress(self, task_id: str, progress: int, phase: str, extra: Optional[Dict] = None) -> None:
+    def _notify_progress(self, task_id: str, progress: int, phase: str, extra: dict | None = None) -> None:
         for cb in self._progress_callbacks:
             try:
                 cb(task_id, progress, phase, extra or {})
             except Exception as e:
                 logger.warning(f"Progress callback error: {e}")
 
-    def _notify_status(self, task_id: str, status: TaskStatus, extra: Optional[Dict] = None) -> None:
+    def _notify_status(self, task_id: str, status: TaskStatus, extra: dict | None = None) -> None:
         for cb in self._status_callbacks:
             try:
                 cb(task_id, status, extra or {})
@@ -166,7 +167,7 @@ class TaskQueue:
         while self._running:
             try:
                 task = await asyncio.wait_for(self._queue.get(), timeout=1.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
             except asyncio.CancelledError:
                 break
@@ -187,7 +188,7 @@ class TaskQueue:
                         asyncio.get_event_loop().run_in_executor(None, worker_func, task),
                         timeout=self._max_timeout_s,
                     )
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     task.error = f"Task timed out after {self._max_timeout_s}s"
                     task.status = TaskStatus.FAILED
 
@@ -220,18 +221,18 @@ class TaskQueue:
         return self._queue.qsize()
 
     @property
-    def current_task(self) -> Optional[Task]:
+    def current_task(self) -> Task | None:
         return self._current_task
 
-    def get_task(self, task_id: str) -> Optional[Task]:
+    def get_task(self, task_id: str) -> Task | None:
         return self._tasks.get(task_id)
 
-    def list_tasks(self, status: Optional[TaskStatus] = None) -> List[Task]:
+    def list_tasks(self, status: TaskStatus | None = None) -> list[Task]:
         if status:
             return [t for t in self._tasks.values() if t.status == status]
         return list(self._tasks.values())
 
-    def get_queue_status(self) -> Dict[str, Any]:
+    def get_queue_status(self) -> dict[str, Any]:
         """获取队列状态摘要"""
         return {
             "queue_size": self.queue_size,

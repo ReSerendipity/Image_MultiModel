@@ -7,16 +7,16 @@ engine_interface.py — ImageEngine Protocol + InMemoryEngineRegistry
 
 from __future__ import annotations
 
-import abc
 import logging
-from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Protocol, runtime_checkable
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any, Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
 
 
 # ── 进度回调类型 ──────────────────────────────────────────────
-ProgressCallback = Callable[[int, str, Optional[Dict[str, Any]]], None]
+ProgressCallback = Callable[[int, str, dict[str, Any] | None], None]
 # 参数: (progress_pct, phase_text, extra_data)
 
 
@@ -76,12 +76,12 @@ class GenerationConfig:
     engine_name: str = ""
     workflow_sha256: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """序列化为 JSON 可存储的字典"""
         return {k: v for k, v in self.__dict__.items()}
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "GenerationConfig":
+    def from_dict(cls, d: dict[str, Any]) -> GenerationConfig:
         """从字典恢复"""
         known = {f.name for f in cls.__dataclass_fields__.values()}  # type: ignore
         return cls(**{k: v for k, v in d.items() if k in known})
@@ -109,7 +109,7 @@ class ImageEngine(Protocol):
         """引擎是否已加载就绪"""
         ...
 
-    async def load(self, on_progress: Optional[ProgressCallback] = None) -> None:
+    async def load(self, on_progress: ProgressCallback | None = None) -> None:
         """
         加载引擎模型到 GPU。
 
@@ -125,8 +125,8 @@ class ImageEngine(Protocol):
     async def infer_txt2img(
         self,
         config: GenerationConfig,
-        on_progress: Optional[ProgressCallback] = None,
-    ) -> List[str]:
+        on_progress: ProgressCallback | None = None,
+    ) -> list[str]:
         """
         执行文生图推理。
 
@@ -154,16 +154,16 @@ class InMemoryEngineRegistry:
     """
 
     def __init__(self) -> None:
-        self._factories: Dict[str, Callable[..., ImageEngine]] = {}
-        self._instances: Dict[str, ImageEngine] = {}
-        self._configs: Dict[str, Dict[str, Any]] = {}
-        self._active: Optional[str] = None
+        self._factories: dict[str, Callable[..., ImageEngine]] = {}
+        self._instances: dict[str, ImageEngine] = {}
+        self._configs: dict[str, dict[str, Any]] = {}
+        self._active: str | None = None
 
     def register(
         self,
         name: str,
         factory: Callable[..., ImageEngine],
-        config: Optional[Dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
     ) -> None:
         """注册引擎工厂"""
         self._factories[name] = factory
@@ -179,7 +179,7 @@ class InMemoryEngineRegistry:
             self._instances[name] = factory(**self._configs.get(name, {}))
         return self._instances[name]
 
-    def list_engines(self) -> List[Dict[str, Any]]:
+    def list_engines(self) -> list[dict[str, Any]]:
         """列出所有已注册引擎"""
         result = []
         for name, factory in self._factories.items():
@@ -199,10 +199,10 @@ class InMemoryEngineRegistry:
         self._active = name
 
     @property
-    def active_engine_name(self) -> Optional[str]:
+    def active_engine_name(self) -> str | None:
         return self._active
 
-    def get_active(self) -> Optional[ImageEngine]:
+    def get_active(self) -> ImageEngine | None:
         if self._active:
             return self.get(self._active)
         return None
@@ -224,7 +224,7 @@ class InMemoryEngineRegistry:
 
 
 # ── 全局注册表单例 ────────────────────────────────────────────
-_global_registry: Optional[InMemoryEngineRegistry] = None
+_global_registry: InMemoryEngineRegistry | None = None
 
 
 def get_registry() -> InMemoryEngineRegistry:

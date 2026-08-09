@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +145,7 @@ def preflight_vram(
     default_precision: str = "fp8",
     multisample_rule: float = 1.5,
     headroom_gb: float = 2.0,
-    gpu_info: Optional[GPUInfo] = None,
+    gpu_info: GPUInfo | None = None,
     allow_tight: bool = False,
 ) -> VRAMEstimate:
     """

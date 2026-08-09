@@ -173,9 +173,9 @@ class TestComfyEngineInferTxt2img:
         mock_client.connect_ws.assert_called_once()
         mock_client.get_history.assert_called_once_with("test-prompt-id")
 
-        # 验证输出
+        # 验证输出（§4.2 命名规范：{prompt_id}_{type}.png）
         assert len(outputs) == 1
-        assert "output.png" in outputs[0]
+        assert "original.png" in outputs[0]
 
     @pytest.mark.asyncio
     async def test_infer_execution_error_raises(self, engine, mock_client):

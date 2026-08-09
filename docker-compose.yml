@@ -1,0 +1,62 @@
+# Image MultiModel — Docker Compose (PRD §10.6)
+# 用法: docker compose up -d
+
+version: "3.8"
+
+services:
+  image-multimodel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: image-multimodel:latest
+    container_name: image-multimodel
+    restart: unless-stopped
+
+    # NVIDIA GPU 支持
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    # 环境变量
+    environment:
+      - MODELS_SOURCE_MODE=portable
+      - HF_HUB_OFFLINE=1
+      - TRANSFORMERS_OFFLINE=1
+      - MODELSCOPE_OFFLINE=1
+      - COMFYUI_DISABLE_UPDATE_CHECK=1
+
+    # 端口映射
+    ports:
+      - "8288:8288"
+
+    # 模型 volume 挂载（portable 模式）
+    volumes:
+      # 模型文件（只读挂载）
+      - ./pretrained_models:/app/pretrained_models:ro
+      # 工作流
+      - ./workflows:/app/workflows:ro
+      # 持久化数据
+      - ./data:/app/data
+      # 输出目录
+      - ./outputs:/app/outputs
+      # 日志
+      - ./logs:/app/logs
+      # 配置文件
+      - ./config.yaml:/app/config.yaml
+
+    # 健康检查
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8288/api/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+    # 依赖 ComfyUI 后端（可选：使用单独容器或本机）
+    # 如果使用本机 ComfyUI，请确保 host 网络可通
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

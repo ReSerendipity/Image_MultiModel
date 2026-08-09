@@ -6,7 +6,6 @@ tests/test_model_manager.py — 模型生命周期管理器测试
 
 from __future__ import annotations
 
-import asyncio
 from unittest.mock import AsyncMock
 
 import pytest

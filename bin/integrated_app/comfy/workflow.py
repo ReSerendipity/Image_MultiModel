@@ -13,7 +13,7 @@ import json
 import logging
 import random
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import yaml
 
@@ -62,8 +62,8 @@ class WorkflowManager:
         self.project_root = Path(project_root)
         self.workflow_path = Path(workflow_path) if workflow_path else None
         self.schema_path = Path(schema_path) if schema_path else None
-        self._workflow_data: Optional[Dict[str, Any]] = None
-        self._schema: Optional[Dict[str, Any]] = None
+        self._workflow_data: dict[str, Any] | None = None
+        self._schema: dict[str, Any] | None = None
         self._workflow_sha256: str = ""
 
         if self.workflow_path and self.workflow_path.exists():
@@ -74,7 +74,7 @@ class WorkflowManager:
     def _load_workflow(self) -> None:
         """加载工作流 JSON"""
         assert self.workflow_path is not None
-        with open(self.workflow_path, "r", encoding="utf-8") as f:
+        with open(self.workflow_path, encoding="utf-8") as f:
             self._workflow_data = json.load(f)
         # 计算 SHA256
         raw = json.dumps(self._workflow_data, sort_keys=True).encode()
@@ -84,7 +84,7 @@ class WorkflowManager:
     def _load_schema(self) -> None:
         """加载 Schema YAML"""
         assert self.schema_path is not None
-        with open(self.schema_path, "r", encoding="utf-8") as f:
+        with open(self.schema_path, encoding="utf-8") as f:
             self._schema = yaml.safe_load(f)
         logger.info(f"Schema loaded: {self.schema_path}")
 
@@ -93,7 +93,7 @@ class WorkflowManager:
         return self._workflow_sha256
 
     # ── Patcher 6 步 ─────────────────────────────────────────
-    def patch(self, config: GenerationConfig) -> Dict[str, Any]:
+    def patch(self, config: GenerationConfig) -> dict[str, Any]:
         """
         执行 6 步 Patcher，返回可提交给 ComfyUI 的工作流字典。
 
@@ -133,9 +133,9 @@ class WorkflowManager:
     # ── UI 格式 → ComfyUI API 格式（含子图展开 + bypass 移除重连）──
     def to_api_format(
         self,
-        wf: Dict[str, Any],
-        object_info: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        wf: dict[str, Any],
+        object_info: dict[str, Any],
+    ) -> dict[str, Any]:
         """
         将 patched 的 UI 格式工作流（含子图 definitions）转换为 ComfyUI /prompt
         需要的 API 格式：{"<id>": {"class_type": ..., "inputs": {...}}}。
@@ -150,12 +150,12 @@ class WorkflowManager:
         subs = wf.get("definitions", {}).get("subgraphs", []) or []
         sub = subs[0] if subs else None
         sub_nodes = list(sub.get("nodes", [])) if sub else []
-        nodes_by_id: Dict[int, Dict[str, Any]] = {}
+        nodes_by_id: dict[int, dict[str, Any]] = {}
         for n in top_nodes + sub_nodes:
             nodes_by_id[n["id"]] = n
 
-        subgraph_id: Optional[int] = None
-        sub_widgets: List[Any] = []
+        subgraph_id: int | None = None
+        sub_widgets: list[Any] = []
         if sub:
             for n in top_nodes:
                 if n.get("type") == sub.get("id"):
@@ -163,10 +163,10 @@ class WorkflowManager:
                     sub_widgets = list(n.get("widgets_values") or [])
 
         # ── 2. 链接（兼容 list / dict 两种格式）──
-        raw_links: List[Any] = list(wf.get("links", []))
+        raw_links: list[Any] = list(wf.get("links", []))
         if sub:
             raw_links.extend(sub.get("links", []))
-        links: List[Dict[str, Any]] = []
+        links: list[dict[str, Any]] = []
         for L in raw_links:
             if isinstance(L, (list, tuple)) and len(L) >= 6:
                 links.append({
@@ -180,24 +180,22 @@ class WorkflowManager:
         removed: set = set()
         for nid, n in nodes_by_id.items():
             t = n.get("type", "")
-            if t in ("ImageScaleToTotalPixels", "PreviewImage", "Fast Groups Bypasser (rgthree)"):
-                removed.add(nid)
-            elif n.get("mode") == 4:
+            if t in ("ImageScaleToTotalPixels", "PreviewImage", "Fast Groups Bypasser (rgthree)") or n.get("mode") == 4:
                 removed.add(nid)
             elif t == "LoraLoaderModelOnly" and not (n.get("widgets_values") or [None])[0]:
                 removed.add(nid)  # 空名 = 该层禁用 → 移除并重连
 
         # ── 4. bypass 上游映射 + 子图输出映射 ──
-        in_of: Dict[tuple, tuple] = {}
+        in_of: dict[tuple, tuple] = {}
         for L in links:
             if L["target_id"] in removed:
                 in_of[(L["target_id"], L["target_slot"])] = (L["origin_id"], L["origin_slot"])
-        sub_out: Dict[int, tuple] = {}
+        sub_out: dict[int, tuple] = {}
         for L in links:
             if L["target_id"] == -20:
                 sub_out[L["target_slot"]] = (L["origin_id"], L["origin_slot"])
 
-        memo: Dict[tuple, tuple] = {}
+        memo: dict[tuple, tuple] = {}
 
         def ro(oid: int, osl: int, depth: int = 0) -> tuple:
             """递归解析 origin：-10=子图输入值 / subgraph=子图输出 / removed=上游"""
@@ -221,7 +219,7 @@ class WorkflowManager:
         def _is_primitive(t0: Any) -> bool:
             return isinstance(t0, list) or t0 in ("STRING", "INT", "FLOAT", "BOOLEAN", "SEED", "COMBO")
 
-        prompt: Dict[str, Dict[str, Any]] = {}
+        prompt: dict[str, dict[str, Any]] = {}
         for nid, n in nodes_by_id.items():
             if nid in removed or nid in (subgraph_id, -10, -20):
                 continue
@@ -237,18 +235,18 @@ class WorkflowManager:
             widget_names = [nm for nm in oi_in if _is_primitive((spec.get("required", {}).get(nm) or spec.get("optional", {}).get(nm))[0])]
             widgets = [v for v in (n.get("widgets_values") or [])
                        if not (isinstance(v, str) and v in _CONTROL)]
-            wmap: Dict[str, int] = {}
+            wmap: dict[str, int] = {}
             for wi, nm in enumerate(widget_names):
                 if wi >= len(widgets):
                     break
                 wmap[nm] = wi
 
-            linked: Dict[int, tuple] = {}
+            linked: dict[int, tuple] = {}
             for L in links:
                 if L["target_id"] == nid and L["target_id"] not in removed:
                     linked[L["target_slot"]] = ro(L["origin_id"], L["origin_slot"])
 
-            inputs: Dict[str, Any] = {}
+            inputs: dict[str, Any] = {}
             for idx, name in enumerate(in_names):
                 if idx in linked:
                     oid, osl = linked[idx]
@@ -296,7 +294,7 @@ class WorkflowManager:
         if config.vram_seed == -1:
             config.vram_seed = random.randint(0, 2**53 - 1)
 
-    def _get_node(self, wf: Dict[str, Any], node_id: int) -> Optional[Dict[str, Any]]:
+    def _get_node(self, wf: dict[str, Any], node_id: int) -> dict[str, Any] | None:
         """在工作流中查找节点（包括子图定义中的节点）"""
         # 顶层节点
         for node in wf.get("nodes", []):
@@ -312,14 +310,14 @@ class WorkflowManager:
 
         return None
 
-    def _get_all_nodes(self, wf: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _get_all_nodes(self, wf: dict[str, Any]) -> list[dict[str, Any]]:
         """获取所有节点（顶层 + 子图）"""
         nodes = list(wf.get("nodes", []))
         for sub in wf.get("definitions", {}).get("subgraphs", []):
             nodes.extend(sub.get("nodes", []))
         return nodes
 
-    def _patch_modes(self, wf: Dict[str, Any], config: GenerationConfig) -> None:
+    def _patch_modes(self, wf: dict[str, Any], config: GenerationConfig) -> None:
         """
         ② mode 切换：
         - LoRA 节点 mode=4 → 改 0（提交前强制）
@@ -359,7 +357,7 @@ class WorkflowManager:
             if node_type in ("ImageScaleToTotalPixels", "PreviewImage", "Fast Groups Bypasser (rgthree)"):
                 node["mode"] = 4
 
-    def _patch_links(self, wf: Dict[str, Any], config: GenerationConfig) -> None:
+    def _patch_links(self, wf: dict[str, Any], config: GenerationConfig) -> None:
         """
         ③ link 重连：
         - 关闭 SeedVR2 时：VAEDecode → 直通到 SaveImage/Eses（跳过 SeedVR2VideoUpscaler）
@@ -386,7 +384,7 @@ class WorkflowManager:
             for override in link_overrides:
                 self._apply_link_override(links, override)
 
-    def _apply_link_override(self, links: List[Any], override: Dict[str, Any]) -> None:
+    def _apply_link_override(self, links: list[Any], override: dict[str, Any]) -> None:
         """应用单个 link 重连规则"""
         link_id = override.get("link_id")
         new_origin = override.get("new_origin_id")
@@ -400,7 +398,7 @@ class WorkflowManager:
                     link[2] = new_origin_slot
                 break
 
-    def _patch_widgets(self, wf: Dict[str, Any], config: GenerationConfig) -> None:
+    def _patch_widgets(self, wf: dict[str, Any], config: GenerationConfig) -> None:
         """
         ④ widgets 精确 patch：
         - Schema 中每个节点的 widgets 映射 → widgets_values 下标
@@ -460,7 +458,7 @@ class WorkflowManager:
         # width/height 双节点同步（EmptyLatent + Scheduler/Flux2Scheduler）
         self._sync_width_height(wf, config)
 
-    def _patch_widgets_default(self, wf: Dict[str, Any], config: GenerationConfig) -> None:
+    def _patch_widgets_default(self, wf: dict[str, Any], config: GenerationConfig) -> None:
         """无 Schema 时的默认 patch 逻辑"""
         all_nodes = self._get_all_nodes(wf)
 
@@ -597,7 +595,7 @@ class WorkflowManager:
         # width/height 双节点同步
         self._sync_width_height(wf, config)
 
-    def _sync_width_height(self, wf: Dict[str, Any], config: GenerationConfig) -> None:
+    def _sync_width_height(self, wf: dict[str, Any], config: GenerationConfig) -> None:
         """width/height 在 EmptyLatent + Scheduler 两处同步"""
         all_nodes = self._get_all_nodes(wf)
         for node in all_nodes:
@@ -660,7 +658,7 @@ class WorkflowManager:
             return getattr(config, attr)
         return None
 
-    def _patch_batch_chunk(self, wf: Dict[str, Any], config: GenerationConfig) -> Dict[str, Any]:
+    def _patch_batch_chunk(self, wf: dict[str, Any], config: GenerationConfig) -> dict[str, Any]:
         """
         ⑤ batch chunk 拆分：
         - 不开超分：chunk=16
@@ -693,7 +691,7 @@ class WorkflowManager:
 
         return wf
 
-    def _validate_nodes(self, wf: Dict[str, Any]) -> None:
+    def _validate_nodes(self, wf: dict[str, Any]) -> None:
         """
         ⑥ 提交前节点校验：
         - 所有必填节点存在

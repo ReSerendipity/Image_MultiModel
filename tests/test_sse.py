@@ -7,7 +7,6 @@ tests/test_sse.py — SSE 事件总线测试
 from __future__ import annotations
 
 import asyncio
-import json
 
 import pytest
 

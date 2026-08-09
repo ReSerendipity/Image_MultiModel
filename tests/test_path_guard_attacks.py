@@ -4,7 +4,6 @@ test_path_guard_attacks.py — 14 类路径攻击全拒绝
 对应 AUDIT_REPORT_2.0 Y2: test_path_guard_attacks.py
 """
 
-import os
 import sys
 from pathlib import Path
 

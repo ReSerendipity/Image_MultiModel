@@ -4,7 +4,6 @@ test_config.py — 配置加载 + resolve_model_path() 双模式单测
 对应 MASTER_PLAN M0 验收: 路径解析器双模式单测
 """
 
-import os
 import sys
 from pathlib import Path
 
@@ -16,11 +15,15 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 BIN_DIR = PROJECT_ROOT / "bin"
 sys.path.insert(0, str(BIN_DIR))
 
-from integrated_app.config import load_config, get_config
 from integrated_app.config_models import (
-    AppConfig, ModelsConfig, ModelPaths, EngineConfig,
-    resolve_model_path, resolve_engine_model_paths, scan_resource_files,
-    SharedConfig, PortableConfig,
+    AppConfig,
+    ModelPaths,
+    ModelsConfig,
+    PortableConfig,
+    SharedConfig,
+    resolve_engine_model_paths,
+    resolve_model_path,
+    scan_resource_files,
 )
 
 
@@ -32,7 +35,7 @@ def project_root():
 @pytest.fixture
 def config_yaml(project_root):
     """加载 config.yaml"""
-    with open(project_root / "config.yaml", "r", encoding="utf-8") as f:
+    with open(project_root / "config.yaml", encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 

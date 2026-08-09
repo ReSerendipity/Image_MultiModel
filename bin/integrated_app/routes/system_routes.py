@@ -11,7 +11,7 @@ import asyncio
 import json
 import logging
 import time
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
@@ -26,15 +26,14 @@ router = APIRouter(prefix="/api", tags=["system"])
 
 
 @router.get("/health")
-async def health_check() -> Dict[str, Any]:
+async def health_check() -> dict[str, Any]:
     """
     GET /api/health — 后端/引擎/队列状态摘要
     """
     cfg = get_config()
-    from ..task_queue import TaskQueue
 
     # 获取队列状态（如果已初始化）
-    queue_status: Dict[str, Any] = {}
+    queue_status: dict[str, Any] = {}
     # queue 实例由 app_server 注入到 request.app.state
 
     # GPU 状态
@@ -91,7 +90,7 @@ async def sse_events(request: Request) -> StreamingResponse:
                 try:
                     msg = await asyncio.wait_for(queue.get(), timeout=30.0)
                     yield msg
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # 发送心跳
                     heartbeat = json.dumps({"timestamp": time.time()})
                     yield f"event: heartbeat\ndata: {heartbeat}\n\n"
@@ -111,7 +110,7 @@ async def sse_events(request: Request) -> StreamingResponse:
 
 
 @router.get("/gpu")
-async def gpu_status() -> Dict[str, Any]:
+async def gpu_status() -> dict[str, Any]:
     """GET /api/gpu — GPU 状态"""
     gpu = get_gpu_info()
     return {

@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import math
 import time
-from typing import List
 
 import numpy as np
 
@@ -52,15 +51,15 @@ def _idct2(coef: np.ndarray) -> np.ndarray:
 
 
 # ── 比特编解码 ──────────────────────────────────────────
-def _str_to_bits(s: str) -> List[int]:
-    bits: List[int] = []
+def _str_to_bits(s: str) -> list[int]:
+    bits: list[int] = []
     for ch in s.encode("utf-8"):
         for i in range(7, -1, -1):
             bits.append((ch >> i) & 1)
     return bits
 
 
-def _bits_to_str(bits: List[int]) -> str:
+def _bits_to_str(bits: list[int]) -> str:
     out = bytearray()
     for i in range(0, len(bits) - 7, 8):
         byte = 0
@@ -129,14 +128,14 @@ def embed_watermark(
     return result
 
 
-def extract_watermark(image: np.ndarray, n_bits: int) -> List[int]:
+def extract_watermark(image: np.ndarray, n_bits: int) -> list[int]:
     """提取前 n_bits 个水印比特"""
     arr = np.asarray(image, dtype=np.float64)
     work = arr if arr.ndim == 2 else arr[:, :, 0]
     h, w = work.shape
     rows_blocks, cols_blocks = h // BLOCK, w // BLOCK
     r, c = COEF_RC
-    bits: List[int] = []
+    bits: list[int] = []
     idx = 0
     for bi in range(rows_blocks):
         for bj in range(cols_blocks):

@@ -8,18 +8,45 @@ comfy/engine.py — ComfyEngine (ImageEngine 实现)
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import time
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
-from ..engine_interface import GenerationConfig, ProgressCallback
 from ..config import get_config
+from ..engine_interface import GenerationConfig, ProgressCallback
 from .client import ComfyClient
 from .workflow import WorkflowManager
 
 logger = logging.getLogger(__name__)
+
+# ── 进度阶段 i18n 键映射（§1.7）──
+PHASE_KEY_MAP = {
+    "Connecting to ComfyUI...": "phase_connecting",
+    "Connecting HTTP...": "phase_connecting",
+    "Loading workflow...": "phase_loading_workflow",
+    "Engine ready": "phase_engine_ready",
+    "Patching workflow...": "phase_patching",
+    "Queuing prompt...": "phase_queuing",
+    "Completed": "phase_completed",
+    "Image saved": "phase_image_saved",
+    "cancelling...": "phase_cancelling",
+}
+
+
+def _map_phase(phase_text: str) -> str:
+    """将英文阶段文案映射为 i18n 键"""
+    # 先尝试直接匹配
+    if phase_text in PHASE_KEY_MAP:
+        return PHASE_KEY_MAP[phase_text]
+    # 处理动态阶段：Sampling x/y → phase_sampling
+    if phase_text.startswith("Sampling "):
+        return "phase_sampling"
+    # 处理动态阶段：Executing node N → phase_executing
+    if phase_text.startswith("Executing node "):
+        return "phase_executing"
+    return phase_text
 
 
 class ComfyEngine:
@@ -35,19 +62,20 @@ class ComfyEngine:
         name: str,
         display_name: str = "",
         display_name_en: str = "",
-        config: Optional[Dict[str, Any]] = None,
-        client: Optional[ComfyClient] = None,
+        config: dict[str, Any] | None = None,
+        client: ComfyClient | None = None,
     ) -> None:
         self._name = name
         self._display_name = display_name or name
         self._display_name_en = display_name_en or name
         self._config = config or {}
-        self._client: Optional[ComfyClient] = client
-        self._workflow_mgr: Optional[WorkflowManager] = None
+        self._client: ComfyClient | None = client
+        self._workflow_mgr: WorkflowManager | None = None
         self._ready = False
-        self._current_prompt_id: Optional[str] = None
+        self._current_prompt_id: str | None = None
         self._cancel_requested = False
-        self._object_info: Dict[str, Any] = {}
+        self._object_info: dict[str, Any] = {}
+        self._thumbnail_path: str = ""  # 缩略图路径（§2.5）
 
     @property
     def name(self) -> str:
@@ -60,10 +88,10 @@ class ComfyEngine:
     def is_ready(self) -> bool:
         return self._ready
 
-    async def load(self, on_progress: Optional[ProgressCallback] = None) -> None:
+    async def load(self, on_progress: ProgressCallback | None = None) -> None:
         """加载引擎：建立 ComfyUI 连接 + 初始化 WorkflowManager"""
         if on_progress:
-            on_progress(10, "Connecting to ComfyUI...", {})
+            on_progress(10, _map_phase("Connecting to ComfyUI..."), {})
 
         cfg = get_config()
         comfy_cfg = cfg.comfy
@@ -82,12 +110,12 @@ class ComfyEngine:
             )
 
         if on_progress:
-            on_progress(40, "Connecting HTTP...", {})
+            on_progress(40, _map_phase("Connecting HTTP..."), {})
 
         await self._client.connect()
 
         if on_progress:
-            on_progress(70, "Loading workflow...", {})
+            on_progress(70, _map_phase("Loading workflow..."), {})
 
         # 初始化 WorkflowManager
         workflow_file = self._config.get("workflow_file", "")
@@ -101,7 +129,7 @@ class ComfyEngine:
         )
 
         if on_progress:
-            on_progress(100, "Engine ready", {})
+            on_progress(100, _map_phase("Engine ready"), {})
 
         # 缓存节点定义（UI→API 转换需要）
         try:
@@ -124,9 +152,9 @@ class ComfyEngine:
     async def infer_txt2img(
         self,
         config: GenerationConfig,
-        on_progress: Optional[ProgressCallback] = None,
+        on_progress: ProgressCallback | None = None,
         max_wait_s: int = 1200,
-    ) -> List[str]:
+    ) -> list[str]:
         """
         执行文生图推理。
 
@@ -143,7 +171,7 @@ class ComfyEngine:
 
         # 1. Patch 工作流
         if on_progress:
-            on_progress(5, "Patching workflow...", {})
+            on_progress(5, _map_phase("Patching workflow..."), {})
 
         workflow_data = self._workflow_mgr.patch(config)
 
@@ -154,7 +182,7 @@ class ComfyEngine:
 
         # 3. 提交到 ComfyUI
         if on_progress:
-            on_progress(10, "Queuing prompt...", {})
+            on_progress(10, _map_phase("Queuing prompt..."), {})
 
         prompt_id = await self._client.queue_prompt(api_data)
         self._current_prompt_id = prompt_id
@@ -164,7 +192,7 @@ class ComfyEngine:
         ws_alive = True
         t_start = time.time()
 
-        def _handle_msg(msg: Dict[str, Any]) -> Optional[str]:
+        def _handle_msg(msg: dict[str, Any]) -> str | None:
             """处理一条 WS 消息；返回 'done' 表示正常结束"""
             msg_type = msg.get("type", "")
             data = msg.get("data", {})
@@ -173,25 +201,25 @@ class ComfyEngine:
                 max_val = data.get("max", 1)
                 pct = 10 + int(value / max_val * 80) if max_val > 0 else 10
                 if on_progress:
-                    on_progress(pct, f"Sampling {value}/{max_val}", {})
+                    on_progress(pct, _map_phase(f"Sampling {value}/{max_val}"), {})
             elif msg_type == "executing":
                 node_id = data.get("node_id") if "node_id" in data else data.get("node")
                 if node_id is None or node_id == 0:
                     if on_progress:
-                        on_progress(100, "Completed", {})
+                        on_progress(100, _map_phase("Completed"), {})
                     return "done"
                 if on_progress:
-                    on_progress(90, f"Executing node {node_id}", {})
+                    on_progress(90, _map_phase(f"Executing node {node_id}"), {})
             elif msg_type == "executed":
                 if on_progress:
-                    on_progress(95, "Image saved", data)
+                    on_progress(95, _map_phase("Image saved"), data)
             elif msg_type == "execution_error":
                 raise RuntimeError(f"ComfyUI execution error: {data}")
             elif msg_type == "execution_interrupted":
                 raise asyncio.CancelledError("Generation interrupted")
             elif msg_type == "execution_success":
                 if on_progress:
-                    on_progress(100, "Completed", {})
+                    on_progress(100, _map_phase("Completed"), {})
                 return "done"
             return None
 
@@ -223,7 +251,7 @@ class ComfyEngine:
                     raise asyncio.CancelledError("Generation interrupted")
                 if entry.get("outputs"):
                     if on_progress:
-                        on_progress(100, "Completed", {})
+                        on_progress(100, _map_phase("Completed"), {})
                     break
             await asyncio.sleep(2)
 
@@ -239,12 +267,17 @@ class ComfyEngine:
             await self._client.interrupt()
         logger.info(f"ComfyEngine '{self._name}' cancel requested")
 
-    async def _fetch_outputs(self, prompt_id: str) -> List[str]:
-        """从 ComfyUI 历史获取输出文件并保存到本地（history 写入有延迟，带重试）"""
+    async def _fetch_outputs(self, prompt_id: str) -> list[str]:
+        """从 ComfyUI 历史获取输出文件并保存到本地（history 写入有延迟，带重试）
+
+        §4.1 水印接入：保存后嵌入 DCT 水印
+        §4.2 输出命名规范：outputs/{engine}/{date}/{task_id}_{type}.png
+        §2.5 缩略图：生成 512px 缩略图到 data/cache/thumbs/
+        """
         if not self._client:
             return []
 
-        outputs_data: Dict[str, Any] = {}
+        outputs_data: dict[str, Any] = {}
         await asyncio.sleep(1.0)  # 等 history 落库
         for attempt in range(40):
             history = await self._client.get_history(prompt_id)
@@ -263,7 +296,27 @@ class ComfyEngine:
         output_base = Path(cfg.project_root) / cfg.output.base_dir
         output_base.mkdir(parents=True, exist_ok=True)
 
-        saved_paths: List[str] = []
+        # §4.2 输出命名规范：outputs/{engine}/{date}/
+        date_str = datetime.now().strftime("%Y%m%d")
+        engine_dir = output_base / self._name / date_str
+        engine_dir.mkdir(parents=True, exist_ok=True)
+
+        # 水印配置
+        wm_cfg = cfg.watermark
+        wm_enabled = wm_cfg.enabled_in_code
+        product_id = wm_cfg.product_id
+
+        # 缩略图配置
+        thumb_enabled = cfg.output.save_thumbnail
+        thumb_max_side = cfg.output.thumbnail_max_side
+        thumb_dir = Path(cfg.project_root) / "data" / "cache" / "thumbs"
+        if thumb_enabled:
+            thumb_dir.mkdir(parents=True, exist_ok=True)
+
+        saved_paths: list[str] = []
+        out_type_idx = 0
+        out_types = ("original", "upscaled", "compare")
+
         for _node_id, node_output in outputs_data.items():
             for img_info in node_output.get("images", []):
                 filename = img_info.get("filename", "")
@@ -271,9 +324,63 @@ class ComfyEngine:
                 if not filename:
                     continue
                 img_data = await self._client.get_image(filename, subfolder, "output")
-                # 保存到本地
-                local_path = output_base / filename
+
+                # §4.2 命名规范
+                out_type = out_types[out_type_idx] if out_type_idx < len(out_types) else "original"
+                out_type_idx += 1
+                new_filename = f"{prompt_id[:16]}_{out_type}.png"
+                local_path = engine_dir / new_filename
                 local_path.write_bytes(img_data)
-                saved_paths.append(str(local_path).replace("\\", "/"))
+                local_path_str = str(local_path).replace("\\", "/")
+                saved_paths.append(local_path_str)
+
+                # §4.1 水印嵌入
+                if wm_enabled and img_data:
+                    try:
+                        import io
+
+                        import numpy as np
+                        from PIL import Image
+
+                        from ..watermark import embed_watermark
+
+                        img = Image.open(io.BytesIO(img_data))
+                        arr = np.array(img)
+                        wm_arr = embed_watermark(
+                            arr, product_id, prompt_id[:16], time.time()
+                        )
+                        wm_img = Image.fromarray(wm_arr.astype(np.uint8))
+                        buf = io.BytesIO()
+                        wm_img.save(buf, format="PNG")
+                        local_path.write_bytes(buf.getvalue())
+                        logger.debug(f"Watermark embedded: {local_path.name}")
+                    except Exception as e:
+                        logger.warning(f"Watermark embedding failed: {e}")
+
+                # §2.5 缩略图生成
+                if thumb_enabled and img_data:
+                    try:
+                        import io as _io
+
+                        from PIL import Image as PILImage
+
+                        img = PILImage.open(_io.BytesIO(img_data))
+                        w, h = img.size
+                        scale = thumb_max_side / max(w, h)
+                        if scale < 1.0:
+                            thumb = img.resize(
+                                (int(w * scale), int(h * scale)),
+                                PILImage.LANCZOS,
+                            )
+                        else:
+                            thumb = img
+                        thumb_filename = f"{prompt_id[:16]}_{out_type}_thumb.png"
+                        thumb_path = thumb_dir / thumb_filename
+                        thumb.save(str(thumb_path), format="PNG")
+                        self._thumbnail_path = str(thumb_path).replace("\\", "/")
+                        logger.debug(f"Thumbnail generated: {thumb_path.name}")
+                    except Exception as e:
+                        logger.warning(f"Thumbnail generation failed: {e}")
+                        self._thumbnail_path = local_path_str
 
         return saved_paths

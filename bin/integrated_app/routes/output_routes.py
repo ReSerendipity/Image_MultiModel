@@ -7,9 +7,7 @@ routes/output_routes.py — 图库 + 收藏
 from __future__ import annotations
 
 import logging
-import os
-from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse
@@ -26,11 +24,11 @@ router = APIRouter(prefix="/api/outputs", tags=["outputs"])
 @router.get("")
 async def list_outputs(
     request: Request,
-    type: Optional[str] = None,
-    fav: Optional[bool] = None,
+    type: str | None = None,
+    fav: bool | None = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """GET /api/outputs — 图库真实文件（宽高→masonry 比例）"""
     history_db: HistoryDB = request.app.state.history_db
     outputs, total = history_db.list_outputs(
@@ -62,7 +60,7 @@ async def get_output_file(file_path: str, request: Request) -> FileResponse:
 
 
 @router.post("/{file_path:path}/fav")
-async def toggle_favorite(file_path: str, request: Request) -> Dict[str, Any]:
+async def toggle_favorite(file_path: str, request: Request) -> dict[str, Any]:
     """POST /api/outputs/{file}/fav — 收藏标记"""
     cfg = get_config()
     guard = PathGuard(cfg.security.allowed_base_dirs, cfg.project_root)
@@ -76,3 +74,25 @@ async def toggle_favorite(file_path: str, request: Request) -> Dict[str, Any]:
     # 切换收藏状态
     history_db.set_output_favorite(str(safe_path), True)
     return {"status": "favorited", "path": str(safe_path)}
+
+
+@router.get("/{file_path:path}/download")
+async def download_output(file_path: str, request: Request) -> FileResponse:
+    """GET /api/outputs/{file}/download — 下载输出图片"""
+    cfg = get_config()
+    guard = PathGuard(cfg.security.allowed_base_dirs, cfg.project_root)
+
+    try:
+        safe_path = guard.resolve(file_path, base_dir="outputs/")
+    except Exception as e:
+        raise HTTPException(403, detail=f"Path not allowed: {e}")
+
+    if not safe_path.exists():
+        raise HTTPException(404, detail=f"File not found: {file_path}")
+
+    return FileResponse(
+        str(safe_path),
+        media_type="image/png",
+        filename=safe_path.name,
+        headers={"Content-Disposition": f"attachment; filename={safe_path.name}"},
+    )

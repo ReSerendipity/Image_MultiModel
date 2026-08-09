@@ -7,10 +7,8 @@ security/path_guard.py — 路径穿越守卫
 
 from __future__ import annotations
 
-import os
 import urllib.parse
 from pathlib import Path
-from typing import List, Optional, Union
 
 
 class PathGuardError(PermissionError):
@@ -30,18 +28,18 @@ class PathGuard:
 
     def __init__(
         self,
-        allowed_base_dirs: List[str],
-        project_root: Union[str, Path],
+        allowed_base_dirs: list[str],
+        project_root: str | Path,
     ) -> None:
         self.project_root = Path(project_root).resolve()
-        self.allowed_bases: List[Path] = []
+        self.allowed_bases: list[Path] = []
         for d in allowed_base_dirs:
             p = Path(d)
             if not p.is_absolute():
                 p = self.project_root / p
             self.allowed_bases.append(p.resolve())
 
-    def resolve(self, user_path: Union[str, Path], base_dir: Optional[str] = None) -> Path:
+    def resolve(self, user_path: str | Path, base_dir: str | None = None) -> Path:
         """
         解析用户提供的路径，确保在白名单目录内。
 
@@ -98,7 +96,7 @@ class PathGuard:
 
         return resolved
 
-    def ensure_dir(self, user_path: Union[str, Path]) -> Path:
+    def ensure_dir(self, user_path: str | Path) -> Path:
         """
         解析路径并确保目录存在。
 
@@ -134,7 +132,7 @@ class PathGuard:
         except ValueError:
             return False
 
-    def is_safe(self, user_path: Union[str, Path]) -> bool:
+    def is_safe(self, user_path: str | Path) -> bool:
         """检查路径是否安全（不抛异常）"""
         try:
             self.resolve(user_path)

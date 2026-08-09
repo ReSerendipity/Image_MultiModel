@@ -8,18 +8,16 @@ routes/generate_routes.py — POST /api/generate + 批量
 from __future__ import annotations
 
 import logging
-import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from ..config import get_config
 from ..engine_interface import GenerationConfig
-from ..task_queue import Task, TaskQueue, TaskStatus
-from ..sse import get_sse_bus
 from ..gpu_utils import preflight_vram
 from ..i18n import get_error_message
+from ..task_queue import Task, TaskQueue, TaskStatus
 
 logger = logging.getLogger(__name__)
 
@@ -67,15 +65,15 @@ class GenerateRequest(BaseModel):
     output_format: str = "png"
     output_prefix: str = ""
     # 引擎
-    engine_name: Optional[str] = None
+    engine_name: str | None = None
 
 
 class GenerateResponse(BaseModel):
     task_id: str
     status: str = "pending"
-    estimated_time_s: Optional[float] = None
-    estimated_vram_gb: Optional[float] = None
-    warning: Optional[str] = None
+    estimated_time_s: float | None = None
+    estimated_vram_gb: float | None = None
+    warning: str | None = None
 
 
 @router.post("/generate", response_model=GenerateResponse)
@@ -198,14 +196,14 @@ async def generate(req: GenerateRequest, request: Request) -> GenerateResponse:
 
 class BatchGenerateRequest(BaseModel):
     """POST /api/generate/batch 请求体"""
-    prompts: List[str] = Field(default_factory=list)  # Prompt 列表
-    prompt_file: Optional[str] = None  # Prompt 文件路径
-    grid_dimensions: Dict[str, List[Any]] = Field(default_factory=dict)  # Grid 6 维
+    prompts: list[str] = Field(default_factory=list)  # Prompt 列表
+    prompt_file: str | None = None  # Prompt 文件路径
+    grid_dimensions: dict[str, list[Any]] = Field(default_factory=dict)  # Grid 6 维
     base_config: GenerateRequest = Field(default_factory=GenerateRequest)
 
 
 @router.post("/generate/batch")
-async def generate_batch(req: BatchGenerateRequest, request: Request) -> Dict[str, Any]:
+async def generate_batch(req: BatchGenerateRequest, request: Request) -> dict[str, Any]:
     """POST /api/generate/batch — 批量生成（Prompt 文件 × Grid 6 维）"""
     cfg = get_config()
     engine_name = req.base_config.engine_name or cfg.models.default_engine
@@ -240,7 +238,7 @@ async def generate_batch(req: BatchGenerateRequest, request: Request) -> Dict[st
     task_queue: TaskQueue = request.app.state.task_queue
     history_db = request.app.state.history_db
     batch_id = task_queue.generate_task_id()
-    task_ids: List[str] = []
+    task_ids: list[str] = []
 
     for prompt_idx, prompt in enumerate(prompts):
         for grid_idx, combo in enumerate(grid_combos):
@@ -278,7 +276,7 @@ async def generate_batch(req: BatchGenerateRequest, request: Request) -> Dict[st
 
 
 @router.get("/tasks/batch/{batch_id}")
-async def get_batch_status(batch_id: str, request: Request) -> Dict[str, Any]:
+async def get_batch_status(batch_id: str, request: Request) -> dict[str, Any]:
     """GET /api/tasks/batch/{id} — 查询批量进度"""
     task_queue: TaskQueue = request.app.state.task_queue
     tasks = [t for t in task_queue.list_tasks() if t.batch_id == batch_id]

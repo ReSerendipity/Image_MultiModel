@@ -13,7 +13,7 @@ import logging
 import sqlite3
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -110,10 +110,10 @@ class HistoryDB:
     END;
     """
 
-    def __init__(self, db_path: Union[str, Path]) -> None:
+    def __init__(self, db_path: str | Path) -> None:
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn: Optional[sqlite3.Connection] = None
+        self._conn: sqlite3.Connection | None = None
         self._init_db()
 
     def _init_db(self) -> None:
@@ -171,8 +171,8 @@ class HistoryDB:
         mode: str = "txt2img",
         prompt: str = "",
         negative_prompt: str = "",
-        generation_config: Optional[Dict[str, Any]] = None,
-        tags: Optional[List[str]] = None,
+        generation_config: dict[str, Any] | None = None,
+        tags: list[str] | None = None,
     ) -> None:
         """创建新任务"""
         conn = self.conn
@@ -207,7 +207,7 @@ class HistoryDB:
         )
         conn.commit()
 
-    def get_task(self, task_id: str) -> Optional[Dict[str, Any]]:
+    def get_task(self, task_id: str) -> dict[str, Any] | None:
         """获取任务详情（含 generation_config + 三路输出）"""
         conn = self.conn
         row = conn.execute(
@@ -227,13 +227,13 @@ class HistoryDB:
 
     def list_tasks(
         self,
-        status: Optional[str] = None,
-        engine: Optional[str] = None,
-        q: Optional[str] = None,
-        favorite: Optional[bool] = None,
+        status: str | None = None,
+        engine: str | None = None,
+        q: str | None = None,
+        favorite: bool | None = None,
         page: int = 1,
         page_size: int = 50,
-    ) -> Tuple[List[Dict[str, Any]], int]:
+    ) -> tuple[list[dict[str, Any]], int]:
         """
         分页筛选任务列表。
 
@@ -291,7 +291,7 @@ class HistoryDB:
             tasks.append(t)
         return tasks, total
 
-    def delete_tasks(self, task_ids: List[str]) -> int:
+    def delete_tasks(self, task_ids: list[str]) -> int:
         """批量删除任务"""
         if not task_ids:
             return 0
@@ -335,11 +335,11 @@ class HistoryDB:
 
     def list_outputs(
         self,
-        output_type: Optional[str] = None,
-        favorite: Optional[bool] = None,
+        output_type: str | None = None,
+        favorite: bool | None = None,
         page: int = 1,
         page_size: int = 50,
-    ) -> Tuple[List[Dict[str, Any]], int]:
+    ) -> tuple[list[dict[str, Any]], int]:
         """
         分页查询输出文件（图库用）。
         JOIN tasks 获取 favorite 状态。
@@ -384,7 +384,7 @@ class HistoryDB:
         self,
         engine_name: str,
         name: str,
-        config: Dict[str, Any],
+        config: dict[str, Any],
         thumbnail: str = "",
     ) -> int:
         """创建预设，返回 id"""
@@ -400,7 +400,7 @@ class HistoryDB:
         except sqlite3.IntegrityError:
             raise ValueError(f"Preset '{name}' for engine '{engine_name}' already exists")
 
-    def list_presets(self, engine_name: Optional[str] = None) -> List[Dict[str, Any]]:
+    def list_presets(self, engine_name: str | None = None) -> list[dict[str, Any]]:
         """列出预设"""
         conn = self.conn
         if engine_name:
@@ -419,7 +419,7 @@ class HistoryDB:
             result.append(p)
         return result
 
-    def get_preset(self, preset_id: int) -> Optional[Dict[str, Any]]:
+    def get_preset(self, preset_id: int) -> dict[str, Any] | None:
         """获取预设"""
         conn = self.conn
         row = conn.execute(
@@ -434,9 +434,9 @@ class HistoryDB:
     def update_preset(
         self,
         preset_id: int,
-        name: Optional[str] = None,
-        config: Optional[Dict[str, Any]] = None,
-        thumbnail: Optional[str] = None,
+        name: str | None = None,
+        config: dict[str, Any] | None = None,
+        thumbnail: str | None = None,
     ) -> None:
         """更新预设"""
         conn = self.conn
@@ -465,6 +465,71 @@ class HistoryDB:
         cur = conn.execute("DELETE FROM presets WHERE id=?", (preset_id,))
         conn.commit()
         return cur.rowcount > 0
+
+    def add_task_tags(self, task_ids: list[str], tags: list[str]) -> int:
+        """批量给任务加标签"""
+        if not task_ids or not tags:
+            return 0
+        conn = self.conn
+        count = 0
+        for tid in task_ids:
+            row = conn.execute("SELECT tags FROM tasks WHERE task_id=?", (tid,)).fetchone()
+            if not row:
+                continue
+            existing = json.loads(row["tags"] or "[]")
+            merged = list(set(existing) | set(tags))
+            conn.execute(
+                "UPDATE tasks SET tags=?, updated_at=datetime('now') WHERE task_id=?",
+                (json.dumps(merged, ensure_ascii=False), tid),
+            )
+            count += 1
+        conn.commit()
+        return count
+
+    def cleanup_old_tasks(self, keep_days: int = 30, max_gb: float = 0) -> int:
+        """
+        清理超期任务（保留策略：天数/大小双阈值）。
+
+        Args:
+            keep_days: 保留天数（0 = 不按天数清理）
+            max_gb: 输出目录最大 GB（0 = 不按大小清理）
+
+        Returns:
+            删除的任务数
+        """
+        conn = self.conn
+        deleted = 0
+
+        if keep_days > 0:
+            cutoff = time.time() - keep_days * 86400
+            cutoff_str = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(cutoff))
+            cur = conn.execute(
+                "DELETE FROM tasks WHERE created_at < ? AND favorite=0",
+                (cutoff_str,),
+            )
+            deleted += cur.rowcount
+
+        if max_gb > 0:
+            # 按输出目录大小清理（删除最旧的非收藏任务）
+            import shutil as _shutil
+            outputs_dir = Path(self.db_path).parent.parent / "outputs"
+            if outputs_dir.exists():
+                try:
+                    size_gb = _shutil.disk_usage(str(outputs_dir)).used / (1024**3)
+                    if size_gb > max_gb:
+                        # 删除最旧的非收藏任务
+                        cur = conn.execute(
+                            "DELETE FROM tasks WHERE favorite=0 ORDER BY created_at ASC LIMIT ?",
+                            (max(1, int((size_gb - max_gb) * 10)),),
+                        )
+                        deleted += cur.rowcount
+                except Exception:
+                    pass
+
+        conn.commit()
+        if deleted > 0:
+            logger.info(f"Cleanup: deleted {deleted} old tasks")
+        return deleted
 
     def close(self) -> None:
         """关闭数据库连接"""

@@ -6,9 +6,7 @@ tests/test_i18n.py — i18n get_error_message() 单元测试
 
 from __future__ import annotations
 
-import pytest
-
-from integrated_app.i18n import get_error_message, ERROR_MESSAGES
+from integrated_app.i18n import ERROR_MESSAGES, get_error_message
 
 
 class TestGetErrorMessage:

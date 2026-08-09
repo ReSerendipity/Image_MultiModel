@@ -5,7 +5,6 @@ test_i18n_coverage.py — 5 语言键集合一致性校验
 """
 
 import json
-import sys
 from pathlib import Path
 
 import pytest
@@ -23,7 +22,7 @@ def locale_data():
     for loc in EXPECTED_LOCALES:
         p = LOCALE_DIR / f"{loc}.json"
         assert p.exists(), f"Locale file missing: {p}"
-        with open(p, "r", encoding="utf-8") as f:
+        with open(p, encoding="utf-8") as f:
             data[loc] = json.load(f)
     return data
 

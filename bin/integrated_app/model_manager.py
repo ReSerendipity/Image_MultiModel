@@ -7,10 +7,10 @@ model_manager.py — 模型生命周期管理
 
 from __future__ import annotations
 
-import asyncio
 import logging
+from collections.abc import Callable
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -34,14 +34,14 @@ class ModelManager:
     """
 
     def __init__(self) -> None:
-        self._states: Dict[str, ModelState] = {}
-        self._observers: List[Callable[[str, ModelState, Dict], None]] = []
+        self._states: dict[str, ModelState] = {}
+        self._observers: list[Callable[[str, ModelState, dict], None]] = []
 
-    def register_observer(self, cb: Callable[[str, ModelState, Dict], None]) -> None:
+    def register_observer(self, cb: Callable[[str, ModelState, dict], None]) -> None:
         """注册状态变更观察者（→ SSE）"""
         self._observers.append(cb)
 
-    def _notify(self, engine_name: str, state: ModelState, extra: Optional[Dict] = None) -> None:
+    def _notify(self, engine_name: str, state: ModelState, extra: dict | None = None) -> None:
         data = extra or {}
         for cb in self._observers:
             try:
@@ -101,7 +101,7 @@ class ModelManager:
             self._notify(engine_name, ModelState.ERROR, {"error": str(e)})
             raise
 
-    def get_all_states(self) -> Dict[str, Dict[str, Any]]:
+    def get_all_states(self) -> dict[str, dict[str, Any]]:
         """获取所有引擎状态摘要"""
         return {
             name: {"state": state.value}
@@ -110,7 +110,7 @@ class ModelManager:
 
 
 # ── 全局单例 ──────────────────────────────────────────────────
-_global_manager: Optional[ModelManager] = None
+_global_manager: ModelManager | None = None
 
 
 def get_model_manager() -> ModelManager:

@@ -9,27 +9,27 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import sys
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Optional
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from .config import get_config, load_config
+from .checkpoint import TaskCheckpoint
 from .comfy.engine import ComfyEngine
+from .config import get_config, load_config
 from .engine_interface import GenerationConfig
+from .gpu_utils import get_gpu_info
 from .history_db import HistoryDB
+from .middleware.csrf import CSRFMiddleware
+from .middleware.rate_limit import RateLimitMiddleware
+from .middleware.request_id import RequestIDMiddleware
+from .model_registry import get_model_registry
 from .sse import get_sse_bus
 from .task_queue import TaskQueue
-from .model_registry import get_model_registry
-from .middleware.csrf import CSRFMiddleware
-from .middleware.request_id import RequestIDMiddleware
-from .middleware.rate_limit import RateLimitMiddleware
 
 # ── 日志配置 ──────────────────────────────────────────────────
 logger = logging.getLogger("integrated_app")
@@ -107,6 +107,8 @@ async def lifespan(app: FastAPI):
             "status": status.value if hasattr(status, "value") else str(status),
             **(extra or {}),
         })
+        # 同时发布 queue_status 事件（§1.6 SSE 补全）
+        await sse_bus.publish("queue_status", task_queue.get_queue_status())
 
     # TaskQueue 回调运行在 worker 线程 → 用主循环线程安全投递
     main_loop = asyncio.get_event_loop()
@@ -121,7 +123,34 @@ async def lifespan(app: FastAPI):
     task_queue.add_status_callback(sync_on_status)
 
     # 启动 SSE 心跳
-    asyncio.ensure_future(sse_bus.start_heartbeat())
+    heartbeat_task = asyncio.ensure_future(sse_bus.start_heartbeat())
+
+    # 启动 GPU 状态定期推送（§1.6 SSE 补全：每 2s 发布 gpu_status）
+    async def gpu_monitor_loop():
+        while True:
+            try:
+                gpu = get_gpu_info()
+                await sse_bus.publish("gpu_status", {
+                    "name": gpu.gpu_name,
+                    "backend": gpu.backend,
+                    "total_vram_gb": gpu.total_vram_gb,
+                    "used_vram_gb": gpu.used_vram_gb,
+                    "free_vram_gb": gpu.free_vram_gb,
+                    "timestamp": time.time(),
+                })
+            except Exception as e:
+                logger.warning(f"GPU monitor error: {e}")
+            await asyncio.sleep(2)
+    gpu_monitor_task = asyncio.ensure_future(gpu_monitor_loop())
+
+    # 初始化断点续跑 Checkpoint（§1.3）
+    checkpoint_mgr = TaskCheckpoint(
+        checkpoint_dir=str(Path(config.project_root) / config.runtime.task_queue.checkpoint_dir)
+    )
+    # 启动时扫描未完成 checkpoint（可恢复批量中断任务）
+    pending_checkpoints = checkpoint_mgr.list_checkpoints()
+    if pending_checkpoints:
+        logger.info(f"Found {len(pending_checkpoints)} pending checkpoints for recovery")
 
     # 启动 TaskQueue Worker（M2：接通 ComfyEngine 真实推理）
     def worker_func(task):
@@ -159,11 +188,18 @@ async def lifespan(app: FastAPI):
 
             outputs = asyncio.run(run())
             task.result = outputs or []
+
+            # 查找缩略图路径（engine._fetch_outputs 可能已生成缩略图）
+            thumb = (outputs[0] if outputs else "")
+            # 如果引擎返回了缩略图，使用它；否则用第一个输出
+            if hasattr(engine, '_thumbnail_path') and engine._thumbnail_path:
+                thumb = engine._thumbnail_path
+
             history_db.update_task_status(
                 task.task_id, "completed",
                 processing_time_s=time.time() - started,
                 output_count=len(outputs or []),
-                thumbnail=(outputs[0] if outputs else ""),
+                thumbnail=thumb,
             )
             out_types = ("original", "upscaled", "compare")
             for i, p in enumerate(outputs or []):
@@ -171,6 +207,10 @@ async def lifespan(app: FastAPI):
                     task.task_id, p, "png",
                     output_type=out_types[i] if i < len(out_types) else "original",
                 )
+
+            # 批量任务断点续跑：完成时清理 checkpoint
+            if task.batch_id:
+                checkpoint_mgr.delete(task.task_id)
         except asyncio.CancelledError:
             history_db.update_task_status(task.task_id, "cancelled")
             task.error = "cancelled"
@@ -195,6 +235,9 @@ async def lifespan(app: FastAPI):
 
     # ── 关闭 ──────────────────────────────────────────────────
     logger.info("=== Image MultiModel shutting down ===")
+    # 取消后台任务
+    gpu_monitor_task.cancel()
+    heartbeat_task.cancel()
     await task_queue.stop()
     sse_bus.stop()
     history_db.close()
@@ -239,11 +282,12 @@ def create_app() -> FastAPI:
 
     # ── 路由自动发现 ──────────────────────────────────────────
     from .routes.config_routes import router as config_router
-    from .routes.system_routes import router as system_router
+    from .routes.engine_routes import router as engine_router
     from .routes.generate_routes import router as generate_router
-    from .routes.task_routes import router as task_router
     from .routes.output_routes import router as output_router
     from .routes.preset_routes import router as preset_router
+    from .routes.system_routes import router as system_router
+    from .routes.task_routes import router as task_router
 
     app.include_router(config_router)
     app.include_router(system_router)
@@ -251,6 +295,7 @@ def create_app() -> FastAPI:
     app.include_router(task_router)
     app.include_router(output_router)
     app.include_router(preset_router)
+    app.include_router(engine_router)
 
     # ── 静态文件托管（单页 HTML） ─────────────────────────────
     static_dir = Path(__file__).parent / "static"

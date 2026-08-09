@@ -4,7 +4,6 @@ test_workflow.py — Workflow Patcher 6 步 + batch 拆分测试
 对应 MASTER_PLAN M1 验收: Mock batch=9999 拆分 + Patcher 快照
 """
 
-import json
 import sys
 from pathlib import Path
 
@@ -107,7 +106,7 @@ class TestPatcher:
         all_nodes = flux_workflow._get_all_nodes(wf)
         for node in all_nodes:
             if node.get("type") in ("SeedVR2LoadVAEModel", "SeedVR2VideoUpscaler", "SeedVR2LoadDiTModel"):
-                assert node.get("mode") == 4, f"SeedVR2 node should be bypassed (mode=4)"
+                assert node.get("mode") == 4, "SeedVR2 node should be bypassed (mode=4)"
 
     def test_eses_disable_bypass(self, flux_workflow):
         """关闭 Eses 时节点被 bypass"""
@@ -117,7 +116,7 @@ class TestPatcher:
         all_nodes = flux_workflow._get_all_nodes(wf)
         for node in all_nodes:
             if node.get("type") == "EsesImageCompare":
-                assert node.get("mode") == 4, f"Eses node should be bypassed"
+                assert node.get("mode") == 4, "Eses node should be bypassed"
 
     def test_vram_disable_bypass(self, flux_workflow):
         """关闭 VRAM 时节点被 bypass"""
@@ -127,7 +126,7 @@ class TestPatcher:
         all_nodes = flux_workflow._get_all_nodes(wf)
         for node in all_nodes:
             if node.get("type") == "ReservedVRAMSetter":
-                assert node.get("mode") == 4, f"VRAM node should be bypassed"
+                assert node.get("mode") == 4, "VRAM node should be bypassed"
 
     def test_seed_resolved_when_negative_one(self, flux_workflow):
         """seed=-1 时生成实际值"""

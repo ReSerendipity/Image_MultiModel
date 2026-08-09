@@ -12,7 +12,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +21,9 @@ logger = logging.getLogger(__name__)
 class SSEEvent:
     """SSE 事件"""
     event: str  # 事件类型
-    data: Dict[str, Any] = field(default_factory=dict)
-    id: Optional[str] = None
-    retry: Optional[int] = None
+    data: dict[str, Any] = field(default_factory=dict)
+    id: str | None = None
+    retry: int | None = None
 
     def format(self) -> str:
         """格式化为 SSE 文本"""
@@ -50,7 +50,7 @@ class SSEBus:
         heartbeat_interval_s: int = 30,
         max_duration_s: int = 3600,
     ) -> None:
-        self._subscribers: Set[asyncio.Queue] = set()
+        self._subscribers: set[asyncio.Queue] = set()
         self._heartbeat_interval = heartbeat_interval_s
         self._max_duration = max_duration_s
         self._running = False
@@ -67,7 +67,7 @@ class SSEBus:
         self._subscribers.discard(q)
         logger.info(f"SSE subscriber removed (total: {len(self._subscribers)})")
 
-    async def publish(self, event: str, data: Dict[str, Any]) -> None:
+    async def publish(self, event: str, data: dict[str, Any]) -> None:
         """发布事件到所有订阅者"""
         sse_event = SSEEvent(event=event, data=data, id=str(int(time.time() * 1000)))
         msg = sse_event.format()
@@ -100,7 +100,7 @@ class SSEBus:
 
 
 # ── 全局单例 ──────────────────────────────────────────────────
-_global_sse: Optional[SSEBus] = None
+_global_sse: SSEBus | None = None
 
 
 def get_sse_bus() -> SSEBus:

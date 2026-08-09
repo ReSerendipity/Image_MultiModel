@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import time
 from collections import defaultdict, deque
-from typing import Deque, Dict
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -31,11 +30,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.global_limit = global_per_minute
         self.infer_limit = infer_per_minute
         self.upload_limit = upload_per_minute
-        self._global_hits: Dict[str, Deque[float]] = defaultdict(deque)
-        self._infer_hits: Dict[str, Deque[float]] = defaultdict(deque)
-        self._upload_hits: Dict[str, Deque[float]] = defaultdict(deque)
+        self._global_hits: dict[str, deque[float]] = defaultdict(deque)
+        self._infer_hits: dict[str, deque[float]] = defaultdict(deque)
+        self._upload_hits: dict[str, deque[float]] = defaultdict(deque)
 
-    def _check_rate(self, hits: Dict[str, Deque[float]], ip: str, limit: int) -> bool:
+    def _check_rate(self, hits: dict[str, deque[float]], ip: str, limit: int) -> bool:
         now = time.time()
         window = 60.0
         # 清理过期

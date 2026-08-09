@@ -179,6 +179,8 @@ runtime:
     auto_recover: false
     max_timeout_s: 86400
     id_format: ulid
+    checkpoint_every: 100
+    checkpoint_dir: data/checkpoints
   batch:
     max_retries: 2
     retry_base_delay_s: 1.0

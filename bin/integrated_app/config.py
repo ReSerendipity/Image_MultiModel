@@ -8,17 +8,16 @@ config.py — YAML 配置文件加载与管理
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import yaml
 
 from .config_models import AppConfig
 
 # ── 全局单例 ──────────────────────────────────────────────────
-_config: Optional[AppConfig] = None
-_config_path: Optional[Path] = None
+_config: AppConfig | None = None
+_config_path: Path | None = None
 
 
 def get_project_root() -> Path:
@@ -33,7 +32,7 @@ def get_project_root() -> Path:
     return Path(__file__).resolve().parent.parent.parent
 
 
-def load_config(config_path: Optional[str] = None) -> AppConfig:
+def load_config(config_path: str | None = None) -> AppConfig:
     """
     从 YAML 文件加载配置并构建 AppConfig。
 
@@ -53,7 +52,7 @@ def load_config(config_path: Optional[str] = None) -> AppConfig:
         raise FileNotFoundError(f"Config file not found: {p}")
 
     _config_path = p
-    with open(p, "r", encoding="utf-8") as f:
+    with open(p, encoding="utf-8") as f:
         raw = yaml.safe_load(f) or {}
 
     project_root = str(p.parent.resolve())
@@ -73,7 +72,7 @@ def get_config() -> AppConfig:
     return _config
 
 
-def save_config(config: AppConfig, config_path: Optional[str] = None) -> None:
+def save_config(config: AppConfig, config_path: str | None = None) -> None:
     """
     将配置写回 YAML 文件（PUT /api/config 调用）。
 
@@ -98,7 +97,7 @@ def save_config(config: AppConfig, config_path: Optional[str] = None) -> None:
     _apply_environment(_config)
 
 
-def _serialize_for_yaml(config: AppConfig) -> Dict[str, Any]:
+def _serialize_for_yaml(config: AppConfig) -> dict[str, Any]:
     """
     将 AppConfig 序列化为可写入 YAML 的字典。
     注意：不脱敏 auth_token / password（这些是原值，需要保留）。

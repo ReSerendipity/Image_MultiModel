@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -48,7 +48,7 @@ class ServerConfig(BaseModel):
 # ──────────────────────────────────────────────────────────────
 class SharedConfig(BaseModel):
     comfy_models_dir: str = ""
-    mount_map: Dict[str, str] = Field(
+    mount_map: dict[str, str] = Field(
         default_factory=lambda: {
             "text": "text_encoders",
             "unet": "unet",
@@ -63,7 +63,7 @@ class SharedConfig(BaseModel):
 
 class PortableConfig(BaseModel):
     internal_models_dir: str = "pretrained_models"
-    sub_dirs: Dict[str, str] = Field(
+    sub_dirs: dict[str, str] = Field(
         default_factory=lambda: {
             "text": "text_encoders",
             "unet": "unet",
@@ -90,19 +90,19 @@ class EngineConfig(BaseModel):
     comfy_backend_preference: str = "local"
     workflow_file: str = ""
     parameter_schema: str = ""
-    text_encoder: Optional[ModelPaths] = None
-    unet: Optional[ModelPaths] = None
-    vae: Optional[ModelPaths] = None
+    text_encoder: ModelPaths | None = None
+    unet: ModelPaths | None = None
+    vae: ModelPaths | None = None
     vram_gb: float = 16.0
     ram_gb: float = 24.0
     default_precision: str = "fp8"
     fallback_precision: str = "fp8"
-    supported_features: List[str] = Field(default_factory=list)
+    supported_features: list[str] = Field(default_factory=list)
     default_width: int = 1024
     default_height: int = 1024
-    image_formats: List[str] = Field(default_factory=lambda: ["png"])
+    image_formats: list[str] = Field(default_factory=lambda: ["png"])
     license: str = ""
-    tags: List[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
 
 
 class ModelsConfig(BaseModel):
@@ -111,7 +111,7 @@ class ModelsConfig(BaseModel):
     default_engine: str = "flux2_klein_9b_distilled"
     shared: SharedConfig = SharedConfig()
     portable: PortableConfig = PortableConfig()
-    engines: Dict[str, EngineConfig] = Field(default_factory=dict)
+    engines: dict[str, EngineConfig] = Field(default_factory=dict)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -120,7 +120,7 @@ class ModelsConfig(BaseModel):
 class ComfySpawnConfig(BaseModel):
     comfy_root: str = ""
     launch_exe: str = "python"
-    extra_args: List[str] = Field(default_factory=list)
+    extra_args: list[str] = Field(default_factory=list)
 
 
 class ComfyBackend(BaseModel):
@@ -132,11 +132,11 @@ class ComfyBackend(BaseModel):
     client_id_prefix: str = "img_multimodel_"
     health_check_interval_s: int = 30
     auto_spawn_if_dead: bool = False
-    spawn: Optional[ComfySpawnConfig] = None
+    spawn: ComfySpawnConfig | None = None
 
 
 class ComfyConfig(BaseModel):
-    backends: Dict[str, ComfyBackend] = Field(default_factory=dict)
+    backends: dict[str, ComfyBackend] = Field(default_factory=dict)
     load_balance: str = "prefer_local"
 
 
@@ -221,6 +221,8 @@ class TaskQueueConfig(BaseModel):
     auto_recover: bool = False
     max_timeout_s: int = 86400
     id_format: str = "ulid"
+    checkpoint_every: int = 100
+    checkpoint_dir: str = "data/checkpoints"
 
 
 class BatchConfig(BaseModel):
@@ -261,11 +263,11 @@ class BasicAuthConfig(BaseModel):
 
 class APITokenConfig(BaseModel):
     enabled: bool = False
-    tokens: List[str] = Field(default_factory=list)
+    tokens: list[str] = Field(default_factory=list)
 
 
 class CORSConfig(BaseModel):
-    allowed_origins: List[str] = Field(
+    allowed_origins: list[str] = Field(
         default_factory=lambda: [
             "http://127.0.0.1:8288",
             "http://localhost:8288",
@@ -286,7 +288,7 @@ class IntegritySelfcheckConfig(BaseModel):
 
 
 class SecurityConfig(BaseModel):
-    allowed_base_dirs: List[str] = Field(
+    allowed_base_dirs: list[str] = Field(
         default_factory=lambda: ["outputs/", "data/", "workflows/", "pretrained_models/"]
     )
     rate_limit: RateLimitConfig = RateLimitConfig()
@@ -307,7 +309,7 @@ class GPUMonitorConfig(BaseModel):
 
 class GPUConfig(BaseModel):
     backend: str = "auto"
-    device_ids: List[int] = Field(default_factory=lambda: [0])
+    device_ids: list[int] = Field(default_factory=lambda: [0])
     allow_fallback_to_cpu: bool = True
     low_vram_mode: str = "auto"
     monitor: GPUMonitorConfig = GPUMonitorConfig()
@@ -326,7 +328,7 @@ class UIConfig(BaseModel):
     accent_color: str = "#5e7d5a"
     font_pair: str = "instrument_serif_dm_sans"
     sidebar_collapsed_by_default: bool = False
-    accordion_default_groups: List[str] = Field(default_factory=lambda: ["basic", "prompt"])
+    accordion_default_groups: list[str] = Field(default_factory=lambda: ["basic", "prompt"])
     history_page_size: int = 50
     preview_max_size_mb: int = 20
     a11y: A11yConfig = A11yConfig()
@@ -334,7 +336,7 @@ class UIConfig(BaseModel):
 
 class I18nConfig(BaseModel):
     default_locale: str = "zh"
-    available_locales: List[str] = Field(
+    available_locales: list[str] = Field(
         default_factory=lambda: ["zh", "en", "ja", "ko"]
     )
     locale_dir: str = "bin/integrated_app/locales"
@@ -416,13 +418,13 @@ class AppConfig(BaseModel):
     project_root: str = ""
 
     @classmethod
-    def from_yaml(cls, yaml_dict: Dict[str, Any], project_root: str = "") -> "AppConfig":
+    def from_yaml(cls, yaml_dict: dict[str, Any], project_root: str = "") -> AppConfig:
         """从 YAML 字典构建 AppConfig"""
         cfg = cls(**yaml_dict)
         cfg.project_root = str(Path(project_root).resolve())
         return cfg
 
-    def to_yaml_dict(self) -> Dict[str, Any]:
+    def to_yaml_dict(self) -> dict[str, Any]:
         """序列化回 YAML 可写的字典（脱敏）"""
         d = self.model_dump(exclude={"project_root"})
         # 脱敏：隐藏 auth_token / password
@@ -435,7 +437,7 @@ class AppConfig(BaseModel):
             pass  # tokens 脱敏在 route 层处理
         return d
 
-    def get_safe_config_dict(self) -> Dict[str, Any]:
+    def get_safe_config_dict(self) -> dict[str, Any]:
         """返回脱敏后的配置字典，供前端读取"""
         d = self.to_yaml_dict()
         # api_token tokens 完全隐藏
@@ -449,7 +451,7 @@ class AppConfig(BaseModel):
 def resolve_model_path(
     model_paths: ModelPaths,
     config: ModelsConfig,
-    project_root: Union[str, Path],
+    project_root: str | Path,
 ) -> str:
     """
     根据 model_source_mode (shared / portable) 解析模型的完整路径。
@@ -491,8 +493,8 @@ def resolve_model_path(
 def resolve_engine_model_paths(
     engine: EngineConfig,
     config: ModelsConfig,
-    project_root: Union[str, Path],
-) -> Dict[str, str]:
+    project_root: str | Path,
+) -> dict[str, str]:
     """
     解析一个引擎的所有模型路径（text_encoder / unet / vae）。
 
@@ -501,9 +503,9 @@ def resolve_engine_model_paths(
          "unet": "/abs/path/to/model.safetensors",
          "vae": "/abs/path/to/model.safetensors"}
     """
-    result: Dict[str, str] = {}
+    result: dict[str, str] = {}
     for attr in ("text_encoder", "unet", "vae"):
-        mp: Optional[ModelPaths] = getattr(engine, attr, None)
+        mp: ModelPaths | None = getattr(engine, attr, None)
         if mp and mp.sub_path:
             result[attr] = resolve_model_path(mp, config, project_root)
     return result
@@ -512,9 +514,9 @@ def resolve_engine_model_paths(
 def scan_resource_files(
     sub_dir_key: str,
     config: ModelsConfig,
-    project_root: Union[str, Path],
+    project_root: str | Path,
     extensions: tuple = (".safetensors", ".pt", ".bin", ".ckpt"),
-) -> List[str]:
+) -> list[str]:
     """
     扫描某个子目录下的所有模型文件，返回相对路径列表。
     用于前端 LoRA 下拉等资源扫描。
@@ -540,7 +542,7 @@ def scan_resource_files(
     if not base.exists() or not base.is_dir():
         return []
 
-    results: List[str] = []
+    results: list[str] = []
     for root, _dirs, files in os.walk(base):
         for f in files:
             if f.lower().endswith(extensions):

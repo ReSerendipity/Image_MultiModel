@@ -6,11 +6,10 @@ comfy/client.py — ComfyUI HTTP + WebSocket 连接池
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any
 
 import aiohttp
 
@@ -36,8 +35,8 @@ class ComfyClient:
         self.ws_url = ws_url
         self.auth_token = auth_token
         self.client_id = client_id_prefix + uuid.uuid4().hex[:8]
-        self._http_session: Optional[aiohttp.ClientSession] = None
-        self._ws: Optional[aiohttp.ClientWebSocketResponse] = None
+        self._http_session: aiohttp.ClientSession | None = None
+        self._ws: aiohttp.ClientWebSocketResponse | None = None
         self._connected = False
 
     @property
@@ -76,7 +75,7 @@ class ComfyClient:
         self._connected = False
         logger.info("ComfyUI client disconnected")
 
-    async def queue_prompt(self, workflow_data: Dict[str, Any]) -> str:
+    async def queue_prompt(self, workflow_data: dict[str, Any]) -> str:
         """
         提交工作流到队列。
 
@@ -103,13 +102,13 @@ class ComfyClient:
         async with self._http_session.post("/interrupt") as resp:
             logger.info(f"ComfyUI interrupt: status {resp.status}")
 
-    async def get_object_info(self) -> Dict[str, Any]:
+    async def get_object_info(self) -> dict[str, Any]:
         """获取所有节点定义（缓存用）"""
         assert self._http_session is not None
         async with self._http_session.get("/object_info") as resp:
             return await resp.json()
 
-    async def get_history(self, prompt_id: str = "") -> Dict[str, Any]:
+    async def get_history(self, prompt_id: str = "") -> dict[str, Any]:
         """获取执行历史；prompt_id 为空时返回全量历史"""
         assert self._http_session is not None
         path = f"/history/{prompt_id}" if prompt_id else "/history"
@@ -131,7 +130,7 @@ class ComfyClient:
         self._ws = await self._http_session.ws_connect(f"{ws_url}{sep}clientId={self.client_id}")
         logger.info(f"ComfyUI WS connected: {ws_url}")
 
-    async def ws_recv(self) -> Optional[Dict[str, Any]]:
+    async def ws_recv(self) -> dict[str, Any] | None:
         """接收一条 WS 消息"""
         if self._ws is None or self._ws.closed:
             return None

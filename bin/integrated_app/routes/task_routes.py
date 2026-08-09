@@ -6,14 +6,16 @@ routes/task_routes.py — 任务历史 + 取消 + 重绘 + 批量删除
 
 from __future__ import annotations
 
+import io
 import logging
-from typing import Any, Dict, List, Optional
+import zipfile
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 
-from ..config import get_config
 from ..history_db import HistoryDB
-from ..task_queue import TaskQueue, TaskStatus
+from ..task_queue import TaskQueue
 
 logger = logging.getLogger(__name__)
 
@@ -23,13 +25,13 @@ router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 @router.get("")
 async def list_tasks(
     request: Request,
-    status: Optional[str] = None,
-    engine: Optional[str] = None,
-    q: Optional[str] = None,
-    favorite: Optional[bool] = None,
+    status: str | None = None,
+    engine: str | None = None,
+    q: str | None = None,
+    favorite: bool | None = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """GET /api/tasks — 历史分页筛选"""
     history_db: HistoryDB = request.app.state.history_db
     tasks, total = history_db.list_tasks(
@@ -46,7 +48,7 @@ async def list_tasks(
 
 
 @router.get("/{task_id}")
-async def get_task(task_id: str, request: Request) -> Dict[str, Any]:
+async def get_task(task_id: str, request: Request) -> dict[str, Any]:
     """GET /api/tasks/{id} — 任务详情（含 generation_config 22 项 + 三路输出）"""
     history_db: HistoryDB = request.app.state.history_db
     task = history_db.get_task(task_id)
@@ -56,7 +58,7 @@ async def get_task(task_id: str, request: Request) -> Dict[str, Any]:
 
 
 @router.post("/{task_id}/cancel")
-async def cancel_task(task_id: str, request: Request) -> Dict[str, Any]:
+async def cancel_task(task_id: str, request: Request) -> dict[str, Any]:
     """POST /api/tasks/{id}/cancel — 取消（/interrupt + 队列清理）"""
     task_queue: TaskQueue = request.app.state.task_queue
     success = await task_queue.cancel(task_id)
@@ -69,7 +71,7 @@ async def cancel_task(task_id: str, request: Request) -> Dict[str, Any]:
 
 
 @router.post("/{task_id}/redraw")
-async def redraw_task(task_id: str, request: Request) -> Dict[str, Any]:
+async def redraw_task(task_id: str, request: Request) -> dict[str, Any]:
     """POST /api/tasks/{id}/redraw — 相同参数重绘"""
     history_db: HistoryDB = request.app.state.history_db
     task_queue: TaskQueue = request.app.state.task_queue
@@ -107,11 +109,74 @@ async def redraw_task(task_id: str, request: Request) -> Dict[str, Any]:
 @router.delete("")
 async def delete_tasks(
     request: Request,
-    task_ids: List[str] = Query(default=[]),
-) -> Dict[str, Any]:
+    task_ids: list[str] = Query(default=[]),
+) -> dict[str, Any]:
     """DELETE /api/tasks — 批量删除"""
     history_db: HistoryDB = request.app.state.history_db
     if not task_ids:
         raise HTTPException(400, detail="No task_ids provided")
     count = history_db.delete_tasks(task_ids)
     return {"deleted": count}
+
+
+@router.get("/export")
+async def export_tasks(
+    request: Request,
+    ids: str = Query(..., description="逗号分隔的任务 ID"),
+    type: str | None = Query(None, description="original/upscaled/compare"),
+) -> StreamingResponse:
+    """GET /api/tasks/export?ids= — 打包 ZIP 导出"""
+    history_db: HistoryDB = request.app.state.history_db
+    task_ids = [t.strip() for t in ids.split(",") if t.strip()]
+    if not task_ids:
+        raise HTTPException(400, detail="No task_ids provided")
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for tid in task_ids:
+            task = history_db.get_task(tid)
+            if not task:
+                continue
+            for out in task.get("outputs", []):
+                out_type = out.get("output_type", "original")
+                if type and out_type != type:
+                    continue
+                path = out.get("path", "")
+                if path:
+                    from pathlib import Path
+                    p = Path(path)
+                    if p.exists():
+                        arcname = f"{tid}/{p.name}"
+                        zf.write(str(p), arcname)
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=export.zip"},
+    )
+
+
+@router.post("/tags")
+async def add_tags(
+    request: Request,
+    task_ids: list[str] = Query(default=[]),
+    tags: list[str] = Query(default=[]),
+) -> dict[str, Any]:
+    """POST /api/tasks/tags — 批量加标签"""
+    history_db: HistoryDB = request.app.state.history_db
+    if not task_ids or not tags:
+        raise HTTPException(400, detail="task_ids and tags are required")
+    count = history_db.add_task_tags(task_ids, tags)
+    return {"tagged": count}
+
+
+@router.post("/cleanup")
+async def cleanup_tasks(
+    request: Request,
+    keep_days: int = Query(30, ge=0),
+    max_gb: float = Query(0, ge=0),
+) -> dict[str, Any]:
+    """POST /api/tasks/cleanup — 清理超期任务（保留策略）"""
+    history_db: HistoryDB = request.app.state.history_db
+    deleted = history_db.cleanup_old_tasks(keep_days=keep_days, max_gb=max_gb)
+    return {"deleted": deleted, "keep_days": keep_days, "max_gb": max_gb}

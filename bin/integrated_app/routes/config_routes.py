@@ -7,13 +7,13 @@ routes/config_routes.py — GET/PUT /api/config
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from ..config import get_config, save_config, reload_config
-from ..config_models import AppConfig, scan_resource_files
+from ..config import get_config, save_config
+from ..config_models import scan_resource_files
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/api/config", tags=["config"])
 
 
 @router.get("/loras")
-async def list_loras() -> Dict[str, Any]:
+async def list_loras() -> dict[str, Any]:
     """GET /api/config/loras — 扫描 LoRA 目录，返回相对路径列表（前端下拉用）"""
     cfg = get_config()
     try:
@@ -37,22 +37,22 @@ async def list_loras() -> Dict[str, Any]:
 class ConfigUpdateRequest(BaseModel):
     """配置更新请求（部分更新）"""
     # 只允许更新非安全字段
-    inference: Optional[Dict[str, Any]] = None
-    output: Optional[Dict[str, Any]] = None
-    ui: Optional[Dict[str, Any]] = None
-    i18n: Optional[Dict[str, Any]] = None
-    presets: Optional[Dict[str, Any]] = None
+    inference: dict[str, Any] | None = None
+    output: dict[str, Any] | None = None
+    ui: dict[str, Any] | None = None
+    i18n: dict[str, Any] | None = None
+    presets: dict[str, Any] | None = None
 
 
 @router.get("")
-async def get_config_api() -> Dict[str, Any]:
+async def get_config_api() -> dict[str, Any]:
     """GET /api/config — 读取配置（脱敏后返回前端）"""
     cfg = get_config()
     return cfg.get_safe_config_dict()
 
 
 @router.put("")
-async def update_config_api(req: ConfigUpdateRequest) -> Dict[str, Any]:
+async def update_config_api(req: ConfigUpdateRequest) -> dict[str, Any]:
     """
     PUT /api/config — 更新配置（写回 config.yaml）
     host 字段只读，不允许通过 API 修改

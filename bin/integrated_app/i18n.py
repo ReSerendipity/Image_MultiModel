@@ -7,10 +7,8 @@ i18n.py — 后端错误文案国际化
 
 from __future__ import annotations
 
-from typing import Dict, Optional
-
 # ── 5 语言后端错误文案字典 ───────────────────────────────────
-ERROR_MESSAGES: Dict[str, Dict[str, str]] = {
+ERROR_MESSAGES: dict[str, dict[str, str]] = {
     "zh": {
         # 引擎错误
         "engine_not_found": "引擎不存在: {name}",

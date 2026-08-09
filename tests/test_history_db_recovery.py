@@ -5,7 +5,6 @@ test_history_db_recovery.py — 崩溃恢复两阶段（cleanup → recover）
 """
 
 import sys
-import time
 from pathlib import Path
 
 import pytest
