@@ -48,6 +48,7 @@ def app_config(config_yaml, project_root):
 class TestConfigLoading:
     """测试配置加载"""
 
+    @pytest.mark.smoke
     def test_config_loads_successfully(self, config_yaml):
         """配置文件可正常加载"""
         assert config_yaml is not None

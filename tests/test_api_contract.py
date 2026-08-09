@@ -57,6 +57,7 @@ def client():
 class TestBasicContract:
     """基础可用性契约"""
 
+    @pytest.mark.smoke
     def test_health_ok(self, client: TestClient) -> None:
         r = client.get("/api/health")
         assert r.status_code == 200
@@ -66,6 +67,7 @@ class TestBasicContract:
         assert "gpu" in body
         assert "engines" in body
 
+    @pytest.mark.smoke
     def test_config_ok(self, client: TestClient) -> None:
         r = client.get("/api/config")
         assert r.status_code == 200

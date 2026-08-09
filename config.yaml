@@ -232,7 +232,7 @@ gpu:
     sample_interval_s: 2
     history_points: 60
 ui:
-  theme_default: dark
+  theme_default: light
   accent_color: '#5e7d5a'
   font_pair: instrument_serif_dm_sans
   sidebar_collapsed_by_default: false

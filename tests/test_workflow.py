@@ -45,6 +45,7 @@ def z_workflow():
 class TestWorkflowLoading:
     """测试工作流加载"""
 
+    @pytest.mark.smoke
     def test_flux_workflow_loaded(self, flux_workflow):
         """FLUX 工作流成功加载"""
         assert flux_workflow._workflow_data is not None

@@ -28,6 +28,7 @@ class TestPathGuardAttacks:
     """14 类路径攻击全拒绝"""
 
     # 1. 简单路径穿越
+    @pytest.mark.smoke
     def test_double_dot(self, guard):
         with pytest.raises(PathGuardError):
             guard.resolve("../../../etc/passwd")

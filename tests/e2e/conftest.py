@@ -2,9 +2,12 @@
 tests/e2e/conftest.py — Playwright E2E 测试公共 fixture
 
 对应 REMAINING_TASKS_REPORT B7: Playwright E2E 落地
+对应 N3: 截图比对/视觉回归工具基础设施
 """
 
 from __future__ import annotations
+
+import os
 
 import pytest
 
@@ -19,6 +22,23 @@ except ImportError:
 def base_url():
     """应用基础 URL"""
     return "http://127.0.0.1:8288"
+
+
+@pytest.fixture(scope="session")
+def screenshots_dir(tmp_path_factory):
+    """截图目录（视觉回归基础）"""
+    d = tmp_path_factory.mktemp("screenshots")
+    return str(d)
+
+
+@pytest.fixture
+def screenshot(page, screenshots_dir):
+    """截图函数 fixture"""
+    def _screenshot(name: str):
+        path = os.path.join(screenshots_dir, f"{name}.png")
+        page.screenshot(path=path)
+        return path
+    return _screenshot
 
 
 # 如果 playwright 未安装，自动跳过所有 E2E 测试

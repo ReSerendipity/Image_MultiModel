@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN" data-theme="light" data-lang="zh-CN">
 <head>
-<script>/* B1: 主题防闪烁 — 在 CSS 渲染前同步设置主题 */(function(){var t=localStorage.getItem('imm_theme')||'dark';var l=localStorage.getItem('imm_lang')||'zh-CN';document.documentElement.setAttribute('data-theme',t);document.documentElement.setAttribute('data-lang',l);})();</script>
+<script>/* B1: 主题防闪烁 — 在 CSS 渲染前同步设置主题（默认浅色） */(function(){var t=localStorage.getItem('imm_theme')||'light';var l=localStorage.getItem('imm_lang')||'zh-CN';document.documentElement.setAttribute('data-theme',t);document.documentElement.setAttribute('data-lang',l);})();</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Image MultiModel · 生图工作台（单页融合版）</title>
@@ -523,9 +523,7 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
     <section class="results" data-component="Results">
       <div class="r-title"><span data-i18n="recent">最近生成</span><span class="bar"></span></div>
       <div class="masonry" id="outGrid">
-        <div class="r-card" style="--ar:1/1"><div class="ph-img">PORTRAIT</div><div class="r-actions"><button class="btn btn-sm" type="button">下载</button><button class="btn btn-sm" type="button">收藏</button><button class="btn btn-sm" type="button">重绘</button></div><div class="r-meta"><b>亚洲女性肖像</b><span>FLUX.2 · 1024² · 88421</span></div></div>
-        <div class="r-card" style="--ar:1/1"><div class="ph-img">CYBERPUNK</div><div class="r-actions"><button class="btn btn-sm" type="button">下载</button><button class="btn btn-sm" type="button">收藏</button><button class="btn btn-sm" type="button">重绘</button></div><div class="r-meta"><b>赛博朋克夜景</b><span>FLUX.2 · 2048² · 88397</span></div></div>
-        <div class="r-card" style="--ar:2/1"><div class="ph-img">ZEN</div><div class="r-actions"><button class="btn btn-sm" type="button">下载</button><button class="btn btn-sm" type="button">收藏</button><button class="btn btn-sm" type="button">重绘</button></div><div class="r-meta"><b>日本庭院枯山水</b><span>Z-Turbo · 4096×2048 · 88355</span></div></div>
+        <p style="grid-column:1/-1;text-align:center;color:var(--ink-faint);font-size:11px;padding:16px 0">加载最近生成…</p>
       </div>
     </section>
   </main>
@@ -602,10 +600,7 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
     <!-- 预设管理 -->
     <section class="drawer-sec" id="sec-presets" data-component="Presets">
       <div class="p-list" id="pList">
-        <div class="p-card"><button class="fav on" type="button">★</button><div class="nm">默认预设（FLUX.2）</div><p class="ds">亚洲人像基线：1.0 cfg · 8 steps · 1024²</p><div class="param-chips"><span class="eng">FLUX.2</span><span>LoRA ×6</span><span>超分 2048</span></div><div class="acts"><button class="btn btn-sm" type="button">应用</button><button class="btn btn-sm ed" type="button">编辑</button></div></div>
-        <div class="p-card"><button class="fav" type="button">☆</button><div class="nm">亚洲人像写真</div><p class="ds">L2 0.7 强化，柔和自然光模板</p><div class="param-chips"><span class="eng">FLUX.2</span><span>L2 0.7</span></div><div class="acts"><button class="btn btn-sm" type="button">应用</button><button class="btn btn-sm ed" type="button">编辑</button></div></div>
-        <div class="p-card"><button class="fav" type="button">☆</button><div class="nm">赛博朋克城市</div><p class="ds">Z-Turbo 快速出图：1536²</p><div class="param-chips"><span class="eng">Z-Turbo</span><span>4 steps</span></div><div class="acts"><button class="btn btn-sm" type="button">应用</button><button class="btn btn-sm ed" type="button">编辑</button></div></div>
-        <div class="p-card"><button class="fav" type="button">☆</button><div class="nm">胶片复古静物</div><p class="ds">暖调胶片质感，3072 大图</p><div class="param-chips"><span class="eng">FLUX.2</span><span>3072</span></div><div class="acts"><button class="btn btn-sm" type="button">应用</button><button class="btn btn-sm ed" type="button">编辑</button></div></div>
+        <p style="grid-column:1/-1;text-align:center;color:var(--ink-faint);font-size:11px;padding:14px">加载预设…</p>
       </div>
       <div class="ed-sec" id="pEdit">
         <button class="btn btn-sm" id="pBack" type="button">← 返回列表</button>
@@ -628,38 +623,33 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
 
 <!-- ========== 历史（左抽屉） ========== -->
 <aside class="l-drawer" id="histDrawer" data-component="History Drawer">
-  <div class="drawer-head"><span><span class="no">/</span>历史记录<span class="hint">共 1,284 条</span></span><button class="icon-btn" id="histClose" type="button">✕</button></div>
+  <div class="drawer-head"><span><span class="no">/</span>历史记录<span class="hint" id="histTotal">加载中…</span></span><button class="icon-btn" id="histClose" type="button">✕</button></div>
   <div class="drawer-body">
     <div class="hist-sec" id="histList">
       <div class="hist-toolbar">
         <div class="search"><span>⌕</span><input id="histSearch" placeholder="搜索 Prompt / seed…" aria-label="搜索" data-i18n-ph="search_placeholder"></div>
-        <select aria-label="状态筛选" style="min-width:92px"><option>状态</option><option>成功</option><option>失败</option></select>
-        <select aria-label="引擎筛选" style="min-width:92px"><option>引擎</option><option>FLUX.2</option><option>Z-Turbo</option></select>
+        <select id="histStatus" aria-label="状态筛选" style="min-width:92px"><option value="">状态</option><option value="completed">成功</option><option value="failed">失败</option><option value="processing">进行中</option><option value="pending">排队中</option></select>
+        <select id="histEngine" aria-label="引擎筛选" style="min-width:92px"><option value="">引擎</option></select>
       </div>
       <table class="tbl">
         <thead><tr><th style="width:44px">预览</th><th class="pro">Prompt</th><th>状态</th><th style="width:86px">操作</th></tr></thead>
         <tbody id="histRows">
-          <tr data-p="一位亚洲女性肖像，柔和自然光，浅景深，胶片质感，细节丰富" data-e="FLUX.2" data-s="完成" data-d="4096×2048 · 88421" data-t="42.3s · 08-08 15:24"><td><div class="th">PORTRAIT</div></td><td class="pro">一位亚洲女性肖像，柔和自然光，浅景深，胶片质感，细节丰富</td><td><span class="chip ok">完成</span></td><td><button class="btn btn-sm" type="button">详情</button></td></tr>
-          <tr data-p="赛博朋克城市夜景，雨夜，霓虹灯反射，广角镜头，电影感" data-e="Z-Turbo" data-s="完成" data-d="2048×2048 · 88397" data-t="31.0s · 08-08 14:58"><td><div class="th">CYBER</div></td><td class="pro">赛博朋克城市夜景，雨夜，霓虹灯反射，广角镜头，电影感</td><td><span class="chip ok">完成</span></td><td><button class="btn btn-sm" type="button">详情</button></td></tr>
-          <tr data-p="日本庭院枯山水，禅意，清晨薄雾，柔光" data-e="FLUX.2" data-s="进行中" data-d="4096×2048 · —" data-t="— · 08-08 14:41"><td><div class="th">ZEN</div></td><td class="pro">日本庭院枯山水，禅意，清晨薄雾，柔光</td><td><span class="chip warn">进行中</span></td><td><button class="btn btn-sm" type="button">详情</button></td></tr>
-          <tr data-p="韩式女团舞台照，聚光灯，动感，高对比" data-e="Z-Turbo" data-s="失败" data-d="1024×1024 · 88321" data-t="12.1s · 08-08 14:12"><td><div class="th">STAGE</div></td><td class="pro">韩式女团舞台照，聚光灯，动感，高对比</td><td><span class="chip red">失败</span></td><td><button class="btn btn-sm" type="button">详情</button></td></tr>
-          <tr data-p="老式胶片相机，静物，暖调，颗粒感，复古海报风" data-e="FLUX.2" data-s="完成" data-d="3072×1536 · 88290" data-t="38.7s · 08-08 13:55"><td><div class="th">FILM</div></td><td class="pro">老式胶片相机，静物，暖调，颗粒感，复古海报风</td><td><span class="chip ok">完成</span></td><td><button class="btn btn-sm" type="button">详情</button></td></tr>
-          <tr data-p="批量任务 b4f2 · 20 Prompt × 5 batch · 100 张（300 份）" data-e="FLUX.2" data-s="完成" data-d="多图 · —" data-t="18m 24s · 08-08 11:02"><td><div class="th">BATCH</div></td><td class="pro">批量任务 b4f2 · 20 Prompt × 5 batch · 100 张（300 份）</td><td><span class="chip ok">完成</span></td><td><button class="btn btn-sm" type="button">详情</button></td></tr>
+          <tr><td colspan="4" style="text-align:center;padding:20px;color:var(--ink-faint)">加载中…</td></tr>
         </tbody>
       </table>
-      <div style="margin-top:9px;display:flex;justify-content:space-between;align-items:center;font-size:9.5px;color:var(--ink-faint)"><span>共 1,284 条 · 第 1/26 页</span><span><button class="btn btn-sm" type="button">下一页 ›</button></span></div>
+      <div style="margin-top:9px;display:flex;justify-content:space-between;align-items:center;font-size:9.5px;color:var(--ink-faint)"><span id="histCount">…</span><span id="histNav"><button class="btn btn-sm" id="histPrev" type="button">‹ 上一页</button> <button class="btn btn-sm" id="histNext" type="button">下一页 ›</button></span></div>
     </div>
     <div class="detail-sec" id="histDetail">
       <button class="btn btn-sm" id="histBack" type="button">← 返回列表</button>
       <h3>任务详情</h3>
-      <div class="d-tags" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"><span class="chip eng" id="ddEngine">FLUX.2</span><span class="chip" id="ddStatus">完成</span></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:10px"><div class="th" style="width:100%;height:56px">ORIGINAL</div><div class="th" style="width:100%;height:56px">UPSCALED</div><div class="th" style="width:100%;height:56px">COMPARE</div></div>
+      <div class="d-tags" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"><span class="chip eng" id="ddEngine">—</span><span class="chip" id="ddStatus">—</span><span class="chip" id="ddMode">—</span></div>
+      <div id="ddThumbs" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:10px"><div class="th" style="width:100%;height:56px">无预览</div></div>
       <div class="kv"><span>prompt</span><b id="ddPrompt">…</b></div>
       <div class="kv"><span>尺寸 · seed</span><b id="ddDim">…</b></div>
       <div class="kv"><span>耗时 · 时间</span><b id="ddTime">…</b></div>
-      <div class="kv"><span>cfg · steps</span><b>1.0 · 8</b></div>
-      <div class="kv"><span>LoRA / SeedVR2 / Eses</span><b>6 层 · 2048 · h</b></div>
-      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" type="button">用相同参数重绘</button><button class="btn btn-sm" type="button">保存为预设</button><button class="btn btn-sm" type="button">下载 ZIP</button></div>
+      <div class="kv"><span>cfg · steps</span><b id="ddCfgSteps">…</b></div>
+      <div class="kv"><span>LoRA / SeedVR2 / Eses</span><b id="ddLora">…</b></div>
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" id="ddRedraw" type="button">用相同参数重绘</button><button class="btn btn-sm" id="ddSavePreset" type="button">保存为预设</button><button class="btn btn-sm" id="ddZip" type="button">下载 ZIP</button></div>
     </div>
   </div>
 </aside>
@@ -730,19 +720,19 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
   <div class="ov-head"><span><span class="no">/</span>设置<span class="hint">顶抽屉 · 全局配置</span></span><button class="icon-btn" id="setClose" type="button">✕</button></div>
   <div class="ov-body">
     <div class="ov-sec"><h4>引擎与模型</h4>
-      <div class="sg"><span class="lbl">默认引擎</span><select><option>FLUX.2 Klein-9B Distilled</option><option>Z-Image-Turbo</option></select></div>
-      <div class="sg"><span class="lbl">工作流目录</span><input type="text" value="workflows/"></div>
-      <div class="sg"><span class="lbl">LoRA 目录</span><input type="text" value="loras/"></div>
-      <div class="sg"><span class="lbl">SeedVR2 模型</span><input type="text" value="models/seedvr2/"></div>
-      <div class="sg"><span class="lbl"></span><button class="btn" id="scanBtn" type="button">完整资源扫描</button><span class="hint" id="scanHint" style="align-self:center">loras/ 0 个 · 待扫描</span></div>
+      <div class="sg"><span class="lbl">默认引擎</span><select id="setEngine"><option value="">加载中…</option></select></div>
+      <div class="sg"><span class="lbl">工作流目录</span><input type="text" id="setWorkflowDir" value=""></div>
+      <div class="sg"><span class="lbl">模型源模式</span><input type="text" id="setModelMode" value=""></div>
+      <div class="sg"><span class="lbl">SeedVR2 模型</span><input type="text" id="setSeedvr2Dir" value=""></div>
+      <div class="sg"><span class="lbl"></span><button class="btn" id="scanBtn" type="button">完整资源扫描</button><span class="hint" id="scanHint" style="align-self:center">待扫描</span></div>
     </div>
     <div class="ov-sec"><h4>运行</h4>
-      <div class="sg"><span class="lbl">心跳轮询</span><select><option>每 30s</option><option>每 60s</option></select></div>
-      <div class="sg"><span class="lbl">自动拉起后端</span><select><option>on（auto_spawn_if_dead）</option><option>off</option></select></div>
-      <div class="sg"><span class="lbl">负载均衡</span><select><option>轮询</option><option>最少连接</option></select></div>
+      <div class="sg"><span class="lbl">心跳轮询</span><select id="setHeartbeat"><option value="30">每 30s</option><option value="60">每 60s</option></select></div>
+      <div class="sg"><span class="lbl">自动拉起后端</span><select id="setSpawn"><option value="true">on（auto_spawn_if_dead）</option><option value="false">off</option></select></div>
+      <div class="sg"><span class="lbl">负载均衡</span><select id="setLb"><option value="prefer_local">prefer_local</option><option value="round_robin">轮询</option><option value="least_conn">最少连接</option></select></div>
     </div>
     <div class="ov-sec"><h4>保留策略</h4>
-      <div class="sg"><span class="lbl">历史保留</span><select><option>90 天 / 100 GB</option><option>30 天 / 50 GB</option><option>永久</option></select></div>
+      <div class="sg"><span class="lbl">历史保留</span><select id="setRetention"><option>90 天 / 100 GB</option><option>30 天 / 50 GB</option><option>永久</option></select><span class="hint" style="align-self:center" id="retentionHint"></span></div>
     </div>
     <div class="ov-sec"><h4>配置</h4>
       <div class="sg"><span class="lbl"></span><button class="btn" type="button">导出配置 JSON</button><button class="btn" type="button">导入配置 JSON</button><span class="hint" style="align-self:center">config.yaml</span></div>
@@ -827,9 +817,8 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
 <div class="queue-pill" id="queuePill" data-component="Queue Pill"><span class="qd" id="qpDot"></span><span id="qpText">队列 1·0</span><span class="pct" id="qpPct" style="display:none"></span></div>
 <div class="queue-pop" id="queuePop" data-component="Queue Popover">
   <div class="qp-head"><span>任务队列</span><button class="icon-btn" id="qpClose" style="width:20px;height:20px;font-size:10px" type="button">✕</button></div>
-  <div class="q-item"><div class="t"><b>88421 · 亚洲女性肖像</b><span>采样中 · steps 8/8</span></div><span class="p">42%</span></div>
-  <div class="q-item"><div class="t"><b>88397 · 赛博朋克夜景</b><span>排队中</span></div><span class="p">—</span></div>
-  <div style="margin-top:8px;text-align:right"><button class="btn btn-sm" type="button">取消当前</button></div>
+  <div id="queueItems"><p style="text-align:center;color:var(--ink-faint);font-size:10px;padding:10px">加载中…</p></div>
+  <div style="margin-top:8px;text-align:right"><button class="btn btn-sm" id="qCancelBtn" type="button">取消当前</button></div>
 </div>
 
 <!-- ========== 底栏 ========== -->
@@ -1013,7 +1002,7 @@ document.getElementById('zIn').addEventListener('click',function(){zi=Math.min(z
 /* ---------- F10: i18n/主题 localStorage 持久化 + 防闪烁 ---------- */
 // 防闪烁：在 DOMContentLoaded 前恢复主题
 (function(){
-  var savedTheme=localStorage.getItem('imm_theme')||'dark';
+  var savedTheme=localStorage.getItem('imm_theme')||'light';
   var savedLang=localStorage.getItem('imm_lang')||'zh-CN';
   document.documentElement.setAttribute('data-theme',savedTheme);
   document.documentElement.setAttribute('data-lang',savedLang);
