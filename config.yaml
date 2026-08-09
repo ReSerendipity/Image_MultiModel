@@ -192,6 +192,13 @@ runtime:
     max_duration_s: 3600
     send_comfy_preview: true
     preview_b64_max_width: 256
+  vram_scheduler:
+    enabled: false
+    vram_high_watermark_pct: 90
+    vram_low_watermark_pct: 70
+    sample_interval_s: 0.5
+    max_batch_size: 4
+    min_batch_size: 1
 security:
   allowed_base_dirs:
   - outputs/

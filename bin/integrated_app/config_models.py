@@ -240,10 +240,21 @@ class SSEConfig(BaseModel):
     preview_b64_max_width: int = 256
 
 
+class VRamSchedulerConfig(BaseModel):
+    """P2-1: ComfyUI VRAM 感知调度配置"""
+    enabled: bool = False
+    vram_high_watermark_pct: int = 90
+    vram_low_watermark_pct: int = 70
+    sample_interval_s: float = 0.5
+    max_batch_size: int = 4
+    min_batch_size: int = 1
+
+
 class RuntimeConfig(BaseModel):
     task_queue: TaskQueueConfig = TaskQueueConfig()
     batch: BatchConfig = BatchConfig()
     sse: SSEConfig = SSEConfig()
+    vram_scheduler: VRamSchedulerConfig = VRamSchedulerConfig()
 
 
 # ──────────────────────────────────────────────────────────────

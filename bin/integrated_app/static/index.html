@@ -5,6 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Image MultiModel · 生图工作台（单页融合版）</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%237c5fd6'/%3E%3Ccircle cx='22.5' cy='10.5' r='2.9' fill='%23fff' fill-opacity='.95'/%3E%3Cpath d='M4.5 23.5 12 15l5 5.5L21 16l6.5 7.5' stroke='%23fff' stroke-width='2.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M4.5 23.5h23' stroke='%23fff' stroke-opacity='.9' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -32,7 +33,6 @@
   --red:#ef4444;--green:#22c55e;--amber:#f59e0b;
   --on-accent:#fff;
   --warn-ink:#92400e;--warn-ink-dark:#fbbf24;--danger-ink-dark:#f87171;
-  --figma-1:#f24e1e;--figma-2:#ff7262;--figma-3:#a259ff;--figma-4:#1abcfe;--figma-5:#0acf83;
   --sans:'Inter',system-ui,sans-serif;
   --radius:var(--seed-radius);--radius-sm:calc(var(--seed-radius) - 2px);
   --ctl-pad:5px 9px;--ctl-h:calc(30px*var(--seed-density));--gap:calc(12px*var(--seed-density));--space:calc(20px*var(--seed-density));
@@ -49,15 +49,11 @@ textarea{height:auto}
 /* ===== 顶栏 ===== */
 .topbar{position:fixed;top:0;left:0;right:0;height:var(--topbar-h);background:var(--surface);border-bottom:1px solid var(--wire);display:flex;align-items:center;justify-content:space-between;padding:0 14px;z-index:50}
 .logo{display:flex;align-items:center;gap:10px;user-select:none}
-.figma-logo{display:flex;align-items:center}
-.figma-logo .fl{width:13px;height:22px}
-.figma-logo .fl-1{background:var(--figma-1);border-radius:7px 0 0 7px}
-.figma-logo .fl-2{background:var(--figma-2);border-radius:0 7px 7px 0}
-.figma-logo .fl-3{background:var(--figma-3);border-radius:7px}
+.brand-logo{display:block;flex-shrink:0}
 .logo-text{font-size:13px;font-weight:600}
 .logo-text i{font-style:normal;color:var(--ink-faint);font-weight:400}
 .topbar-right{display:flex;align-items:center;gap:8px}
-.icon-btn{width:var(--ctl-h);height:var(--ctl-h);border:1px solid transparent;background:var(--surface);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--ink-soft)}
+.icon-btn{width:calc(var(--ctl-h) + 4px);height:calc(var(--ctl-h) + 4px);border:1px solid transparent;background:var(--surface);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--ink-soft)}
 .icon-btn:hover{background:var(--surface-2);color:var(--ink)}
 /* 顶栏图标菜单 */
 .ico-wrap{position:relative;display:inline-flex}
@@ -69,7 +65,16 @@ textarea{height:auto}
 .ip-item.on::before{content:"✓ ";color:var(--accent)}
 .share-btn{background:var(--accent-deep);color:var(--on-accent);border:none;border-radius:var(--radius-sm);padding:6px 14px;font-size:12px;font-weight:500;height:var(--ctl-h);white-space:nowrap}
 .share-btn:hover{background:var(--accent-deep)}
-.avatar{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--figma-3),var(--figma-5));border:2px solid var(--surface);box-shadow:0 0 0 1px var(--wire);flex-shrink:0}
+.avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--seed-primary),var(--seed-accent));border:2px solid var(--surface);box-shadow:0 0 0 1px var(--wire);flex-shrink:0}
+/* ===== 主题色选择器 ===== */
+.pal-pop{width:244px;padding:8px}
+.pal-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:6px}
+.pal-grid .sw{width:22px;height:22px;border-radius:50%;border:2px solid var(--surface);cursor:pointer;padding:0;transition:transform .1s;box-shadow:0 0 0 1px var(--wire)}
+.pal-grid .sw:hover{transform:scale(1.18)}
+.pal-grid .sw.on{border-color:var(--ink);box-shadow:0 0 0 1.5px var(--accent-strong)}
+.pal-row{display:flex;align-items:center;gap:8px;padding:8px 2px 2px;border-top:1px solid var(--wire);margin-top:8px}
+.pal-row input[type=color]{width:38px;height:28px;border:1px solid var(--wire);border-radius:6px;padding:2px;background:var(--surface);cursor:pointer}
+.pal-dot{display:inline-block;width:14px;height:14px;border-radius:50%;background:var(--seed-primary);box-shadow:0 0 0 1px var(--wire)}
 /* ===== 布局 ===== */
 .layout{min-height:100vh;padding-top:var(--topbar-h);padding-bottom:var(--statusbar-h)}
 .stage{max-width:840px;margin:0 auto;padding:calc(var(--space) + 8px) var(--space) var(--space);position:relative}
@@ -277,9 +282,9 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
 .l-drawer{position:fixed;top:var(--topbar-h);bottom:var(--statusbar-h);left:0;width:520px;background:var(--surface);border-right:1px solid var(--wire);box-shadow:10px 0 30px rgba(0,0,0,.1);transform:translateX(-105%);transition:transform .22s;z-index:80;display:flex;flex-direction:column}
 .l-drawer.open{transform:none}
 /* 顶抽屉（图片展示） */
-.g-drawer{position:fixed;top:var(--topbar-h);left:50%;transform:translate(-50%,-115%);width:min(1100px,calc(100vw - 32px));background:var(--surface);border:1px solid var(--wire);border-radius:0 0 14px 14px;box-shadow:0 10px 40px rgba(0,0,0,.16);transition:transform .24s;z-index:80;display:none;flex-direction:column}
+.g-drawer{position:fixed;top:var(--topbar-h);left:50%;transform:translate(-50%,-115%);width:min(1100px,calc(100vw - 32px));max-height:calc(100vh - var(--topbar-h) - var(--statusbar-h) - 16px);background:var(--surface);border:1px solid var(--wire);border-radius:0 0 14px 14px;box-shadow:0 10px 40px rgba(0,0,0,.16);transition:transform .24s;z-index:80;display:none;flex-direction:column;overflow:hidden}
 .g-drawer.open{transform:translate(-50%,0);display:flex}
-.g-body{padding:12px 14px;overflow-y:auto}
+.g-body{padding:12px 14px;overflow-y:auto;flex:1;min-height:0}
 .g-masonry.g4{columns:4}
 @media (max-width:1000px){.g-masonry.g4{columns:3}.l-drawer{width:94vw}}
 .ov-head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--wire);font-size:12.5px;font-weight:600}
@@ -356,6 +361,7 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
 .v-body{flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--seed-fg) 4%,var(--seed-surface));padding:12px;min-height:230px}
 .v-img{width:400px;height:230px;border:1px dashed var(--wire-strong);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-size:10px;letter-spacing:.1em;background:var(--surface-2);position:relative;transition:transform .15s}
 .v-img::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(0,0,0,.03),rgba(0,0,0,.03) 6px,transparent 6px,transparent 12px);border-radius:8px}
+.ph-img img,.g-card .ph img,.v-img img{position:relative;z-index:1}
 .v-img.compare{display:grid;grid-template-columns:1fr 1fr;gap:2px;background:var(--surface)}
 .v-img.compare .half{display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--ink-faint);background:var(--surface-2);border-radius:7px;position:relative}
 .v-foot{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-top:1px solid var(--wire);font-size:9.5px;color:var(--ink-faint)}
@@ -431,9 +437,17 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
 
 <!-- 顶部栏 -->
 <header class="topbar" data-component="Topbar">
-  <div class="logo"><span class="figma-logo"><span class="fl fl-1"></span><span class="fl fl-2"></span><span class="fl fl-3"></span></span><span class="logo-text">Image MultiModel <i>/ 生图工作台</i></span></div>
+  <div class="logo"><svg class="brand-logo" width="20" height="20" viewBox="0 0 32 32" fill="none" aria-hidden="true"><rect width="32" height="32" rx="9" fill="var(--seed-primary)"/><circle cx="22.5" cy="10.5" r="2.9" fill="#fff" fill-opacity=".95"/><path d="M4.5 23.5 12 15l5 5.5L21 16l6.5 7.5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.5 23.5h23" stroke="#fff" stroke-opacity=".9" stroke-width="2.2" stroke-linecap="round"/></svg><span class="logo-text">Image MultiModel <i>/ 生图工作台</i></span></div>
   <div class="topbar-right">
     <button class="icon-btn" id="themeToggle" title="主题切换" type="button">◐</button>
+    <span class="ico-wrap" data-component="Accent Menu">
+      <button class="icon-btn" id="palBtn" title="切换主题色" type="button"><span class="pal-dot" id="palDot"></span></button>
+      <div class="ico-pop pal-pop" id="palPop">
+        <div class="pal-grid" id="palGrid"></div>
+        <div class="pal-row"><input type="color" id="palCustom" value="#7c5fd6" aria-label="自定义颜色"><span class="hint">自定义任意颜色</span></div>
+        <p class="hint" style="padding:6px 2px 0">共 24 种预设 + 自定义，选择会自动保存</p>
+      </div>
+    </span>
     <button class="icon-btn" id="aboutBtn" title="关于" type="button">ⓘ</button>
     <button class="icon-btn" id="setOpen" title="设置" type="button">⚙︎</button>
     <span class="ico-wrap" data-component="Engine Menu">
@@ -471,7 +485,7 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
 
 <div class="layout">
   <main class="stage" data-component="Stage">
-    <div class="big-title">用一句话，生成一张 <em>图</em></div>
+    <div class="big-title">让每一句心语，<em>化作光影</em></div>
     <p class="sub" data-i18n="sub">支持 简中/繁中/英/日/韩 直接输入 · 默认 FLUX.2 Klein 蒸馏配置，开箱即用</p>
 
     <div class="prompt-card" data-component="Prompt Input">
@@ -767,21 +781,21 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
   <div class="ov-head"><span><span class="no">/</span>关于 · 项目介绍<span class="hint">顶抽屉 · 应用内板块</span></span><button class="icon-btn" id="aboutClose" type="button">✕</button></div>
   <div class="ov-body">
     <div class="about-card" data-component="Project Card">
-      <span class="about-lg"><span class="figma-logo"><span class="fl fl-1"></span><span class="fl fl-2"></span><span class="fl fl-3"></span></span></span>
+      <span class="about-lg"><svg class="brand-logo" width="28" height="28" viewBox="0 0 32 32" fill="none" aria-hidden="true"><rect width="32" height="32" rx="9" fill="var(--seed-primary)"/><circle cx="22.5" cy="10.5" r="2.9" fill="#fff" fill-opacity=".95"/><path d="M4.5 23.5 12 15l5 5.5L21 16l6.5 7.5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.5 23.5h23" stroke="#fff" stroke-opacity=".9" stroke-width="2.2" stroke-linecap="round"/></svg></span>
       <div class="nm">Image MultiModel</div>
       <div class="sub">统一驱动 ComfyUI 多引擎生图工作台</div>
       <p class="desc">面向本地 AI 图像生成的工作台：FLUX.2 Klein / Z-Image-Turbo 多引擎，LoRA 六层叠加、SeedVR2 超分、Eses 双图对比与显存预留，以对话式主界面屏蔽工作流复杂度。</p>
       <div class="kv3">
-        <div class="it"><b>作者</b><span>待补充</span></div>
-        <div class="it"><b>当前版本</b><span>v0.1 · 原型</span></div>
-        <div class="it"><b>协议</b><span>待定</span></div>
+        <div class="it"><b>作者</b><span>ReSerendipity</span></div>
+        <div class="it"><b>当前版本</b><span>v1.0.0</span></div>
+        <div class="it"><b>协议</b><span>Apache 2.0</span></div>
       </div>
       <div class="about-links">
-        <button class="btn" type="button">前往 GitHub</button>
-        <button class="soc" type="button">G</button>
-        <button class="soc" type="button">B</button>
-        <button class="soc" type="button">T</button>
-        <button class="soc" type="button">M</button>
+        <a class="btn" href="https://github.com/ReSerendipity" target="_blank" rel="noopener" title="GitHub 仓库尚未上线，先前往作者主页">前往 GitHub</a>
+        <button class="soc" type="button" title="小红书 · 账号待补充">红</button>
+        <button class="soc" type="button" title="抖音 · 账号待补充">抖</button>
+        <button class="soc" type="button" title="快手 · 账号待补充">快</button>
+        <button class="soc" type="button" title="B站 · 账号待补充">B</button>
       </div>
     </div>
     <div style="margin-top:12px" class="feat2" data-component="Feature Grid">
@@ -792,7 +806,7 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
       <div class="it"><b><span class="ic">◳</span>显存预留</b><span>ReservedVRAM 保护生成稳定</span></div>
       <div class="it"><b><span class="ic">◧</span>本地运行</b><span>驱动本地 ComfyUI，数据不出机器</span></div>
     </div>
-    <p class="db-note" style="margin-top:10px">作者 / GitHub / 社交 / 协议为占位，待项目构建并开源后补充。</p>
+    <p class="db-note" style="margin-top:10px">© 2024-2026 ReSerendipity · Apache 2.0 开源 · 项目仓库与社交账号尚未上线，后续补充。</p>
   </div>
 </aside>
 
@@ -925,18 +939,18 @@ document.querySelectorAll('.quick-sz').forEach(function(q){q.querySelectorAll('b
 document.querySelectorAll('.range-row input[type=range]').forEach(function(r){var v=r.nextElementSibling;function upd(){v.textContent=(+r.value).toFixed(2);v.style.color=Math.abs(+r.value)>1.5?'var(--red)':'var(--accent)';}r.addEventListener('input',upd);upd();});
 document.querySelectorAll('.lora-name').forEach(function(sel){sel.addEventListener('change',function(){var row=sel.closest('.lora-row');row.classList.toggle('disabled',sel.value==='— 禁用 —');});});
 document.querySelectorAll('.dice').forEach(function(b){b.addEventListener('click',function(){var inp=document.getElementById(b.dataset.target);inp.value=Math.floor(Math.random()*9007199254740991);inp.dispatchEvent(new Event('input'));if(b.dataset.target==='seed'){document.getElementById('seedHint').textContent='实际 seed：'+inp.value;document.getElementById('seedHint').style.color='var(--accent)';}});});
-document.getElementById('reuseSeed').addEventListener('click',function(){var e=document.getElementById('seed');e.value=88421;e.dispatchEvent(new Event('input'));document.getElementById('seedHint').textContent='实际 seed：88421';});
+document.getElementById('reuseSeed').addEventListener('click',function(){API.get('/tasks?page=1&page_size=1').then(function(r){var t=r.tasks&&r.tasks[0];var s=t&&t.generation_config?t.generation_config.seed:null;if(s===undefined||s===null||s===-1){s=Math.floor(Math.random()*9007199254740991);}var e=document.getElementById('seed');e.value=s;e.dispatchEvent(new Event('input'));document.getElementById('seedHint').textContent='实际 seed：'+s;document.getElementById('seedHint').style.color='var(--accent)';}).catch(function(){var s=Math.floor(Math.random()*9007199254740991);var e=document.getElementById('seed');e.value=s;e.dispatchEvent(new Event('input'));document.getElementById('seedHint').textContent='实际 seed：'+s;});});
 document.getElementById('b10').addEventListener('click',function(){var e=document.getElementById('batchSize');e.value=Math.min(9999,(+e.value||0)+10);e.dispatchEvent(new Event('input'));});
 document.getElementById('b100').addEventListener('click',function(){var e=document.getElementById('batchSize');e.value=Math.min(9999,(+e.value||0)+100);e.dispatchEvent(new Event('input'));});
-document.getElementById('restoreBtn').addEventListener('click',function(){document.getElementById('cfg').value=1.0;document.getElementById('steps').value=8;document.getElementById('width').value=1024;document.getElementById('height').value=1024;document.getElementById('seed').value=-1;document.getElementById('batchSize').value=1;document.getElementById('seedvr2Toggle').checked=true;document.getElementById('esesToggle').checked=true;document.getElementById('vramToggle').checked=true;document.getElementById('vramGb').value=0.6;document.getElementById('upscaleSeed').value=-1;document.getElementById('vramSeed').value=-1;updateEst();});
+document.getElementById('restoreBtn').addEventListener('click',function(){resetToDefaults();});
 /* D3: 释放显存按钮 */
 document.getElementById('freeVramBtn').addEventListener('click',function(){API.post('/engine/free').then(function(r){console.log('[Free VRAM]',r);}).catch(function(e){console.warn('[Free VRAM] failed',e);});});
 /* ---------- 估算 + 快照 ---------- */
 function estCount(){var n=+document.getElementById('batchSize').value||1;var coef=(document.getElementById('seedvr2Toggle').checked?2:1)+(document.getElementById('esesToggle').checked?1:0);return {n:n,coef:coef,total:n*coef};}
-function syncChips(){document.getElementById('snapRes').textContent=document.getElementById('width').value+' × '+document.getElementById('height').value;document.getElementById('snapSteps').textContent=document.getElementById('steps').value;document.getElementById('snapCfg').textContent=document.getElementById('cfg').value;document.getElementById('snapOut').textContent=estCount().total;document.getElementById('snapEngine').textContent=document.getElementById('engineSelect').value.indexOf('flux2')>-1?'FLUX.2 Klein':'Z-Image-Turbo';}
+function syncChips(){document.getElementById('snapRes').textContent=document.getElementById('width').value+' × '+document.getElementById('height').value;document.getElementById('snapSteps').textContent=document.getElementById('steps').value;document.getElementById('snapCfg').textContent=document.getElementById('cfg').value;document.getElementById('snapOut').textContent=estCount().total;var es=document.getElementById('engineSelect');document.getElementById('snapEngine').textContent=(window.ENGINES&&ENGINES[es.value])||(es.selectedOptions&&es.selectedOptions[0]&&es.selectedOptions[0].textContent)||'—';}
 function updateEst(){var e=estCount(),line=document.getElementById('estLine');document.getElementById('bsWarn').style.display=e.n>500?'':'none';document.getElementById('bsWarn').style.color=e.n>5000?'var(--red)':'var(--amber)';line.innerHTML='预计生成 <b>'+e.total+'</b> 张 = 1 Prompt × '+e.n+' batch × (SeedVR2'+(e.coef===3?'×2':'')+' + Eses'+(e.coef===3?'×1':'')+')';line.className='est-line'+(e.total>=5000?' red':(e.total>=500?' yellow':''));document.getElementById('warn500').classList.toggle('show',e.total>=500&&e.total<5000);document.getElementById('warn5000').classList.toggle('show',e.total>=5000);syncChips();}
 ['batchSize','seedvr2Toggle','esesToggle','width','height','steps','cfg'].forEach(function(id){var el=document.getElementById(id);el.addEventListener('input',updateEst);el.addEventListener('change',updateEst);});
-document.getElementById('engineSelect').addEventListener('change',syncChips);
+document.getElementById('engineSelect').addEventListener('change',function(){syncEngMenu();if(_CFG&&_CFG.models&&_CFG.models.engines){var ec=_CFG.models.engines[this.value];if(ec){var w=document.getElementById('width'),h=document.getElementById('height');if(!w.dataset.touched)w.value=ec.default_width||w.value;if(!h.dataset.touched)h.value=ec.default_height||h.value;}}syncChips();updateEst();});
 updateEst();
 /* ---------- 生成模拟 ---------- */
 var genBtn=document.getElementById('genBtn');
@@ -945,18 +959,18 @@ var outGrid=document.getElementById('outGrid');
 var qpDot=document.getElementById('qpDot'),qpText=document.getElementById('qpText'),qpPct=document.getElementById('qpPct'),qpop=document.getElementById('queuePop');
 var timer=null,progress=0;
 /* 生成流程由下方 F1 真实层接管（startGenReal / cancelGenReal / renderOutReal） */
-document.getElementById('queuePill').addEventListener('click',function(){qpop.classList.toggle('show');});
+document.getElementById('queuePill').addEventListener('click',function(){qpop.classList.toggle('show');if(qpop.classList.contains('show'))renderQueue();});
 document.getElementById('qpClose').addEventListener('click',function(e){e.stopPropagation();qpop.classList.remove('show');});
 /* (队列取消已由 F1 真实层接管) */
 /* ---------- 图片展示（抽屉内 + 悬浮查看器） ---------- */
-var gCards=[['PORTRAIT','亚洲女性肖像','原图','FLUX.2 · 1024² · 88421','88421','1/1'],['CYBER','赛博朋克夜景','超分','FLUX.2 · 2048² · 88397','88397','1/1'],['ZEN','日本庭院枯山水','对比图','Z-Turbo · 4096×2048 · 88355','88355','2/1'],['STAGE','韩式女团舞台照','原图','Z-Turbo · 1024² · 88321','88321','1/1'],['FILM','老式胶片相机静物','超分','FLUX.2 · 3072×1536 · 88290','88290','2/1'],['NIGHT','城市夜景长曝','对比图','FLUX.2 · 4096×2048 · 88264','88264','2/1'],['FLOWER','微观花卉微距','原图','FLUX.2 · 1024² · 88212','88212','1/1'],['CAT','布偶猫肖像','超分','Z-Turbo · 2048² · 88178','88178','1/1']];
+/* 图库数据由 F7 从 /api/outputs 真实加载，不再使用原型示例 */
 var gMasonry=document.getElementById('gMasonry');
-function renderGallery(filter){filter=filter||'全部';gMasonry.innerHTML='';gCards.forEach(function(c,i){if(filter!=='全部'&&c[2]!==filter)return;var d=document.createElement('div');d.className='g-card';d.style.setProperty('--ar',c[5]);d.innerHTML='<span class="g-type">'+c[2]+'</span><div class="ph">'+c[0]+'</div><div class="g-meta"><b>'+c[1]+'</b><span>'+c[3]+'</span></div>';d.addEventListener('click',function(){openViewer(i);});gMasonry.appendChild(d);});}
+function renderGallery(filter){filter=filter||'全部';gMasonry.innerHTML='<p style="padding:20px;text-align:center;color:var(--ink-faint)">加载中…</p>';}
 document.querySelectorAll('#galleryDrawer .f-chip').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('#galleryDrawer .f-chip').forEach(function(x){x.classList.remove('on');});b.classList.add('on');renderGallery(b.dataset.f);});});
 var viewer=document.getElementById('viewer'),vImg=document.getElementById('vImg'),vTitle=document.getElementById('vTitle'),vSeed=document.getElementById('vSeed'),vMeta=document.getElementById('vMeta'),vZoomVal=document.getElementById('vZoomVal');
-var zoom=100,compare=false,cur=0;
-function openViewer(i){cur=i;zoom=100;compare=false;vTitle.textContent=gCards[i][1];vSeed.textContent=gCards[i][4];vMeta.textContent=gCards[i][3];viewer.classList.add('show');renderImg();}
-function renderImg(){vImg.style.transform='scale('+(zoom/100)+')';vImg.className='v-img'+(compare?' compare':'');vZoomVal.textContent=zoom+'%';if(compare){vImg.innerHTML='<div class="half">BEFORE · 1024²</div><div class="half">AFTER · 2048²</div>';}else{vImg.innerHTML='<span>'+gCards[cur][0]+'</span>';}document.getElementById('vCompare').classList.toggle('on',compare);}
+var zoom=100,compare=false,cur=0,_curViewer=null;
+function openViewer(i){/* 由 F7 openViewerReal 接管 */}
+function renderImg(){/* 由 F7 覆盖为真实图片渲染 */}
 document.getElementById('vCompare').addEventListener('click',function(){compare=!compare;renderImg();});
 document.getElementById('vZoomIn').addEventListener('click',function(){zoom=Math.min(200,zoom+25);renderImg();});
 document.getElementById('vZoomOut').addEventListener('click',function(){zoom=Math.max(50,zoom-25);renderImg();});
@@ -978,10 +992,10 @@ function showPList(){pList.style.display='';pEdit.classList.remove('show');}
 function showPEdit(){pList.style.display='none';pEdit.classList.add('show');}
 document.getElementById('pBack').addEventListener('click',showPList);
 document.getElementById('pCancel').addEventListener('click',showPList);
-document.getElementById('pNew').addEventListener('click',function(){document.getElementById('pName').value='';document.getElementById('pDesc').value='';showPEdit();});
+document.getElementById('pNew').addEventListener('click',function(){_editPresetId=null;document.getElementById('pName').value='';document.getElementById('pDesc').value='';showPEdit();});
 document.querySelectorAll('#pList .fav').forEach(function(b){b.addEventListener('click',function(){this.classList.toggle('on');this.textContent=this.classList.contains('on')?'★':'☆';});});
 document.querySelectorAll('#pList .acts .btn-sm').forEach(function(b){b.addEventListener('click',function(){if(b.classList.contains('ed')){document.getElementById('pName').value=b.closest('.p-card').querySelector('.nm').textContent;showPEdit();}else{window.alert('已应用预设（模拟）');}});});
-document.getElementById('pSave').addEventListener('click',function(){showPList();window.alert('预设已保存（模拟）');});
+/* pSave 真实逻辑由 F5 节接管 */
 /* ---------- 批量（底抽屉内） ---------- */
 document.querySelectorAll('.tabs .tab').forEach(function(t){t.addEventListener('click',function(){document.querySelectorAll('.tabs .tab').forEach(function(x){x.classList.remove('active');});document.querySelectorAll('.tabpane').forEach(function(x){x.classList.remove('active');});t.classList.add('active');document.getElementById(t.dataset.t).classList.add('active');});});
 document.getElementById('dropzone').addEventListener('click',function(){this.style.borderColor='var(--accent)';setTimeout(function(){dropzone.style.borderColor='';},600);});
@@ -1058,7 +1072,7 @@ evt.addEventListener('task_status',function(e){
     if(d.task_id===currentTaskId||!currentTaskId){
       if(d.progress!==undefined){progFill.style.width=d.progress+'%';phaseText.textContent=trPhase(d.phase||'')+' · '+d.progress+'%';qpPct.textContent=d.progress+'%';}
       if(d.status){
-        if(d.status==='completed'){genBtn.disabled=false;timer=null;phaseText.textContent='完成 · '+(d.result?d.result.length:0)+' 张输出';progFill.style.width='100%';qpDot.className='qd';qpPct.style.display='none';qpText.textContent='队列 0·0 · 完成';if(d.result&&d.result.length)renderOutReal(d.result);}
+        if(d.status==='completed'){genBtn.disabled=false;timer=null;phaseText.textContent='完成 · '+(d.result?d.result.length:0)+' 张输出';progFill.style.width='100%';qpDot.className='qd';qpPct.style.display='none';qpText.textContent='队列 0·0 · 完成';if(d.result&&d.result.length)renderOutReal(d.result);loadRecent();}
         else if(d.status==='failed'){genBtn.disabled=false;timer=null;phaseText.textContent='失败: '+(d.error||'');progFill.style.width='0%';qpDot.className='qd';qpPct.style.display='none';qpText.textContent='失败';}
         else if(d.status==='cancelled'){genBtn.disabled=false;timer=null;phaseText.textContent='已取消';progFill.style.width='0%';qpDot.className='qd';qpPct.style.display='none';qpText.textContent='已取消';}
         else if(d.status==='processing'){qpDot.className='qd run';qpPct.style.display='';qpText.textContent='生成中';}
@@ -1204,126 +1218,223 @@ function loadLoras(){
 }
 var scanBtn=document.getElementById('scanBtn');
 if(scanBtn)scanBtn.addEventListener('click',function(){_lorasLoaded=false;loadLoras();});
-/* ---------- F2: 设置顶抽屉 ---------- */
-// 进入设置抽屉时加载配置
+/* ---------- F2: 设置顶抽屉（真实配置） ---------- */
+function fillSettings(cfg){
+  if(!cfg)return;
+  var se=document.getElementById('setEngine');
+  if(se){
+    se.innerHTML='<option value="">—</option>';
+    var engs=cfg.models&&cfg.models.engines||{};
+    Object.keys(engs).forEach(function(k){var o=document.createElement('option');o.value=k;o.textContent=engs[k].display_name||k;se.appendChild(o);});
+    se.value=(cfg.models&&cfg.models.default_engine)||'';
+  }
+  var ec=(cfg.models&&cfg.models.engines&&cfg.models.engines[cfg.models.default_engine])||{};
+  var wd=document.getElementById('setWorkflowDir');if(wd)wd.value=ec.workflow_file||'';
+  var mm=document.getElementById('setModelMode');if(mm){var ms=cfg.models||{};mm.value=(ms.model_source_mode||'')+' · '+((ms.model_source_mode==='portable'?(ms.portable&&ms.portable.internal_models_dir):(ms.shared&&ms.shared.comfy_models_dir))||'');}
+  var sd=document.getElementById('setSeedvr2Dir');if(sd){var ms2=cfg.models||{};sd.value=(ms2.model_source_mode==='portable'?(ms2.portable&&ms2.portable.internal_models_dir):(ms2.shared&&ms2.shared.comfy_models_dir))||'';}
+  var hb=document.getElementById('setHeartbeat');if(hb&&cfg.comfy&&cfg.comfy.backends&&cfg.comfy.backends.local)hb.value=String(cfg.comfy.backends.local.health_check_interval_s||30);
+  var sp=document.getElementById('setSpawn');if(sp&&cfg.comfy&&cfg.comfy.backends&&cfg.comfy.backends.local)sp.value=String(cfg.comfy.backends.local.auto_spawn_if_dead===true?'true':'false');
+  var lb=document.getElementById('setLb');if(lb&&cfg.comfy)lb.value=cfg.comfy.load_balance||'prefer_local';
+  var rh=document.getElementById('retentionHint');if(rh&&cfg.history)rh.textContent='db: '+((cfg.history.db_path)||'');
+}
 var _origOpenSet=openSet;
 openSet=function(){
   _origOpenSet();
-  // 从后端加载配置
   fetch('/api/config').then(function(r){return r.json();}).then(function(cfg){
-    console.log('[Config] Loaded:',cfg);
-    // 填充设置表单（如果元素存在）
-    var inferSteps=document.getElementById('setSteps');if(inferSteps&&cfg.inference)inferSteps.value=cfg.inference.default_steps||8;
-    var inferCfg=document.getElementById('setCfg');if(inferCfg&&cfg.inference)inferCfg.value=cfg.inference.default_cfg||1.0;
+    fillSettings(cfg);
   }).catch(function(e){console.warn('[Config] load failed:',e);});
 };
-// 保存设置按钮 → PUT /api/config
+// 设置抽屉：切换默认引擎 → 同步主界面
+var setEngineEl=document.getElementById('setEngine');
+if(setEngineEl)setEngineEl.addEventListener('change',function(){
+  if(!this.value)return;
+  var es=document.getElementById('engineSelect');
+  if(es&&ENGINES[this.value]){es.value=this.value;es.dispatchEvent(new Event('change'));syncEngMenu();}
+});
+// 关闭设置抽屉时保存推理默认值 → PUT /api/config
 document.getElementById('setClose').addEventListener('click',function(){
-  // 在关闭时保存设置
-  var update={inference:{default_steps:+document.getElementById('steps')?.value||8,default_cfg:+document.getElementById('cfg')?.value||1.0}};
+  var update={inference:{default_steps:+document.getElementById('steps').value||10,default_cfg:+document.getElementById('cfg').value||1.0}};
   API.put('/config',update).then(function(r){console.log('[Config] saved:',r);}).catch(function(e){console.warn('[Config] save failed:',e);});
   setD.classList.remove('open');setSc.classList.remove('show');
 });
 
-/* ---------- F6: 历史左抽屉 ---------- */
-var _origShowHistList=showHistList;
-showHistList=function(){
-  _origShowHistList();
-  // 从后端加载历史
-  fetch('/api/tasks?page=1&page_size=20').then(function(r){return r.json();}).then(function(r){
-    var tbody=document.getElementById('histRows');if(!tbody)return;
+/* ---------- F6: 历史左抽屉（真实渲染 + 筛选/分页/详情） ---------- */
+var _histPage=1,_histQ='',_histStatus='',_histEngine='',_curDetailTask=null;
+function renderHist(){
+  var tbody=document.getElementById('histRows');if(!tbody)return;
+  var qs='/api/tasks?page='+_histPage+'&page_size=20';
+  if(_histStatus)qs+='&status='+encodeURIComponent(_histStatus);
+  if(_histEngine)qs+='&engine='+encodeURIComponent(_histEngine);
+  if(_histQ)qs+='&q='+encodeURIComponent(_histQ);
+  fetch(qs).then(function(r){return r.json();}).then(function(r){
     tbody.innerHTML='';
-    if(!r.tasks||!r.tasks.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--ink-faint)">暂无历史记录</td></tr>';return;}
-    r.tasks.forEach(function(t){
+    var list=r.tasks||[];
+    if(!list.length){tbody.innerHTML='<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--ink-faint)">暂无历史记录</td></tr>';}
+    var stTxt={completed:'完成',failed:'失败',cancelled:'已取消',processing:'进行中',pending:'排队中'};
+    list.forEach(function(t){
       var tr=document.createElement('tr');
-      tr.dataset.e=t.engine||'';tr.dataset.s=t.status||'';tr.dataset.p=t.prompt||'';tr.dataset.d=(t.generation_config?t.generation_config.width+'×'+t.generation_config.height:'')||'';tr.dataset.t=t.created_at||'';
-      tr.innerHTML='<td>'+(t.task_id||'').substring(0,8)+'</td><td>'+(t.engine||'')+'</td><td>'+(t.status||'')+'</td><td>'+(t.prompt||'').substring(0,30)+'</td><td>'+(t.created_at||'')+'</td><td>'+(t.output_count||0)+'</td>';
-      tr.addEventListener('click',function(){
-        document.querySelectorAll('#histRows tr').forEach(function(x){x.classList.remove('sel');});tr.classList.add('sel');
-        document.getElementById('ddEngine').textContent=t.engine||'';
-        document.getElementById('ddStatus').textContent=t.status||'';
-        document.getElementById('ddPrompt').textContent=t.prompt||'';
-        document.getElementById('ddDim').textContent=tr.dataset.d;
-        document.getElementById('ddTime').textContent=t.created_at||'';
-        showHistDetail();
-      });
+      var st=t.status||'';
+      var chip=st==='completed'?'ok':(st==='failed'?'red':'warn');
+      tr.innerHTML='<td><div class="th">'+(t.output_count>0?t.output_count+' 张':'—')+'</div></td>'+
+        '<td class="pro">'+((t.prompt||'(无提示词)'))+'<br><span style="font-size:9px;color:var(--ink-faint)">'+engLabel(t.engine)+'</span></td>'+
+        '<td><span class="chip '+chip+'">'+(stTxt[st]||st)+'</span></td>'+
+        '<td><button class="btn btn-sm" type="button">详情</button></td>';
+      tr.addEventListener('click',function(){showHistDetail(t);});
+      tr.querySelector('button').addEventListener('click',function(e){e.stopPropagation();showHistDetail(t);});
       tbody.appendChild(tr);
     });
-  }).catch(function(e){console.warn('[History] load failed:',e);});
-};
+    var total=r.total||0,tp=r.total_pages||1;
+    document.getElementById('histTotal').textContent='共 '+total+' 条';
+    document.getElementById('histCount').textContent='第 '+_histPage+'/'+tp+' 页';
+    var prev=document.getElementById('histPrev'),next=document.getElementById('histNext');
+    if(prev)prev.disabled=_histPage<=1;
+    if(next)next.disabled=_histPage>=tp;
+  }).catch(function(e){console.warn('[History] load failed:',e);tbody.innerHTML='<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--ink-faint)">加载失败</td></tr>';});
+}
+function showHistDetail(t){
+  document.getElementById('histList').classList.add('hide');
+  document.getElementById('histDetail').classList.add('show');
+  var gc=t.generation_config||{};
+  var st=t.status||'';
+  var stTxt={completed:'完成',failed:'失败',cancelled:'已取消',processing:'进行中',pending:'排队中'};
+  document.getElementById('ddEngine').textContent=engLabel(t.engine);
+  document.getElementById('ddStatus').textContent=stTxt[st]||st;
+  document.getElementById('ddMode').textContent=t.mode||'txt2img';
+  document.getElementById('ddPrompt').textContent=t.prompt||'(无提示词)';
+  document.getElementById('ddDim').textContent=(gc.width||'?')+'×'+(gc.height||'?')+' · seed '+(gc.seed===undefined||gc.seed===null?'—':gc.seed);
+  document.getElementById('ddTime').textContent=(t.processing_time_s?t.processing_time_s+'s · ':'')+(t.created_at||'');
+  document.getElementById('ddCfgSteps').textContent=(gc.cfg===undefined||gc.cfg===null?'?':gc.cfg)+' · '+(gc.steps===undefined||gc.steps===null?'?':gc.steps);
+  var nLora=0;['lora_1_name','lora_2_name','lora_3_name','lora_4_name','lora_5_name','lora_6_name'].forEach(function(k){if(gc[k])nLora++;});
+  document.getElementById('ddLora').textContent=(nLora?nLora+' 层':'—')+' · '+(gc.seedvr2_enable?('SeedVR2 '+(gc.seedvr2_resolution||'?')):'SeedVR2 off')+' · '+(gc.eses_enable?('Eses '+(gc.eses_compare_axis||'h')):'Eses off');
+  var thumbs=document.getElementById('ddThumbs');
+  thumbs.innerHTML=t.output_count>0
+    ?'<div class="th" style="width:100%;height:56px">'+t.output_count+' 张输出</div>'
+    :'<div class="th" style="width:100%;height:56px">无预览</div>';
+  _curDetailTask=t;
+}
+document.getElementById('ddRedraw').addEventListener('click',function(){if(_curDetailTask)redrawTask(_curDetailTask.task_id);showHistList();});
+document.getElementById('ddSavePreset').addEventListener('click',function(){
+  if(!_curDetailTask)return;
+  var gc=_curDetailTask.generation_config||{};
+  var cfg={positive_prompt:_curDetailTask.prompt||'',cfg:gc.cfg,steps:gc.steps,width:gc.width,height:gc.height,seed:gc.seed===undefined?-1:gc.seed};
+  API.post('/presets',{engine_name:_curDetailTask.engine||'flux2_klein_9b_distilled',name:'任务 '+String(_curDetailTask.task_id).substring(0,8),config:cfg}).then(function(){window.alert('已保存为预设');}).catch(function(e){window.alert('保存失败: '+e);});
+});
+document.getElementById('ddZip').addEventListener('click',function(){if(_curDetailTask)window.open('/api/tasks/export?ids='+_curDetailTask.task_id,'_blank');});
+var _origShowHistList=showHistList;
+showHistList=function(){_origShowHistList();renderHist();};
+document.getElementById('histSearch').addEventListener('input',function(){
+  var me=this;clearTimeout(window._histTimer);
+  window._histTimer=setTimeout(function(){_histQ=me.value.trim();_histPage=1;renderHist();},300);
+});
+document.getElementById('histStatus').addEventListener('change',function(){_histStatus=this.value;_histPage=1;renderHist();});
+document.getElementById('histEngine').addEventListener('change',function(){_histEngine=this.value;_histPage=1;renderHist();});
+document.getElementById('histPrev').addEventListener('click',function(){if(_histPage>1){_histPage--;renderHist();}});
+document.getElementById('histNext').addEventListener('click',function(){_histPage++;renderHist();});
 
-/* ---------- F5: 预设右抽屉 ---------- */
-var _origShowPList=showPList;
-showPList=function(){
-  _origShowPList();
-  // 从后端加载预设
+/* ---------- F5: 预设右抽屉（真实渲染 + 应用/编辑/保存） ---------- */
+var _editPresetId=null;
+function renderPresets(){
+  var pl=document.getElementById('pList');if(!pl)return;
   fetch('/api/presets').then(function(r){return r.json();}).then(function(presets){
-    var pl=document.getElementById('pList');if(!pl)return;
-    var cards=pl.querySelectorAll('.p-card');if(cards.length===0)return;
-    // 清除旧卡片，用预设数据填充
-    var firstCard=cards[0];
-    if(presets&&presets.length){
-      // 更新第一个卡片
-      var p=presets[0];
-      firstCard.querySelector('.nm').textContent=p.name||'';
-      firstCard.querySelector('.ds').textContent=p.engine_name||'';
-      // 添加更多卡片
-      for(var i=1;i<presets.length;i++){
-        var nc=firstCard.cloneNode(true);
-        nc.querySelector('.nm').textContent=presets[i].name||'';
-        nc.querySelector('.ds').textContent=presets[i].engine_name||'';
-        pl.appendChild(nc);
-      }
-    }
-  }).catch(function(e){console.warn('[Presets] load failed:',e);});
-};
-// 保存预设 → POST /api/presets
+    pl.innerHTML='';
+    if(!presets||!presets.length){pl.innerHTML='<p style="grid-column:1/-1;text-align:center;color:var(--ink-faint);font-size:11px;padding:14px">暂无预设，点击「＋ 新建预设」创建</p>';return;}
+    presets.forEach(function(p){
+      var cfg=p.config||{};
+      var chips='<span class="eng">'+engLabel(p.engine_name)+'</span>';
+      if(cfg.steps!==undefined&&cfg.steps!==null)chips+='<span>'+cfg.steps+' steps</span>';
+      if(cfg.cfg!==undefined&&cfg.cfg!==null)chips+='<span>cfg '+cfg.cfg+'</span>';
+      if(cfg.width&&cfg.height)chips+='<span>'+cfg.width+'×'+cfg.height+'</span>';
+      var c=document.createElement('div');c.className='p-card';
+      c.innerHTML='<div class="nm">'+((p.name||'未命名').substring(0,20))+'</div>'+
+        '<p class="ds">'+engLabel(p.engine_name)+'</p>'+
+        '<div class="param-chips">'+chips+'</div>'+
+        '<div class="acts"><button class="btn btn-sm ap" type="button">应用</button><button class="btn btn-sm ed" type="button">编辑</button></div>';
+      c.querySelector('.ap').addEventListener('click',function(){applyPreset(p);});
+      c.querySelector('.ed').addEventListener('click',function(){editPreset(p);});
+      pl.appendChild(c);
+    });
+  }).catch(function(e){console.warn('[Presets] load failed:',e);pl.innerHTML='<p style="grid-column:1/-1;text-align:center;color:var(--ink-faint);font-size:11px;padding:14px">加载失败</p>';});
+}
+function applyPreset(p){
+  if(!p)return;
+  function doApply(cfg,eng){
+    var es=document.getElementById('engineSelect');
+    if(eng&&ENGINES[eng]&&es){es.value=eng;es.dispatchEvent(new Event('change'));syncEngMenu();}
+    if(cfg.steps!==undefined&&cfg.steps!==null)document.getElementById('steps').value=cfg.steps;
+    if(cfg.cfg!==undefined&&cfg.cfg!==null)document.getElementById('cfg').value=cfg.cfg;
+    if(cfg.width!==undefined&&cfg.width!==null)document.getElementById('width').value=cfg.width;
+    if(cfg.height!==undefined&&cfg.height!==null)document.getElementById('height').value=cfg.height;
+    if(cfg.seed!==undefined&&cfg.seed!==null)document.getElementById('seed').value=cfg.seed;
+    updateEst();
+    window.alert('已应用预设：'+(p.name||''));
+  }
+  if(p.id){API.post('/presets/'+p.id+'/apply',{}).then(function(r){doApply(r.config||{},r.engine_name||p.engine_name);}).catch(function(e){window.alert('应用失败: '+e);});}
+  else{doApply(p.config||{},p.engine_name||'');}
+}
+function editPreset(p){
+  _editPresetId=p.id||null;
+  document.getElementById('pName').value=p.name||'';
+  var pEng=document.getElementById('pEngine');
+  if(pEng){
+    pEng.innerHTML='';
+    Object.keys(ENGINES).forEach(function(k){var o=document.createElement('option');o.value=k;o.textContent=ENGINES[k];pEng.appendChild(o);});
+    if(ENGINES[p.engine_name])pEng.value=p.engine_name;
+  }
+  document.getElementById('pDesc').value='参数 JSON：'+JSON.stringify(p.config||{});
+  showPEdit();
+}
+var _origShowPList=showPList;
+showPList=function(){_origShowPList();renderPresets();};
+// 保存预设（新建 POST / 编辑 PUT）→ 真实接口
 document.getElementById('pSave').addEventListener('click',function(){
   var name=document.getElementById('pName').value||'预设 '+(Date.now()%1000);
-  var cfg={
-    positive_prompt:posPrompt.value,cfg:+document.getElementById('cfg').value||1.0,
-    steps:+document.getElementById('steps').value||8,width:+document.getElementById('width').value||1024,
-    height:+document.getElementById('height').value||1024,seed:-1
-  };
-  API.post('/presets',{engine_name:document.getElementById('engineSelect').value,name:name,config:cfg}).then(function(r){
-    showPList();window.alert('预设已保存');
-  }).catch(function(e){window.alert('保存失败: '+e);});
+  var pEng=document.getElementById('pEngine');
+  var eng=(pEng&&pEng.value)||document.getElementById('engineSelect').value;
+  var cfg={positive_prompt:posPrompt.value,cfg:+document.getElementById('cfg').value||1.0,steps:+document.getElementById('steps').value||8,width:+document.getElementById('width').value||1024,height:+document.getElementById('height').value||1024,seed:+document.getElementById('seed').value||-1};
+  if(_editPresetId){
+    API.put('/presets/'+_editPresetId,{name:name,config:cfg}).then(function(){showPList();window.alert('预设已更新');}).catch(function(e){window.alert('保存失败: '+e);});
+  }else{
+    API.post('/presets',{engine_name:eng,name:name,config:cfg}).then(function(){showPList();window.alert('预设已保存');}).catch(function(e){window.alert('保存失败: '+e);});
+  }
 });
 
-/* ---------- F7: 图库顶抽屉 ---------- */
-var _origRenderGallery=renderGallery;
+/* ---------- F7: 图库顶抽屉（真实渲染 + 标签映射） ---------- */
 renderGallery=function(filter){
   filter=filter||'全部';
   gMasonry.innerHTML='';
-  // 从后端加载输出
+  var f=FILTER_MAP[filter]||null;
   fetch('/api/outputs?page=1&page_size=50').then(function(r){return r.json();}).then(function(r){
-    if(!r.outputs||!r.outputs.length){gMasonry.innerHTML='<p style="padding:20px;text-align:center;color:var(--ink-faint)">暂无图片</p>';return;}
-    r.outputs.forEach(function(out,i){
-      if(filter!=='全部'&&out.output_type!==filter)return;
+    var list=(r.outputs||[]).filter(function(out){return !f||out.output_type===f;});
+    if(!list.length){gMasonry.innerHTML='<p style="padding:20px;text-align:center;color:var(--ink-faint)">暂无图片</p>';return;}
+    list.forEach(function(out){
       var d=document.createElement('div');d.className='g-card';
-      var ar=out.width&&out.height?out.width+'/'+out.height:'1/1';
+      var ar=(out.width&&out.height)?out.width+'/'+out.height:'1/1';
       d.style.setProperty('--ar',ar);
-      d.innerHTML='<span class="g-type">'+(out.output_type||'original')+'</span><div class="ph"><img src="/api/outputs/'+out.path+'" style="max-width:100%;max-height:200px;object-fit:contain"></div><div class="g-meta"><b>'+(out.prompt||'').substring(0,20)+'</b><span>'+(out.engine||'')+' · '+(out.width||0)+'×'+(out.height||0)+'</span></div>';
+      d.innerHTML='<span class="g-type">'+(TYPE_LABELS[out.output_type]||out.output_type||'输出')+'</span><div class="ph"><img src="/api/outputs/'+out.path+'" style="max-width:100%;max-height:200px;object-fit:contain" onerror="this.parentElement.textContent=\'加载失败\'"></div><div class="g-meta"><b>'+(out.prompt||'生成结果').substring(0,20)+'</b><span>'+engLabel(out.engine)+' · '+(out.created_at?String(out.created_at).substring(5,16):'')+'</span></div>';
       d.addEventListener('click',function(){openViewerReal(out);});
       gMasonry.appendChild(d);
     });
   }).catch(function(e){console.warn('[Gallery] load failed:',e);gMasonry.innerHTML='<p style="padding:20px;text-align:center;color:var(--ink-faint)">加载失败</p>';});
 };
 function openViewerReal(out){
+  _curViewer=out;
   zoom=100;compare=false;
-  vTitle.textContent=out.prompt||out.path||'';
-  vSeed.textContent=out.seed||'';
-  vMeta.textContent=(out.engine||'')+' · '+(out.width||0)+'×'+(out.height||0);
-  viewer.classList.add('show');renderImgReal(out);
+  vTitle.textContent=(out.prompt||'生成结果');
+  vSeed.textContent=out.seed||'—';
+  vMeta.textContent=engLabel(out.engine)+' · '+(TYPE_LABELS[out.output_type]||out.output_type||'');
+  viewer.classList.add('show');renderImg();
 }
-function renderImgReal(out){
+function renderImgReal(out){_curViewer=out;renderImg();}
+/* 覆盖原 mock renderImg：缩放/对比等控件全部渲染真实图片 */
+renderImg=function(){
   vImg.style.transform='scale('+(zoom/100)+')';
   vImg.className='v-img'+(compare?' compare':'');
   vZoomVal.textContent=zoom+'%';
-  if(compare){vImg.innerHTML='<div class="half">BEFORE</div><div class="half"><img src="/api/outputs/'+out.path+'" style="max-width:100%;max-height:100%;object-fit:contain"></div>';}
-  else{vImg.innerHTML='<img src="/api/outputs/'+out.path+'" style="max-width:100%;max-height:100%;object-fit:contain">';}
+  var out=_curViewer;
+  if(compare){vImg.innerHTML='<div class="half">BEFORE</div><div class="half">'+(out?'<img src="/api/outputs/'+out.path+'" style="max-width:100%;max-height:100%;object-fit:contain">':'—')+'</div>';}
+  else{vImg.innerHTML=out?'<img src="/api/outputs/'+out.path+'" style="max-width:100%;max-height:100%;object-fit:contain">':'<span>PREVIEW</span>';}
   document.getElementById('vCompare').classList.toggle('on',compare);
-}
+};
 
 /* ---------- F9: 系统状态顶抽屉 ---------- */
 var _origOpenStat=openStat;
@@ -1386,8 +1497,199 @@ fetch('/api/config').then(function(r){return r.json();}).then(function(cfg){
   console.log('[Init] Config loaded for LoRA dropdown');
 }).catch(function(e){console.warn('[Init] Config load failed:',e);});
 
-/* ---------- 页面加载完成后的初始化 ---------- */
-console.log('[Image MultiModel] Frontend wired: F1-F10 active');
+/* ================================================================
+   F11-F13: 全局数据 + 初始化（真实数据源）
+   原则：所有面板内容都来自后端接口，不再使用原型硬编码示例
+   ================================================================ */
+var ENGINES={};        // engine key → display_name（来自 /api/config）
+var TYPE_LABELS={original:'原图',upscaled:'超分',compare:'对比图'};
+var FILTER_MAP={'全部':null,'原图':'original','超分':'upscaled','对比图':'compare'};
+var _CFG=null;         // 最近一次 /api/config 快照
+
+function engLabel(k){return ENGINES[k]||k||'—';}
+
+/* ---------- F14: 主题色切换（24 预设 + 自定义，localStorage 持久化） ---------- */
+var ACCENTS=[
+['紫罗兰','#7c5fd6','#6b5bb8'],['靛蓝','#6366f1','#4f46e5'],['宝蓝','#3b82f6','#2563eb'],['天蓝','#0ea5e9','#0284c7'],
+['青色','#06b6d4','#0891b2'],['青绿','#14b8a6','#0d9488'],['翡翠','#10b981','#059669'],['苔绿','#84cc16','#65a30d'],
+['森林','#22c55e','#16a34a'],['柠檬','#eab308','#ca8a04'],['琥珀','#f59e0b','#d97706'],['橙焰','#f97316','#ea580c'],
+['朱红','#ef4444','#dc2626'],['玫红','#f43f5e','#e11d48'],['洋红','#ec4899','#db2777'],['紫红','#d946ef','#c026d3'],
+['葡萄紫','#a855f7','#9333ea'],['藕荷','#c084fc','#a855f7'],['深紫','#8b5cf6','#7c3aed'],['石板','#64748b','#475569'],
+['钢蓝','#475569','#334155'],['海蓝','#0f766e','#115e59'],['珊瑚','#fb7185','#f43f5e'],['蜜桃橙','#f98a25','#ef6d1c']
+];
+function renderPalette(){
+  var grid=document.getElementById('palGrid');if(!grid)return;
+  grid.innerHTML='';
+  ACCENTS.forEach(function(a){
+    var b=document.createElement('button');
+    b.className='sw';b.type='button';b.title=a[0];b.dataset.p=a[1];b.dataset.a=a[2];
+    b.style.background=a[1];
+    b.addEventListener('click',function(){applyAccent(a[1],a[2]);});
+    grid.appendChild(b);
+  });
+  syncPalette();
+}
+function applyAccent(primary,accent){
+  var root=document.documentElement;
+  root.style.setProperty('--seed-primary',primary);
+  root.style.setProperty('--seed-accent',accent||primary);
+  var dot=document.getElementById('palDot');if(dot)dot.style.background=primary;
+  var pc=document.getElementById('palCustom');if(pc)pc.value=primary;
+  try{localStorage.setItem('imm_accent',JSON.stringify([primary,accent||primary]));}catch(e){}
+  syncPalette();
+}
+function syncPalette(){
+  var cur=(document.documentElement.style.getPropertyValue('--seed-primary')||'#7c5fd6').trim().toLowerCase();
+  document.querySelectorAll('#palGrid .sw').forEach(function(b){b.classList.toggle('on',b.dataset.p.toLowerCase()===cur);});
+}
+function initAccent(){
+  var saved=null;try{saved=JSON.parse(localStorage.getItem('imm_accent')||'null');}catch(e){}
+  if(saved&&saved[0]){
+    var LEGACY={'#fdba74':'#f98a25','#fb923c':'#ef6d1c'};
+    var s0=saved[0].toLowerCase(),s1=(saved[1]||'').toLowerCase();
+    if(LEGACY[s0]){s0=LEGACY[s0];s1=LEGACY[s1]||s0;}
+    applyAccent(s0,s1);
+  }
+  else{applyAccent('#7c5fd6','#6b5bb8');}
+}
+var palBtn=document.getElementById('palBtn'),palPop=document.getElementById('palPop');
+if(palBtn)palBtn.addEventListener('click',function(e){
+  e.stopPropagation();
+  engMenu.classList.remove('show');langMenu.classList.remove('show');
+  palPop.classList.toggle('show');
+});
+var palCustom=document.getElementById('palCustom');
+if(palCustom)palCustom.addEventListener('input',function(){applyAccent(this.value,this.value);});
+document.addEventListener('click',function(e){
+  if(!e.target.closest('#palBtn')&&!e.target.closest('#palPop')){if(palPop)palPop.classList.remove('show');}
+});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&palPop)palPop.classList.remove('show');});
+
+function loadConfig(){
+  return fetch('/api/config').then(function(r){return r.json();}).then(function(cfg){
+    _CFG=cfg;
+    var engs=cfg.models&&cfg.models.engines||{};
+    ENGINES={};
+    Object.keys(engs).forEach(function(k){ENGINES[k]=engs[k].display_name||k;});
+    return cfg;
+  }).catch(function(e){console.warn('[Init] config load failed:',e);return null;});
+}
+
+/* ---------- F11: 引擎菜单 + 参数默认值（来自后端配置） ---------- */
+function initEngines(){
+  var sel=document.getElementById('engineSelect');
+  var menu=document.getElementById('engMenu');
+  var keys=Object.keys(ENGINES);
+  if(!keys.length||!sel)return;
+  var cur=sel.value;
+  sel.innerHTML='';
+  if(menu)menu.innerHTML='';
+  keys.forEach(function(k){
+    var label=ENGINES[k];
+    var o=document.createElement('option');o.value=k;o.textContent=label;sel.appendChild(o);
+    if(menu){var b=document.createElement('button');b.className='ip-item';b.type='button';b.dataset.v=k;b.textContent=label;menu.appendChild(b);}
+  });
+  var def=_CFG&&_CFG.models&&_CFG.models.default_engine;
+  if(ENGINES[cur])sel.value=cur;
+  else if(def&&ENGINES[def])sel.value=def;
+  else sel.value=keys[0];
+  if(menu)menu.querySelectorAll('.ip-item').forEach(function(b){
+    b.addEventListener('click',function(){
+      menu.querySelectorAll('.ip-item').forEach(function(x){x.classList.remove('on');});
+      b.classList.add('on');
+      var es=document.getElementById('engineSelect');es.value=b.dataset.v;es.dispatchEvent(new Event('change'));
+      closeMenus();
+    });
+  });
+  syncEngMenu();
+}
+function syncEngMenu(){
+  var cur=document.getElementById('engineSelect').value;
+  document.querySelectorAll('#engMenu .ip-item').forEach(function(b){b.classList.toggle('on',b.dataset.v===cur);});
+  syncChips();
+}
+function initDefaults(){
+  if(!_CFG)return;
+  var inf=_CFG.inference||{};
+  function setv(id,v,def){var el=document.getElementById(id);if(el)el.value=(v!==undefined&&v!==null)?v:def;}
+  setv('steps',inf.default_steps,8);
+  setv('cfg',inf.default_cfg,1.0);
+  setv('seed',inf.default_seed,-1);
+  setv('batchSize',inf.default_batch_size,1);
+  var ec=(_CFG.models&&_CFG.models.engines&&_CFG.models.engines[document.getElementById('engineSelect').value])||{};
+  setv('width',ec.default_width||1024,1024);
+  setv('height',ec.default_height||1024,1024);
+}
+function resetToDefaults(){
+  if(!_CFG){window.alert('配置尚未加载，请稍后重试');return;}
+  initDefaults();
+  document.getElementById('seedvr2Toggle').checked=true;
+  document.getElementById('esesToggle').checked=true;
+  document.getElementById('vramToggle').checked=true;
+  document.getElementById('vramGb').value=0.6;
+  document.getElementById('upscaleSeed').value=-1;
+  document.getElementById('vramSeed').value=-1;
+  updateEst();
+  window.alert('已恢复为后端默认参数');
+}
+
+/* ---------- F12: 最近生成（真实输出） ---------- */
+function loadRecent(){
+  var grid=document.getElementById('outGrid');
+  if(!grid)return;
+  grid.innerHTML='<p style="grid-column:1/-1;text-align:center;color:var(--ink-faint);font-size:11px;padding:16px 0">加载最近生成…</p>';
+  fetch('/api/outputs?page=1&page_size=9').then(function(r){return r.json();}).then(function(r){
+    var list=r.outputs||[];
+    if(!list.length){grid.innerHTML='<p style="grid-column:1/-1;text-align:center;color:var(--ink-faint);font-size:11px;padding:16px 0">暂无生成记录</p>';return;}
+    grid.innerHTML='';
+    list.forEach(function(out){
+      var c=document.createElement('div');c.className='r-card';c.style.setProperty('--ar','1/1');
+      var label=TYPE_LABELS[out.output_type]||out.output_type||'输出';
+      var meta=engLabel(out.engine)+(out.created_at?' · '+String(out.created_at).substring(5,16):'');
+      c.innerHTML='<div class="ph-img"><img src="/api/outputs/'+out.path+'" style="max-width:100%;max-height:220px;object-fit:contain;display:block;margin:0 auto" onerror="this.parentElement.textContent=\'加载失败\'"><div class="r-actions"><button class="btn btn-sm" type="button" onclick="window.open(\'/api/outputs/'+out.path+'\',\'_blank\')">下载</button><button class="btn btn-sm" type="button" onclick="window.open(\'/api/tasks/export?ids='+out.task_id+'\',\'_blank\')">ZIP</button><button class="btn btn-sm" type="button" onclick="redrawTask(\''+out.task_id+'\')">重绘</button></div></div><div class="r-meta"><b>'+((out.prompt||'生成结果').substring(0,18))+'</b><span>'+label+' · '+meta+'</span></div>';
+      grid.appendChild(c);
+    });
+  }).catch(function(){grid.innerHTML='<p style="grid-column:1/-1;text-align:center;color:var(--ink-faint);font-size:11px;padding:16px 0">加载失败</p>';});
+}
+
+/* ---------- F13: 队列悬浮球（真实任务） ---------- */
+function renderQueue(){
+  var box=document.getElementById('queueItems');if(!box)return;
+  box.innerHTML='<p style="text-align:center;color:var(--ink-faint);font-size:10px;padding:10px">加载中…</p>';
+  fetch('/api/tasks?page=1&page_size=30').then(function(r){return r.json();}).then(function(r){
+    var list=(r.tasks||[]).filter(function(t){return t.status==='pending'||t.status==='processing'||t.status==='queued';});
+    if(!list.length){box.innerHTML='<p style="text-align:center;color:var(--ink-faint);font-size:10px;padding:10px">队列空闲</p>';return;}
+    box.innerHTML='';
+    list.forEach(function(t){
+      var d=document.createElement('div');d.className='q-item';
+      var st=t.status==='processing'?'进行中':'排队中';
+      d.innerHTML='<div class="t"><b>'+(t.task_id||'').substring(0,12)+' · '+((t.prompt||'未命名').substring(0,16))+'</b><span>'+st+' · '+(t.output_count||0)+' 输出</span></div><span class="p">'+(t.status==='processing'?'…':'—')+'</span>';
+      box.appendChild(d);
+    });
+  }).catch(function(){box.innerHTML='<p style="text-align:center;color:var(--ink-faint);font-size:10px;padding:10px">加载失败</p>';});
+}
+function loadQueueSummary(){
+  fetch('/api/tasks?page=1&page_size=30').then(function(r){return r.json();}).then(function(r){
+    var n=(r.tasks||[]).filter(function(t){return t.status==='pending'||t.status==='processing';}).length;
+    if(qpText)qpText.textContent='队列 '+(n||0);
+  }).catch(function(){});
+}
+
+/* ---------- 页面加载完成后的初始化（真实数据） ---------- */
+renderPalette();
+initAccent();
+loadConfig().then(function(cfg){
+  if(cfg)initEngines();
+  if(cfg)initDefaults();
+  updateEst();
+  loadRecent();
+  loadQueueSummary();
+  var he=document.getElementById('histEngine');
+  if(he){he.innerHTML='<option value="">引擎</option>';Object.keys(ENGINES).forEach(function(k){var o=document.createElement('option');o.value=k;o.textContent=ENGINES[k];he.appendChild(o);});}
+});
+// 标记用户手动改过的参数（引擎切换时不再覆盖分辨率）
+['width','height','steps','cfg','seed','batchSize'].forEach(function(id){var el=document.getElementById(id);if(el)el.addEventListener('input',function(){el.dataset.touched='1';});});
+console.log('[Image MultiModel] Frontend wired: F1-F13 active (真实数据源)');
 </script>
 </body>
 </html>

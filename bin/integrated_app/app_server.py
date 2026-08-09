@@ -8,8 +8,10 @@ app_server.py — FastAPI 主应用入口
 from __future__ import annotations
 
 import asyncio
+import importlib
 import logging
 import logging.handlers
+import pkgutil
 import sys
 import time
 from contextlib import asynccontextmanager
@@ -34,6 +36,38 @@ from .task_queue import Task, TaskQueue
 
 # ── 日志配置 ──────────────────────────────────────────────────
 logger = logging.getLogger("integrated_app")
+
+
+def _auto_discover_routers() -> list:
+    """使用 pkgutil 递归发现并注册路由模块（P0-3: 来源 TTS_MultiModel）。
+
+    遍历 ``integrated_app.routes`` 包下的所有模块，自动提取 ``router``
+    APIRouter 实例。新增路由文件只需放到 routes/ 目录并在模块内定义
+    ``router = APIRouter(prefix="/api/xxx", ...)`` 即可自动注册。
+
+    Returns:
+        list: 发现的 APIRouter 实例列表。
+    """
+    routers: list = []
+    try:
+        routes_pkg = importlib.import_module(".routes", package=__package__)
+    except ImportError as e:
+        logger.warning(f"[路由发现] 导入 routes 包失败: {e}")
+        return routers
+
+    if not hasattr(routes_pkg, "__path__"):
+        return routers
+
+    for _importer, modname, _ispkg in pkgutil.iter_modules(routes_pkg.__path__):
+        try:
+            mod = importlib.import_module(f".routes.{modname}", package=__package__)
+            if hasattr(mod, "router"):
+                routers.append(mod.router)
+                logger.debug(f"[路由发现] 注册路由模块: routes.{modname}")
+        except Exception as e:
+            logger.warning(f"[路由发现] 导入 routes.{modname} 失败: {e}")
+
+    return routers
 
 
 def setup_logging(config) -> None:
@@ -72,6 +106,11 @@ async def lifespan(app: FastAPI):
     logger.info(f"=== Image MultiModel starting (v{config.version}) ===")
     logger.info(f"Project root: {config.project_root}")
     logger.info(f"Model mode: {config.models.model_source_mode}")
+
+    # P1-1: 核心模块完整性自检（来源：Seedvr2）
+    from .security.integrity_selfcheck import run_startup_selfcheck
+    selfcheck_result = run_startup_selfcheck()
+    app.state.integrity_selfcheck = selfcheck_result
 
     # 初始化 HistoryDB
     db_path = Path(config.project_root) / config.output.history.db_path
@@ -371,22 +410,15 @@ def create_app() -> FastAPI:
         upload_per_minute=config.security.rate_limit.upload_per_minute,
     )
 
-    # ── 路由自动发现 ──────────────────────────────────────────
-    from .routes.config_routes import router as config_router
-    from .routes.engine_routes import router as engine_router
-    from .routes.generate_routes import router as generate_router
-    from .routes.output_routes import router as output_router
-    from .routes.preset_routes import router as preset_router
-    from .routes.system_routes import router as system_router
-    from .routes.task_routes import router as task_router
+    # ── 路由自动发现（P0-3: 来源 TTS_MultiModel） ─────────────
+    routers = _auto_discover_routers()
+    for router in routers:
+        app.include_router(router)
+    logger.info(f"Auto-discovered {len(routers)} route modules")
 
-    app.include_router(config_router)
-    app.include_router(system_router)
-    app.include_router(generate_router)
-    app.include_router(task_router)
-    app.include_router(output_router)
-    app.include_router(preset_router)
-    app.include_router(engine_router)
+    # ── 全局错误处理中间件（P1-4: 来源 TTS_MultiModel） ─────────
+    from .middleware.error_handler import register_error_handlers
+    register_error_handlers(app)
 
     # ── 静态文件托管（单页 HTML） ─────────────────────────────
     static_dir = Path(__file__).parent / "static"

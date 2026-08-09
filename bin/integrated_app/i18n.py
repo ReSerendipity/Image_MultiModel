@@ -1,195 +1,271 @@
 """
 i18n.py — 后端错误文案国际化
 
-对应 MASTER_PLAN §4: i18n.py
-对应 PRD §2.11: 5 语言后端错误文案清单
+P1-2 改造（来源：TTS_MultiModel）：从硬编码 Python 字典迁移到 JSON 文件。
+翻译内容存储在 ``locales/*.json`` 的 ``backend_errors`` namespace 中。
+
+三层 fallback 链保障翻译永不显示空值：
+1. 用户指定语言 → 英文（en）回退 → key 本身兜底
+2. 翻译键查找支持扁平优先 + 命名空间嵌套下钻
+
+向后兼容：``ERROR_MESSAGES`` 和 ``get_error_message()`` 仍保留可用，
+内部改为从 JSON 文件加载。
 """
 
 from __future__ import annotations
 
-# ── 5 语言后端错误文案字典 ───────────────────────────────────
-ERROR_MESSAGES: dict[str, dict[str, str]] = {
-    "zh": {
-        # 引擎错误
-        "engine_not_found": "引擎不存在: {name}",
-        "engine_not_ready": "引擎未就绪，请先加载模型",
-        "engine_load_failed": "引擎加载失败: {detail}",
-        "engine_unload_failed": "引擎卸载失败: {detail}",
-        # 任务错误
-        "task_not_found": "任务不存在: {task_id}",
-        "task_already_running": "任务已在运行中",
-        "task_cancel_failed": "取消任务失败: {detail}",
-        "task_timeout": "任务超时（{timeout}s）",
-        "task_queue_full": "任务队列已满，请稍后重试",
-        # 参数错误
-        "invalid_param": "无效参数: {param}={value}",
-        "batch_too_large": "批量大小超过限制（最大 9999）",
-        "seed_must_be_int": "种子必须是整数或 -1（随机）",
-        "resolution_too_large": "分辨率过大，建议不超过 2048×2048",
-        # ComfyUI 错误
-        "comfy_not_reachable": "ComfyUI 后端不可达: {url}",
-        "comfy_ws_error": "ComfyUI WebSocket 错误: {detail}",
-        "comfy_workflow_error": "工作流执行错误: {detail}",
-        "comfy_node_not_found": "工作流节点不存在: {node_id}",
-        # 显存错误
-        "vram_insufficient": "显存不足（需要 {need}GB，可用 {avail}GB），请降低分辨率或 batch",
-        "vram_preflight_failed": "显存预检失败: {detail}",
-        # 路径错误
-        "path_traversal": "路径不安全: {path}",
-        "file_not_found": "文件不存在: {path}",
-        # 认证错误
-        "auth_required": "需要认证",
-        "auth_failed": "认证失败",
-        "rate_limit_exceeded": "请求过于频繁，请稍后再试",
-        # 通用
-        "config_save_failed": "配置保存失败: {detail}",
-        "config_invalid": "配置无效: {detail}",
-        "preset_not_found": "预设不存在",
-        "preset_name_exists": "预设名称已存在",
-        "unknown_error": "未知错误: {detail}",
-    },
-    "en": {
-        "engine_not_found": "Engine not found: {name}",
-        "engine_not_ready": "Engine not ready, please load model first",
-        "engine_load_failed": "Engine load failed: {detail}",
-        "engine_unload_failed": "Engine unload failed: {detail}",
-        "task_not_found": "Task not found: {task_id}",
-        "task_already_running": "Task is already running",
-        "task_cancel_failed": "Cancel task failed: {detail}",
-        "task_timeout": "Task timed out ({timeout}s)",
-        "task_queue_full": "Task queue is full, please try later",
-        "invalid_param": "Invalid parameter: {param}={value}",
-        "batch_too_large": "Batch size exceeds limit (max 9999)",
-        "seed_must_be_int": "Seed must be integer or -1 (random)",
-        "resolution_too_large": "Resolution too large, suggest ≤ 2048×2048",
-        "comfy_not_reachable": "ComfyUI backend not reachable: {url}",
-        "comfy_ws_error": "ComfyUI WebSocket error: {detail}",
-        "comfy_workflow_error": "Workflow execution error: {detail}",
-        "comfy_node_not_found": "Workflow node not found: {node_id}",
-        "vram_insufficient": "VRAM insufficient (need {need}GB, avail {avail}GB), reduce resolution or batch",
-        "vram_preflight_failed": "VRAM preflight failed: {detail}",
-        "path_traversal": "Unsafe path: {path}",
-        "file_not_found": "File not found: {path}",
-        "auth_required": "Authentication required",
-        "auth_failed": "Authentication failed",
-        "rate_limit_exceeded": "Rate limit exceeded, try later",
-        "config_save_failed": "Config save failed: {detail}",
-        "config_invalid": "Invalid config: {detail}",
-        "preset_not_found": "Preset not found",
-        "preset_name_exists": "Preset name already exists",
-        "unknown_error": "Unknown error: {detail}",
-    },
-    "ja": {
-        "engine_not_found": "エンジンが見つかりません: {name}",
-        "engine_not_ready": "エンジンの準備ができていません。モデルを先にロードしてください",
-        "engine_load_failed": "エンジンのロードに失敗: {detail}",
-        "engine_unload_failed": "エンジンのアンロードに失敗: {detail}",
-        "task_not_found": "タスクが見つかりません: {task_id}",
-        "task_already_running": "タスクは既に実行中です",
-        "task_cancel_failed": "タスクのキャンセルに失敗: {detail}",
-        "task_timeout": "タスクがタイムアウトしました（{timeout}s）",
-        "task_queue_full": "タスクキューが満杯です。後で再試行してください",
-        "invalid_param": "無効なパラメータ: {param}={value}",
-        "batch_too_large": "バッチサイズが制限を超えています（最大 9999）",
-        "seed_must_be_int": "シードは整数または -1（ランダム）である必要があります",
-        "resolution_too_large": "解像度が大きすぎます。2048×2048 以下を推奨",
-        "comfy_not_reachable": "ComfyUIバックエンドに接続できません: {url}",
-        "comfy_ws_error": "ComfyUI WebSocketエラー: {detail}",
-        "comfy_workflow_error": "ワークフロー実行エラー: {detail}",
-        "comfy_node_not_found": "ワークフローノードが見つかりません: {node_id}",
-        "vram_insufficient": "VRAM不足（必要 {need}GB、利用可能 {avail}GB）",
-        "vram_preflight_failed": "VRAM事前チェック失敗: {detail}",
-        "path_traversal": "安全でないパス: {path}",
-        "file_not_found": "ファイルが見つかりません: {path}",
-        "auth_required": "認証が必要です",
-        "auth_failed": "認証に失敗しました",
-        "rate_limit_exceeded": "リクエストが多すぎます。後で再試行してください",
-        "config_save_failed": "設定の保存に失敗: {detail}",
-        "config_invalid": "無効な設定: {detail}",
-        "preset_not_found": "プリセットが見つかりません",
-        "preset_name_exists": "プリセット名が既に存在します",
-        "unknown_error": "不明なエラー: {detail}",
-    },
-    "ko": {
-        "engine_not_found": "엔진을 찾을 수 없습니다: {name}",
-        "engine_not_ready": "엔진이 준비되지 않았습니다. 모델을 먼저 로드하세요",
-        "engine_load_failed": "엔진 로드 실패: {detail}",
-        "engine_unload_failed": "엔진 언로드 실패: {detail}",
-        "task_not_found": "태스크를 찾을 수 없습니다: {task_id}",
-        "task_already_running": "태스크가 이미 실행 중입니다",
-        "task_cancel_failed": "태스크 취소 실패: {detail}",
-        "task_timeout": "태스크 시간 초과 ({timeout}s)",
-        "task_queue_full": "태스크 큐가 가득 찼습니다. 나중에 시도하세요",
-        "invalid_param": "잘못된 매개변수: {param}={value}",
-        "batch_too_large": "배치 크기 제한 초과 (최대 9999)",
-        "seed_must_be_int": "시드는 정수 또는 -1(랜덤)이어야 합니다",
-        "resolution_too_large": "해상도가 너무 큽니다. 2048×2048 이하 권장",
-        "comfy_not_reachable": "ComfyUI 백엔드에 연결할 수 없습니다: {url}",
-        "comfy_ws_error": "ComfyUI WebSocket 오류: {detail}",
-        "comfy_workflow_error": "워크플로 실행 오류: {detail}",
-        "comfy_node_not_found": "워크플로 노드를 찾을 수 없습니다: {node_id}",
-        "vram_insufficient": "VRAM 부족 (필요 {need}GB, 사용 가능 {avail}GB)",
-        "vram_preflight_failed": "VRAM 사전 확인 실패: {detail}",
-        "path_traversal": "안전하지 않은 경로: {path}",
-        "file_not_found": "파일을 찾을 수 없습니다: {path}",
-        "auth_required": "인증이 필요합니다",
-        "auth_failed": "인증 실패",
-        "rate_limit_exceeded": "요청이 너무 많습니다. 나중에 시도하세요",
-        "config_save_failed": "설정 저장 실패: {detail}",
-        "config_invalid": "잘못된 설정: {detail}",
-        "preset_not_found": "프리셋을 찾을 수 없습니다",
-        "preset_name_exists": "프리셋 이름이 이미 존재합니다",
-        "unknown_error": "알 수 없는 오류: {detail}",
-    },
-    "zh-tw": {
-        "engine_not_found": "引擎不存在: {name}",
-        "engine_not_ready": "引擎未就緒，請先載入模型",
-        "engine_load_failed": "引擎載入失敗: {detail}",
-        "engine_unload_failed": "引擎卸載失敗: {detail}",
-        "task_not_found": "任務不存在: {task_id}",
-        "task_already_running": "任務已在執行中",
-        "task_cancel_failed": "取消任務失敗: {detail}",
-        "task_timeout": "任務逾時（{timeout}s）",
-        "task_queue_full": "任務佇列已滿，請稍後重試",
-        "invalid_param": "無效參數: {param}={value}",
-        "batch_too_large": "批次大小超過限制（最大 9999）",
-        "seed_must_be_int": "種子必須是整數或 -1（隨機）",
-        "resolution_too_large": "解析度過大，建議不超過 2048×2048",
-        "comfy_not_reachable": "ComfyUI 後端不可達: {url}",
-        "comfy_ws_error": "ComfyUI WebSocket 錯誤: {detail}",
-        "comfy_workflow_error": "工作流程執行錯誤: {detail}",
-        "comfy_node_not_found": "工作流程節點不存在: {node_id}",
-        "vram_insufficient": "顯存不足（需要 {need}GB，可用 {avail}GB），請降低解析度或批次",
-        "vram_preflight_failed": "顯存預檢失敗: {detail}",
-        "path_traversal": "路徑不安全: {path}",
-        "file_not_found": "檔案不存在: {path}",
-        "auth_required": "需要認證",
-        "auth_failed": "認證失敗",
-        "rate_limit_exceeded": "請求過於頻繁，請稍後再試",
-        "config_save_failed": "設定儲存失敗: {detail}",
-        "config_invalid": "無效設定: {detail}",
-        "preset_not_found": "預設不存在",
-        "preset_name_exists": "預設名稱已存在",
-        "unknown_error": "未知錯誤: {detail}",
-    },
+import json
+import logging
+import os
+from typing import Any
+
+logger = logging.getLogger("integrated_app")
+
+# ── 路径与语言映射 ────────────────────────────────────────────
+
+_LOCALES_DIR: str = os.path.join(os.path.dirname(os.path.abspath(__file__)), "locales")
+
+_LANG_FILE_MAP: dict[str, str] = {
+    "en": "en.json",
+    "zh-CN": "zh.json",
+    "zh-Hans": "zh.json",
+    "zh": "zh.json",
+    "zh-TW": "zh-tw.json",
+    "zh-Hant": "zh-tw.json",
+    "zh-tw": "zh-tw.json",
+    "ja": "ja.json",
+    "ko": "ko.json",
 }
+
+# ── 翻译缓存 ──────────────────────────────────────────────────
+
+_I18N_TRANSLATIONS: dict[str, dict[str, Any]] = {}
+_BACKEND_ERRORS_CACHE: dict[str, dict[str, str]] | None = None
+
+
+def _load_translations(lang: str) -> dict[str, Any] | None:
+    """加载指定语言的翻译字典（带缓存）。
+
+    Args:
+        lang: 语言代码（如 "zh"、"en"）。
+
+    Returns:
+        翻译字典；语言不支持、文件不存在时返回 None。
+    """
+    if lang in _I18N_TRANSLATIONS:
+        return _I18N_TRANSLATIONS[lang]
+    filename = _LANG_FILE_MAP.get(lang)
+    if filename is None:
+        return None
+    filepath = os.path.join(_LOCALES_DIR, filename)
+    if not os.path.exists(filepath):
+        return None
+    try:
+        with open(filepath, encoding="utf-8") as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        logger.warning(f"国际化文件加载失败: {filepath}: {e}")
+        return None
+    _I18N_TRANSLATIONS[lang] = data
+    return data
+
+
+def _load_backend_errors() -> dict[str, dict[str, str]]:
+    """从 JSON locale 文件加载 backend_errors namespace（带缓存）。
+
+    Returns:
+        dict: {locale: {key: message}} 格式的后端错误文案字典。
+              只包含 5 个主语言：zh / en / ja / ko / zh-tw
+    """
+    global _BACKEND_ERRORS_CACHE
+    if _BACKEND_ERRORS_CACHE is not None:
+        return _BACKEND_ERRORS_CACHE
+
+    result: dict[str, dict[str, str]] = {}
+    # 只加载 5 个主语言（不含别名）
+    _PRIMARY_LOCALES = ["zh", "en", "ja", "ko", "zh-tw"]
+    for lang in _PRIMARY_LOCALES:
+        filename = _LANG_FILE_MAP.get(lang)
+        if not filename:
+            continue
+        filepath = os.path.join(_LOCALES_DIR, filename)
+        if not os.path.exists(filepath):
+            continue
+        try:
+            with open(filepath, encoding="utf-8") as f:
+                data = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            continue
+        backend = data.get("backend_errors", {})
+        if isinstance(backend, dict):
+            result[lang] = dict(backend)
+
+    _BACKEND_ERRORS_CACHE = result
+    return result
+
+
+# ── 向后兼容：ERROR_MESSAGES ──────────────────────────────────
+
+def _get_error_messages() -> dict[str, dict[str, str]]:
+    """获取 ERROR_MESSAGES（从 JSON 加载，带缓存）。
+
+    向后兼容：旧代码使用 ``from .i18n import ERROR_MESSAGES`` 时，
+    通过本函数从 JSON locale 文件的 ``backend_errors`` namespace 加载。
+    """
+    return _load_backend_errors()
+
+
+class _ErrorMessagesProxy:
+    """ERROR_MESSAGES 的延迟加载代理。
+
+    首次访问时从 JSON 文件加载 backend_errors，
+    之后缓存供后续访问使用。
+    """
+
+    def _get_data(self) -> dict[str, dict[str, str]]:
+        return _load_backend_errors()
+
+    def __contains__(self, key: str) -> bool:
+        return key in self._get_data()
+
+    def __getitem__(self, key: str) -> dict[str, str]:
+        return self._get_data()[key]
+
+    def __iter__(self):
+        return iter(self._get_data())
+
+    def keys(self):
+        return self._get_data().keys()
+
+    def values(self):
+        return self._get_data().values()
+
+    def items(self):
+        return self._get_data().items()
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._get_data().get(key, default)
+
+
+# 向后兼容别名
+ERROR_MESSAGES = _ErrorMessagesProxy()
+
+
+# ── 向后兼容：get_error_message ───────────────────────────────
 
 
 def get_error_message(key: str, locale: str = "zh", **kwargs) -> str:
-    """
-    获取本地化错误消息。
+    """获取本地化错误消息（向后兼容接口）。
+
+    P1-2 改造后内部从 JSON locale 文件加载。
 
     Args:
         key: 错误消息 key
-        locale: 语言代码 (zh / en / ja / ko)
+        locale: 语言代码 (zh / en / ja / ko / zh-tw)
         **kwargs: 模板变量
 
     Returns:
         格式化后的错误消息字符串
     """
-    messages = ERROR_MESSAGES.get(locale, ERROR_MESSAGES.get("zh", {}))
-    template = messages.get(key, ERROR_MESSAGES["zh"].get(key, key))
+    messages = _load_backend_errors()
+    lang_messages = messages.get(locale, messages.get("zh", {}))
+    template = lang_messages.get(key, messages.get("zh", {}).get(key, key))
     try:
         return template.format(**kwargs)
     except (KeyError, IndexError):
         return template
+
+
+# ── 新接口：t() 三层 fallback ─────────────────────────────────
+
+
+def _resolve_key(translations: dict[str, Any], key: str) -> str | None:
+    """在翻译字典中解析翻译键。
+
+    先尝试扁平查找：以完整 key 作为字典键直接命中；
+    失败后再使用 "." 分割并逐段下钻嵌套 dict。
+    只有最终叶子节点是 str 类型才返回。
+
+    Args:
+        translations: 翻译字典。
+        key: 翻译键。
+
+    Returns:
+        翻译文本字符串；未找到时返回 None。
+    """
+    try:
+        if key in translations:
+            result = translations[key]
+            return result if isinstance(result, str) else None
+    except (TypeError, AttributeError):
+        pass
+
+    if "." in key:
+        try:
+            parts = key.split(".")
+            result: Any = translations
+            for part in parts:
+                if isinstance(result, dict) and part in result:
+                    result = result[part]
+                else:
+                    return None
+            return result if isinstance(result, str) else None
+        except Exception:
+            return None
+    return None
+
+
+def t(key: str, lang: str = "zh", default: str | None = None, **kwargs) -> str:
+    """翻译函数，三层 fallback 链保障不显示空值。
+
+    fallback 顺序：
+    1. 指定 lang 的翻译字典 → _resolve_key
+    2. 英文（en）翻译字典 → _resolve_key
+    3. default 参数（若不为 None）或 key 本身作为最终兜底
+
+    Args:
+        key: 翻译键。
+        lang: 目标语言代码，默认 "zh"。
+        default: 可选的自定义兜底文本。
+        **kwargs: str.format 参数替换。
+
+    Returns:
+        翻译结果或兜底字符串，永不返回 None。
+    """
+    try:
+        lang_dict = _load_translations(lang)
+        if lang_dict is not None:
+            result = _resolve_key(lang_dict, key)
+            if result is not None:
+                return result.format(**kwargs) if kwargs else result
+        en_dict = _load_translations("en")
+        if en_dict is not None:
+            result = _resolve_key(en_dict, key)
+            if result is not None:
+                return result.format(**kwargs) if kwargs else result
+    except Exception:
+        pass
+    return default if default is not None else key
+
+
+# ── 前端 i18n JSON 合并 ────────────────────────────────────────
+
+
+def get_i18n_json(lang: str) -> dict[str, Any]:
+    """返回前端 JS 侧使用的合并翻译字典。
+
+    合并策略：以英文（en）字典为基础，再用目标语言字典 update 覆盖。
+
+    Args:
+        lang: 目标语言代码。
+
+    Returns:
+        合并后的翻译字典。
+    """
+    translations = _load_translations(lang)
+    if translations is None:
+        translations = _load_translations("zh") or {}
+    en_dict = _load_translations("en") or {}
+    merged: dict[str, Any] = dict(en_dict)
+    merged.update(translations)
+    return merged
