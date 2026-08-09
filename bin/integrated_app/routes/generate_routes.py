@@ -105,6 +105,7 @@ async def generate(req: GenerateRequest, request: Request) -> GenerateResponse:
         default_precision=engine_cfg.default_precision,
         multisample_rule=cfg.inference.vram_multisample_rule,
         headroom_gb=cfg.inference.vram_headroom_gb,
+        allow_tight=cfg.inference.vram_tight_continue,
     )
 
     if not vram_est.can_run:

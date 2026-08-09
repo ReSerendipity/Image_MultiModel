@@ -162,6 +162,8 @@ class InferenceConfig(BaseModel):
     enable_fp8_fallback: bool = True
     vram_headroom_gb: float = 2.0
     vram_multisample_rule: float = 1.5
+    # 显存估算不足时是否放行（依赖 ComfyUI 低显存分块换入换出 --lowvram，如 12GB 笔记本跑 SeedVR2）
+    vram_tight_continue: bool = True
     torch_compile: TorchCompileConfig = TorchCompileConfig()
     lora_max_units: int = 6
 

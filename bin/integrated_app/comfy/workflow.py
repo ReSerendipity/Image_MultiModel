@@ -231,9 +231,12 @@ class WorkflowManager:
             # 槽位名 = UI 图节点自身 inputs 顺序（与 object_info 顺序可能不同）
             node_inputs = n.get("inputs") or []
             in_names = [str(i.get("name", idx)) for idx, i in enumerate(node_inputs)]
-            # widgets 按 object_info 的原始输入顺序对齐
+            # widgets 按 object_info 的原始输入顺序对齐；
+            # 过滤 control_after_generate 伪控件（'randomize'/'fixed' 等，非真实 API 输入）
+            _CONTROL = {"randomize", "fixed", "increment", "decrement"}
             widget_names = [nm for nm in oi_in if _is_primitive((spec.get("required", {}).get(nm) or spec.get("optional", {}).get(nm))[0])]
-            widgets = list(n.get("widgets_values") or [])
+            widgets = [v for v in (n.get("widgets_values") or [])
+                       if not (isinstance(v, str) and v in _CONTROL)]
             wmap: Dict[str, int] = {}
             for wi, nm in enumerate(widget_names):
                 if wi >= len(widgets):

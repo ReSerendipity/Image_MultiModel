@@ -139,6 +139,7 @@ inference:
   enable_fp8_fallback: true
   vram_headroom_gb: 2.0
   vram_multisample_rule: 1.5
+  vram_tight_continue: true
   torch_compile:
     enabled: false
     backend: inductor

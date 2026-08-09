@@ -147,6 +147,7 @@ def preflight_vram(
     multisample_rule: float = 1.5,
     headroom_gb: float = 2.0,
     gpu_info: Optional[GPUInfo] = None,
+    allow_tight: bool = False,
 ) -> VRAMEstimate:
     """
     显存预检：估算需求 vs 可用量，决定精度和 chunk 大小。
@@ -160,6 +161,7 @@ def preflight_vram(
         multisample_rule: 预检系数
         headroom_gb: 显存预留
         gpu_info: GPU 信息（None 时实时获取）
+        allow_tight: 估算不足时是否放行（依赖后端低显存分块换入换出，如 --lowvram）
 
     Returns:
         VRAMEstimate 结果
@@ -190,6 +192,14 @@ def preflight_vram(
             else:
                 can_run = False
 
+    # 紧张放行：估算仍不足但后端支持低显存分块（--lowvram 换入换出）
+    tight_continue = False
+    if not can_run and allow_tight:
+        can_run = True
+        tight_continue = True
+        if recommended_precision == "fp8":
+            needed = needed * 0.5
+
     # chunk 推荐（batch 拆分）
     if batch_size > 1 and not can_run:
         # 尝试拆分成更小的 chunk
@@ -199,7 +209,12 @@ def preflight_vram(
         recommended_chunk_size = min(batch_size, 16 if not enable_seedvr2 else 4)
 
     warning = ""
-    if not can_run:
+    if tight_continue:
+        warning = (
+            f"VRAM tight: need {needed}GB, available {available}GB. "
+            f"已放行（后端低显存分块换入换出），可能较慢；如 OOM 请降低分辨率或 batch。"
+        )
+    elif not can_run:
         warning = (
             f"VRAM insufficient: need {needed}GB, available {available}GB. "
             f"Try reducing batch_size or resolution, or use {fallback_precision}."

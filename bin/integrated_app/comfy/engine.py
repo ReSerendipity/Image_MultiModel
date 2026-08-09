@@ -158,56 +158,70 @@ class ComfyEngine:
         prompt_id = await self._client.queue_prompt(api_data)
         self._current_prompt_id = prompt_id
 
-        # 3. WS 监听进度
+        # 3. WS 监听进度；WS 断开/超时后转 HTTP 轮询 history，直到出结果或出错
         await self._client.connect_ws()
+        ws_alive = True
+
+        def _handle_msg(msg: Dict[str, Any]) -> Optional[str]:
+            """处理一条 WS 消息；返回 'done' 表示正常结束"""
+            msg_type = msg.get("type", "")
+            data = msg.get("data", {})
+            if msg_type == "progress":
+                value = data.get("value", 0)
+                max_val = data.get("max", 1)
+                pct = 10 + int(value / max_val * 80) if max_val > 0 else 10
+                if on_progress:
+                    on_progress(pct, f"Sampling {value}/{max_val}", {})
+            elif msg_type == "executing":
+                node_id = data.get("node_id") if "node_id" in data else data.get("node")
+                if node_id is None or node_id == 0:
+                    if on_progress:
+                        on_progress(100, "Completed", {})
+                    return "done"
+                if on_progress:
+                    on_progress(90, f"Executing node {node_id}", {})
+            elif msg_type == "executed":
+                if on_progress:
+                    on_progress(95, "Image saved", data)
+            elif msg_type == "execution_error":
+                raise RuntimeError(f"ComfyUI execution error: {data}")
+            elif msg_type == "execution_interrupted":
+                raise asyncio.CancelledError("Generation interrupted")
+            elif msg_type == "execution_success":
+                if on_progress:
+                    on_progress(100, "Completed", {})
+                return "done"
+            return None
 
         while True:
             if self._cancel_requested:
                 await self._client.interrupt()
                 raise asyncio.CancelledError("Generation cancelled by user")
 
-            msg = await self._client.ws_recv()
-            if msg is None:
-                break
+            if ws_alive:
+                msg = await self._client.ws_recv()
+                if msg is None:
+                    ws_alive = False  # WS 关闭 → 转 HTTP 轮询
+                    continue
+                if _handle_msg(msg) == "done":
+                    break
+                continue
 
-            msg_type = msg.get("type", "")
-
-            if msg_type == "progress":
-                # {type: progress, data: {value, max, prompt_id}}
-                data = msg.get("data", {})
-                value = data.get("value", 0)
-                max_val = data.get("max", 1)
-                pct = 10 + int(value / max_val * 80) if max_val > 0 else 10
-                if on_progress:
-                    on_progress(pct, f"Sampling {value}/{max_val}", {})
-
-            elif msg_type == "executing":
-                data = msg.get("data", {})
-                node_id = data.get("node_id") if "node_id" in data else data.get("node")
-                if node_id is None or node_id == 0:
-                    # ComfyUI 以 executing node=null 标记执行结束
+            # HTTP 轮询 history，直到有输出或明确错误
+            history = await self._client.get_history(prompt_id)
+            entry = history.get(prompt_id)
+            if entry:
+                msgs = entry.get("status", {}).get("messages", []) or []
+                types = [m[0] for m in msgs if isinstance(m, list) and m]
+                if "execution_error" in types:
+                    raise RuntimeError(f"ComfyUI execution error: {msgs}")
+                if "execution_interrupted" in types:
+                    raise asyncio.CancelledError("Generation interrupted")
+                if entry.get("outputs"):
                     if on_progress:
                         on_progress(100, "Completed", {})
                     break
-                if on_progress:
-                    on_progress(90, f"Executing node {node_id}", {})
-
-            elif msg_type == "executed":
-                data = msg.get("data", {})
-                if on_progress:
-                    on_progress(95, "Image saved", data)
-
-            elif msg_type == "execution_error":
-                data = msg.get("data", {})
-                raise RuntimeError(f"ComfyUI execution error: {data}")
-
-            elif msg_type == "execution_interrupted":
-                raise asyncio.CancelledError("Generation interrupted")
-
-            elif msg_type == "execution_success":
-                if on_progress:
-                    on_progress(100, "Completed", {})
-                break
+            await asyncio.sleep(2)
 
         # 4. 获取输出
         outputs = await self._fetch_outputs(prompt_id)
