@@ -448,7 +448,8 @@ class ComfyEngine:
                         wm_arr = embed_watermark(
                             arr, product_id, prompt_id[:16], time.time()
                         )
-                        wm_img = Image.fromarray(wm_arr.astype(np.uint8))
+                        # 越界像素回绕会破坏 DCT 符号 → 裁剪到 [0,255] 再写回
+                        wm_img = Image.fromarray(np.clip(wm_arr, 0, 255).astype(np.uint8))
                         buf = io.BytesIO()
                         wm_img.save(buf, format="PNG")
                         local_path.write_bytes(buf.getvalue())

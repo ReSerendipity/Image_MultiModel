@@ -54,7 +54,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="验证 Image MultiModel 输出数字水印")
     ap.add_argument("image", help="图片/数组路径")
     ap.add_argument("-p", "--product-id", default="img_multimodel", help="期望的 product_id")
-    ap.add_argument("-n", "--n-bits", type=int, default=160, help="尝试提取的比特数（默认 160）")
+    ap.add_argument("-n", "--n-bits", type=int, default=400, help="尝试提取的比特数（默认 400，覆盖完整载荷 ~368bit）")
     args = ap.parse_args()
 
     arr = load_array(args.image)

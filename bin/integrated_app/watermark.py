@@ -23,7 +23,8 @@ import numpy as np
 BLOCK = 8                 # DCT 块大小
 COEF_RC = (4, 3)          # 中频嵌入系数位置
 QUANT_RATIO = 0.05        # 量化步长相对块能量比例（越小越不可感知）
-MIN_Q = 2.0               # 量化步长下限，保证可提取
+MIN_Q = 8.0               # 量化步长下限（≥8 才能在 uint8/PNG 量化噪声下保持符号稳定）
+MAX_Q = 16.0              # 量化步长上限（约束像素扰动，保证不可感知）
 
 
 # ── DCT-II 基矩阵（8x8）─────────────────────────────────
@@ -112,7 +113,7 @@ def embed_watermark(
             block = out[y:y + BLOCK, x:x + BLOCK]
             coef = _dct2(block)
             energy = float(np.abs(coef).sum()) + 1e-6
-            q = max(MIN_Q, energy * QUANT_RATIO)
+            q = min(max(energy * QUANT_RATIO, MIN_Q), MAX_Q)
             bit = bits[idx]
             # 符号编码：bit=1 → +q, bit=0 → -q
             coef[r, c] = q if bit == 1 else -q

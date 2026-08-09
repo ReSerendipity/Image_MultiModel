@@ -47,8 +47,24 @@ def test_watermark_imperceptible() -> None:
     img = _smooth_image()
     marked = watermark.embed_watermark(img, "p", "t", 1.0)
     max_diff = float(np.abs(marked - img).max())
-    # 量化步长下限 MIN_Q=2 经 IDCT 扩散后单像素差应远小于亮度全量程
+    # 量化步长上限 MAX_Q=16 经 IDCT 扩散后单像素差应远小于亮度全量程
     assert max_diff < 20, f"watermark too visible: max_diff={max_diff}"
+
+
+def test_watermark_png_roundtrip() -> None:
+    """真实管线路径：float64 → uint8 裁剪 → PNG 编码 → 读回，仍可校验（回归 #1）"""
+    import io
+
+    from PIL import Image
+
+    img = _smooth_image()
+    ts = 1786200000.0
+    marked = watermark.embed_watermark(img, "img_multimodel", "task_png_rt", ts)
+    marked = np.clip(marked, 0, 255).astype(np.uint8)
+    buf = io.BytesIO()
+    Image.fromarray(marked).save(buf, format="PNG")
+    reloaded = np.asarray(Image.open(io.BytesIO(buf.getvalue())), dtype=np.float64)
+    assert watermark.verify(reloaded, "img_multimodel", "task_png_rt", ts) is True
 
 
 def test_watermark_rgb_only_first_channel() -> None:
