@@ -22,6 +22,20 @@ from ..sse import get_sse_bus
 
 logger = logging.getLogger(__name__)
 
+
+def _disk_info() -> dict[str, Any]:
+    """获取磁盘空间信息"""
+    try:
+        import shutil
+        total, used, free = shutil.disk_usage("/")
+        return {
+            "total_gb": round(total / (1024**3), 1),
+            "used_gb": round(used / (1024**3), 1),
+            "free_gb": round(free / (1024**3), 1),
+        }
+    except Exception:
+        return {"total_gb": 0, "used_gb": 0, "free_gb": 0}
+
 router = APIRouter(prefix="/api", tags=["system"])
 
 
@@ -63,6 +77,7 @@ async def health_check() -> dict[str, Any]:
             "total_vram_gb": gpu.total_vram_gb,
             "free_vram_gb": gpu.free_vram_gb,
         },
+        "disk": _disk_info(),
         "engines": engines,
         "queue": queue_status,
     }

@@ -90,14 +90,14 @@ def check_config():
     if not cfg_path.exists():
         print(f"[ERROR] config.yaml not found at {cfg_path}")
         sys.exit(1)
-    print(f"[OK] config.yaml found")
+    print("[OK] config.yaml found")
 
 
 def check_workflows():
     """检查工作流文件存在"""
     wf_dir = PROJECT_ROOT / "workflows"
     if not wf_dir.exists():
-        print(f"[ERROR] workflows/ directory not found")
+        print("[ERROR] workflows/ directory not found")
         sys.exit(1)
     jsons = list(wf_dir.glob("*.json"))
     if not jsons:
@@ -154,6 +154,7 @@ def launch():
 
     # 启动
     import uvicorn
+
     from integrated_app.config import load_config
     cfg = load_config()
     uvicorn.run(

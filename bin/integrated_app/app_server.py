@@ -29,7 +29,7 @@ from .middleware.rate_limit import RateLimitMiddleware
 from .middleware.request_id import RequestIDMiddleware
 from .model_registry import get_model_registry
 from .sse import get_sse_bus
-from .task_queue import TaskQueue
+from .task_queue import Task, TaskQueue
 
 # ── 日志配置 ──────────────────────────────────────────────────
 logger = logging.getLogger("integrated_app")
@@ -100,6 +100,13 @@ async def lifespan(app: FastAPI):
             "phase": phase,
             **extra,
         })
+        # D4: 采样中实时预览 → SSE comfy_preview 事件
+        if "preview_b64" in extra:
+            await sse_bus.publish("comfy_preview", {
+                "task_id": task_id,
+                "b64": extra["preview_b64"],
+                "format": extra.get("preview_format", "jpg"),
+            })
 
     async def on_status(task_id: str, status, extra: dict = None):
         await sse_bus.publish("task_status", {
@@ -143,6 +150,42 @@ async def lifespan(app: FastAPI):
             await asyncio.sleep(2)
     gpu_monitor_task = asyncio.ensure_future(gpu_monitor_loop())
 
+    # D6: 历史清理 cron 调度
+    async def history_cleanup_cron():
+        """按 cron 表达式定时清理超期任务"""
+        import datetime as _dt
+        cron_expr = config.output.history.cleanup_cron
+        keep_days = config.output.history.keep_days
+        if not cron_expr or keep_days <= 0:
+            logger.info("History cleanup cron disabled (keep_days=0 or no cron)")
+            return
+        parts = cron_expr.split()
+        if len(parts) != 5:
+            logger.warning(f"Invalid cron expression: {cron_expr}")
+            return
+        cron_min, cron_hour, _, _, _ = parts
+        while True:
+            try:
+                now = _dt.datetime.now()
+                # 计算下一次运行时间
+                target_hour = int(cron_hour) if cron_hour != "*" else now.hour
+                target_min = int(cron_min) if cron_min != "*" else now.minute
+                next_run = now.replace(hour=target_hour, minute=target_min, second=0, microsecond=0)
+                if next_run <= now:
+                    next_run = next_run + _dt.timedelta(days=1)
+                sleep_s = (next_run - now).total_seconds()
+                logger.info(f"History cleanup scheduled at {next_run}, sleeping {sleep_s:.0f}s")
+                await asyncio.sleep(sleep_s)
+                # 执行清理
+                deleted = history_db.cleanup_old_tasks(keep_days=keep_days)
+                logger.info(f"History cleanup: deleted {deleted} tasks (keep_days={keep_days})")
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.warning(f"History cleanup cron error: {e}")
+                await asyncio.sleep(3600)  # 出错后 1h 重试
+    cleanup_task = asyncio.ensure_future(history_cleanup_cron())
+
     # 初始化断点续跑 Checkpoint（§1.3）
     checkpoint_mgr = TaskCheckpoint(
         checkpoint_dir=str(Path(config.project_root) / config.runtime.task_queue.checkpoint_dir)
@@ -151,6 +194,7 @@ async def lifespan(app: FastAPI):
     pending_checkpoints = checkpoint_mgr.list_checkpoints()
     if pending_checkpoints:
         logger.info(f"Found {len(pending_checkpoints)} pending checkpoints for recovery")
+    app.state.checkpoint_mgr = checkpoint_mgr
 
     # 启动 TaskQueue Worker（M2：接通 ComfyEngine 真实推理）
     def worker_func(task):
@@ -172,6 +216,25 @@ async def lifespan(app: FastAPI):
             )
             gen = GenerationConfig(**task.config)
 
+            # 断点续跑：on_chunk_done 回调
+            checkpoint_every = config.runtime.task_queue.checkpoint_every
+            completed_items: list[dict] = []
+
+            def on_chunk_done(completed: int, total: int):
+                completed_items.append({"completed": completed, "total": total})
+                if checkpoint_mgr.should_checkpoint(completed, checkpoint_every):
+                    try:
+                        checkpoint_mgr.save(
+                            task_id=task.task_id,
+                            engine=task.engine,
+                            total=total,
+                            completed_items=completed_items,
+                            remaining=[{"index": i} for i in range(completed, total)],
+                            config=task.config,
+                        )
+                    except Exception as e:
+                        logger.warning(f"Checkpoint save failed: {e}")
+
             def prog(pct, phase, extra):
                 task.progress = pct
                 task.phase = phase
@@ -184,7 +247,7 @@ async def lifespan(app: FastAPI):
                 if task.cancel_requested:
                     await engine.cancel()
                     raise asyncio.CancelledError("cancelled before start")
-                return await engine.infer_txt2img(gen, on_progress=prog)
+                return await engine.infer_txt2img(gen, on_progress=prog, on_chunk_done=on_chunk_done)
 
             outputs = asyncio.run(run())
             task.result = outputs or []
@@ -224,6 +287,32 @@ async def lifespan(app: FastAPI):
     await task_queue.start(worker_func)
     app.state.task_queue = task_queue
 
+    # 启动恢复：从断点续跑 checkpoint 重建未完成任务并续跑剩余槽位
+    for cp in pending_checkpoints:
+        try:
+            cp_task_id = cp.get("task_id", "")
+            cp_engine = cp.get("engine", "")
+            cp_config = cp.get("config", {})
+            cp_completed = cp.get("completed", 0)
+            cp_total = cp.get("total", 0)
+            if not cp_task_id or not cp_engine or cp_completed >= cp_total:
+                checkpoint_mgr.delete(cp_task_id)
+                continue
+            logger.info(f"Resuming task {cp_task_id} from checkpoint ({cp_completed}/{cp_total})")
+            # 构造续跑 Task，减少 batch_size 为剩余数量
+            remaining_count = cp_total - cp_completed
+            resume_config = dict(cp_config)
+            resume_config["batch_size"] = remaining_count
+            resume_task = Task(
+                task_id=cp_task_id,
+                engine=cp_engine,
+                config=resume_config,
+                mode="txt2img",
+            )
+            await task_queue.submit(resume_task)
+        except Exception as e:
+            logger.warning(f"Failed to resume checkpoint: {e}")
+
     # 初始化 ModelRegistry
     model_registry = get_model_registry()
     model_registry.init_from_config(config)
@@ -238,6 +327,7 @@ async def lifespan(app: FastAPI):
     # 取消后台任务
     gpu_monitor_task.cancel()
     heartbeat_task.cancel()
+    cleanup_task.cancel()
     await task_queue.stop()
     sse_bus.stop()
     history_db.close()

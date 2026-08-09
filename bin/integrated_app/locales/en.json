@@ -52,5 +52,15 @@
   "config_saved": "Config saved",
   "config_save_failed": "Config save failed",
   "engine_not_ready": "Engine not ready, please load model first",
-  "comfy_not_reachable": "ComfyUI backend not reachable"
+  "comfy_not_reachable": "ComfyUI backend not reachable",
+  "phase_connecting": "Connecting",
+  "phase_loading_workflow": "Loading workflow",
+  "phase_engine_ready": "Engine ready",
+  "phase_patching": "Patching",
+  "phase_queuing": "Queuing",
+  "phase_sampling": "Sampling",
+  "phase_executing": "Executing",
+  "phase_image_saved": "Image saved",
+  "phase_completed": "Completed",
+  "phase_cancelling": "Cancelling"
 }

@@ -52,5 +52,15 @@
   "config_saved": "設定已儲存",
   "config_save_failed": "設定儲存失敗",
   "engine_not_ready": "引擎未就緒，請先載入模型",
-  "comfy_not_reachable": "ComfyUI 後端不可達"
+  "comfy_not_reachable": "ComfyUI 後端不可達",
+  "phase_connecting": "連接中",
+  "phase_loading_workflow": "載入工作流程",
+  "phase_engine_ready": "引擎就緒",
+  "phase_patching": "修補中",
+  "phase_queuing": "排隊中",
+  "phase_sampling": "採樣中",
+  "phase_executing": "執行節點",
+  "phase_image_saved": "已儲存",
+  "phase_completed": "完成",
+  "phase_cancelling": "取消中"
 }

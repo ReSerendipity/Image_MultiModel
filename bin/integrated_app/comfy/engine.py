@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
@@ -156,8 +157,13 @@ class ComfyEngine:
         config: GenerationConfig,
         on_progress: ProgressCallback | None = None,
         max_wait_s: int = 1200,
+        on_chunk_done: Callable[[int, int], None] | None = None,
     ) -> list[str]:
-        """执行文生图推理（batch>chunk 时分块循环提交，chunk 按显存自适应）"""
+        """执行文生图推理（batch>chunk 时分块循环提交，chunk 按显存自适应）
+
+        Args:
+            on_chunk_done: 可选回调，每完成一个 chunk 调用 (completed_count, total)
+        """
         if not self._ready or not self._client or not self._workflow_mgr:
             raise RuntimeError("Engine not ready, please load first")
 
@@ -185,6 +191,12 @@ class ComfyEngine:
             )
             all_outputs.extend(outs)
             submitted += cur
+            # 断点续跑回调
+            if on_chunk_done:
+                try:
+                    on_chunk_done(submitted, total)
+                except Exception as e:
+                    logger.warning(f"on_chunk_done callback error: {e}")
         self._current_prompt_id = None
         return all_outputs
 
@@ -230,13 +242,13 @@ class ComfyEngine:
         if not api_data:
             raise RuntimeError("Patched workflow produced empty API prompt")
 
-        # 2. 提交
+        # 2. 提交（D2: ConnectionError 时指数退避重试 ≤3 次）
         sp(10, _map_phase("Queuing prompt..."), {})
-        prompt_id = await self._client.queue_prompt(api_data)
+        prompt_id = await self._queue_with_retry(api_data, max_wait_s)
         self._current_prompt_id = prompt_id
 
         # 3. WS 监听；WS 断开/超时后转 HTTP 轮询 history，直到出结果或出错
-        await self._client.connect_ws()
+        await self._connect_ws_with_retry()
         ws_alive = True
         t_start = time.time()
 
@@ -264,6 +276,9 @@ class ComfyEngine:
             elif msg_type == "execution_success":
                 sp(100, _map_phase("Completed"), {})
                 return "done"
+            elif msg_type == "b_preview":
+                # D4: 采样中实时预览 → 通过 progress callback 的 extra 字段传递
+                sp(80, _map_phase("Sampling 0/0"), {"preview_b64": data.get("b64", ""), "preview_format": data.get("format", "jpg")})
             return None
 
         while True:
@@ -276,7 +291,7 @@ class ComfyEngine:
             if ws_alive:
                 try:
                     msg = await asyncio.wait_for(self._client.ws_recv(), timeout=60)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # WS 静默（缓存命中/执行过快无事件）→ 转 HTTP 轮询兜底
                     ws_alive = False
                     continue
@@ -304,6 +319,45 @@ class ComfyEngine:
 
         # 4. 获取输出
         return await self._fetch_outputs(prompt_id)
+
+    async def _queue_with_retry(self, api_data: dict[str, Any], max_wait_s: int) -> str:
+        """D2: 提交 prompt，ConnectionError 时指数退避重试 ≤3 次"""
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                if not self._client:
+                    raise RuntimeError("Engine not ready")
+                # 首次或重试时确保 HTTP 连接可用
+                if attempt > 0:
+                    logger.info(f"Retrying connect+queue (attempt {attempt + 1}/{max_retries})")
+                    await self._client.connect()
+                return await self._client.queue_prompt(api_data)
+            except (ConnectionError, RuntimeError) as e:
+                if attempt < max_retries - 1:
+                    delay = (2 ** attempt) * 2  # 2s, 4s, 8s
+                    logger.warning(f"Queue failed (attempt {attempt + 1}): {e}, retrying in {delay}s")
+                    await asyncio.sleep(delay)
+                else:
+                    raise
+        raise RuntimeError("Queue prompt failed after all retries")
+
+    async def _connect_ws_with_retry(self) -> None:
+        """D2: WS 连接重试"""
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                if not self._client:
+                    raise RuntimeError("Engine not ready")
+                await self._client.connect_ws()
+                return
+            except (ConnectionError, RuntimeError) as e:
+                if attempt < max_retries - 1:
+                    delay = (2 ** attempt) * 1  # 1s, 2s, 4s
+                    logger.warning(f"WS connect failed (attempt {attempt + 1}): {e}, retrying in {delay}s")
+                    await asyncio.sleep(delay)
+                else:
+                    logger.warning(f"WS connect failed after {max_retries} attempts, falling back to HTTP polling")
+                    # 不 raise，允许 HTTP 轮询兜底
 
     async def cancel(self) -> None:
         """取消当前推理"""

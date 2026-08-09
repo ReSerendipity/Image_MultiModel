@@ -52,5 +52,15 @@
   "config_saved": "設定を保存しました",
   "config_save_failed": "設定の保存に失敗",
   "engine_not_ready": "エンジンの準備ができていません",
-  "comfy_not_reachable": "ComfyUIバックエンドに接続できません"
+  "comfy_not_reachable": "ComfyUIバックエンドに接続できません",
+  "phase_connecting": "接続中",
+  "phase_loading_workflow": "ワークフロー読み込み中",
+  "phase_engine_ready": "エンジン準備完了",
+  "phase_patching": "パッチ適用中",
+  "phase_queuing": "キューに追加中",
+  "phase_sampling": "サンプリング中",
+  "phase_executing": "ノード実行中",
+  "phase_image_saved": "保存済み",
+  "phase_completed": "完了",
+  "phase_cancelling": "キャンセル中"
 }

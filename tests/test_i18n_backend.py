@@ -13,6 +13,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 BIN_DIR = PROJECT_ROOT / "bin"
 sys.path.insert(0, str(BIN_DIR))
 
+from integrated_app.comfy.engine import PHASE_KEY_MAP
 from integrated_app.i18n import ERROR_MESSAGES, get_error_message
 
 EXPECTED_LOCALES = ["zh", "en", "ja", "ko", "zh-tw"]
@@ -75,3 +76,20 @@ class TestI18nBackendCoverage:
                 assert "{" not in msg or "}" not in msg, (
                     f"Unfilled placeholder in '{loc}' for key '{key}': {msg}"
                 )
+
+    def test_phase_keys_in_all_locales(self):
+        """PHASE_KEY_MAP 的全部键在 5 语 locale JSON 中非空"""
+        import json as _json
+        from pathlib import Path as _Path
+
+        locale_dir = _Path(__file__).resolve().parent.parent / "bin" / "integrated_app" / "locales"
+        # 收集所有 phase 键
+        phase_keys = set(PHASE_KEY_MAP.values())
+        phase_keys.update({"phase_sampling", "phase_executing"})  # 动态生成的键
+        for loc in EXPECTED_LOCALES:
+            loc_file = locale_dir / f"{loc}.json"
+            assert loc_file.exists(), f"Locale file missing: {loc_file}"
+            data = _json.loads(loc_file.read_text(encoding="utf-8"))
+            for pk in phase_keys:
+                assert pk in data, f"Phase key '{pk}' missing in locale '{loc}'"
+                assert data[pk], f"Phase key '{pk}' empty in locale '{loc}'"

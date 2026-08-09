@@ -1,32 +1,65 @@
 # Image MultiModel — Python Dependencies
 # 对应 MASTER_PLAN §9 M0 验收: 依赖可安装
 
+# ── 深度学习框架（必需：GPU 推理 + 显存检测）────────────────
+# 注：推荐通过 install.bat 一键安装 CUDA 版本：
+#   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+torch>=2.4.0
+torchvision>=0.19.0
+torchaudio>=2.4.0
+
 # ── Web 框架 ──────────────────────────────────────────────
 fastapi>=0.100.0
 uvicorn[standard]>=0.23.0
+starlette>=0.37.0
 python-multipart>=0.0.6
+jinja2>=3.1.0
 
 # ── 数据验证 ──────────────────────────────────────────────
 pydantic>=2.0.0
+pydantic-core>=2.10.0
 
 # ── 配置 ──────────────────────────────────────────────────
 PyYAML>=6.0
 
-# ── HTTP 客户端（ComfyUI 通信）────────────────────────────
+# ── HTTP / WebSocket 客户端（ComfyUI 通信）────────────────
 aiohttp>=3.8.0
+httpx>=0.27.0
 websockets>=11.0
 
 # ── 文件处理 ──────────────────────────────────────────────
 aiofiles>=23.0
+aiosqlite>=0.20.0
 
-# ── 图像处理（水印 DCT / 缩略图，PRD §9.3）────────────────
+# ── 图像处理（水印 DCT / 缩略图 / VRAM 估算）────────────
 numpy>=1.26
 Pillow>=10.0
+scipy>=1.11.0
+opencv-python-headless>=4.8.0
+PyWavelets>=1.5.0
+
+# ── 系统监控 ──────────────────────────────────────────────
+psutil>=5.9.0
+
+# ── 安全与加密（integrity / path_guard / watermark）──────
+cryptography>=41.0.0
+safetensors>=0.4.0
+
+# ── 工具库 ──────────────────────────────────────────────
+tqdm>=4.65.0
+rich>=13.0.0
+python-dotenv>=1.0.0
 
 # ── 测试 ──────────────────────────────────────────────────
 pytest>=7.0.0
 pytest-asyncio>=0.21.0
 pytest-cov>=4.1.0
+pytest-timeout>=2.0.0
+pytest-xdist>=3.0.0
+hypothesis>=6.80.0
+factory-boy>=3.3.0
+beautifulsoup4>=4.12.0
 
 # ── 可选：Playwright E2E（M5 阶段）────────────────────────
-# playwright>=1.40.0
+playwright>=1.40.0
+pytest-playwright>=0.4.0

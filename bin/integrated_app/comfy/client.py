@@ -102,6 +102,13 @@ class ComfyClient:
         async with self._http_session.post("/interrupt") as resp:
             logger.info(f"ComfyUI interrupt: status {resp.status}")
 
+    async def free(self, free_memory: bool = True) -> None:
+        """释放显存（转发 ComfyUI /free）"""
+        assert self._http_session is not None
+        payload = {"unload_models": free_memory, "free_memory": free_memory}
+        async with self._http_session.post("/free", json=payload) as resp:
+            logger.info(f"ComfyUI free: status {resp.status}")
+
     async def get_object_info(self) -> dict[str, Any]:
         """获取所有节点定义（缓存用）"""
         assert self._http_session is not None
@@ -131,12 +138,27 @@ class ComfyClient:
         logger.info(f"ComfyUI WS connected: {ws_url}")
 
     async def ws_recv(self) -> dict[str, Any] | None:
-        """接收一条 WS 消息"""
+        """接收一条 WS 消息（TEXT 返回 JSON dict，BINARY 返回 preview）"""
         if self._ws is None or self._ws.closed:
             return None
         msg = await self._ws.receive()
         if msg.type == aiohttp.WSMsgType.TEXT:
             return json.loads(msg.data)
+        elif msg.type == aiohttp.WSMsgType.BINARY:
+            # D4: ComfyUI b_preview 二进制预览图
+            # 格式: [2B type][2B format][4B size][image data...]
+            data = msg.data
+            if len(data) > 8:
+                import struct
+                evt_type, fmt_code, _size = struct.unpack_from("<HHI", data, 0)
+                if evt_type == 1:  # b_preview event
+                    img_data = data[8:]
+                    formats = {1: "jpg", 2: "png", 3: "webp"}
+                    fmt = formats.get(fmt_code, "jpg")
+                    import base64
+                    b64 = base64.b64encode(img_data).decode("ascii")
+                    return {"type": "b_preview", "data": {"b64": b64, "format": fmt}}
+            return None
         elif msg.type == aiohttp.WSMsgType.CLOSED:
             logger.warning("ComfyUI WS closed")
             return None

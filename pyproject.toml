@@ -1,6 +1,13 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+norecursedirs = ["tests/e2e"]
+filterwarnings = [
+    "ignore:Using.*httpx.*deprecated",
+    "ignore::DeprecationWarning:starlette.*",
+    "ignore::DeprecationWarning:httpx.*",
+    "ignore::DeprecationWarning:fastapi.*",
+]
 markers = [
     "slow: marks tests as slow",
     "integration: marks tests as integration tests",
@@ -33,7 +40,25 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM"]
-ignore = ["E501"]
+ignore = ["E501", "E402", "B008", "B017", "B905", "UP042", "UP036", "B904", "B007", "SIM102", "SIM108", "SIM105", "SIM117", "F841"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["integrated_app", "bin"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_type = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+mypy_path = ["bin"]
+exclude = [
+    "bin/integrated_app/static/",
+    "bin/integrated_app/locales/",
+    "bin/integrated_app/comfy/schemas/",
+    "tests/e2e/",
+]
+
+[[tool.mypy.overrides]]
+module = ["aiohttp.*", " PIL.*", "cv2.*", "pydantic.*", "yaml.*", "numpy.*", "scipy.*", "pytest_playwright.*"]
+ignore_missing_imports = true

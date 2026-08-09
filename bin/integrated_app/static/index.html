@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN" data-theme="light" data-lang="zh-CN">
 <head>
+<script>/* B1: 主题防闪烁 — 在 CSS 渲染前同步设置主题 */(function(){var t=localStorage.getItem('imm_theme')||'dark';var l=localStorage.getItem('imm_lang')||'zh-CN';document.documentElement.setAttribute('data-theme',t);document.documentElement.setAttribute('data-lang',l);})();</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Image MultiModel · 生图工作台（单页融合版）</title>
@@ -16,7 +17,7 @@
   --surface-3:color-mix(in srgb,var(--seed-fg) 11%,var(--seed-surface));
   --ink:var(--seed-fg);
   --ink-soft:color-mix(in srgb,var(--seed-fg) 66%,var(--seed-surface));
-  --ink-faint:color-mix(in srgb,var(--seed-fg) 46%,var(--seed-surface));
+  --ink-faint:color-mix(in srgb,var(--seed-fg) 65%,var(--seed-surface));
   --ink-3:color-mix(in srgb,var(--seed-fg) 30%,var(--seed-surface));
   --accent:var(--seed-primary);--accent-strong:var(--seed-accent);
   --accent-deep:color-mix(in srgb,var(--seed-accent) 80%,#000);
@@ -66,7 +67,7 @@ textarea{height:auto}
 .ip-item:hover{background:var(--surface-2)}
 .ip-item.on{color:var(--accent-strong);font-weight:600}
 .ip-item.on::before{content:"✓ ";color:var(--accent)}
-.share-btn{background:var(--accent-strong);color:var(--on-accent);border:none;border-radius:var(--radius-sm);padding:6px 14px;font-size:12px;font-weight:500;height:var(--ctl-h);white-space:nowrap}
+.share-btn{background:var(--accent-deep);color:var(--on-accent);border:none;border-radius:var(--radius-sm);padding:6px 14px;font-size:12px;font-weight:500;height:var(--ctl-h);white-space:nowrap}
 .share-btn:hover{background:var(--accent-deep)}
 .avatar{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--figma-3),var(--figma-5));border:2px solid var(--surface);box-shadow:0 0 0 1px var(--wire);flex-shrink:0}
 /* ===== 布局 ===== */
@@ -92,7 +93,7 @@ textarea{height:auto}
 .ex-chip:hover{border-color:var(--accent);color:var(--accent)}
 /* 操作行 */
 .gen-row{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
-.btn-gen{display:inline-flex;align-items:center;gap:7px;background:var(--accent-strong);color:var(--on-accent);border:none;border-radius:10px;padding:12px 30px;font-size:14px;font-weight:600;box-shadow:0 4px 14px var(--accent-40)}
+.btn-gen{display:inline-flex;align-items:center;gap:7px;background:var(--accent-deep);color:var(--on-accent);border:none;border-radius:10px;padding:12px 30px;font-size:14px;font-weight:600;box-shadow:0 4px 14px var(--accent-40)}
 .btn-gen:hover{background:var(--accent-deep)}
 .btn-gen:disabled{opacity:.5;cursor:not-allowed}
 .adv-toggle{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--wire);background:var(--surface);color:var(--ink-soft);border-radius:8px;padding:10px 16px;font-size:12px;font-weight:600}
@@ -145,7 +146,7 @@ textarea{height:auto}
 /* ===== 通用按钮 ===== */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:var(--radius-sm);border:1px solid transparent;background:var(--surface-2);color:var(--ink);padding:var(--ctl-pad);height:var(--ctl-h);font-size:12px;font-weight:500;transition:all .12s;text-decoration:none;white-space:nowrap}
 .btn:hover{background:var(--surface-3)}
-.btn-primary{background:var(--accent-strong);color:var(--on-accent)}
+.btn-primary{background:var(--accent-deep);color:var(--on-accent)}
 .btn-primary:hover{background:var(--accent-deep)}
 .btn-ghost{border:1px solid var(--wire);background:var(--surface)}
 .btn-ghost:hover{background:var(--surface-2)}
@@ -620,6 +621,7 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
   </div>
   <div class="drawer-foot" id="drawerFoot">
     <button class="btn btn-ghost" id="restoreBtn" type="button">恢复默认</button>
+    <button class="btn btn-ghost" id="freeVramBtn" type="button" title="释放 ComfyUI 显存">释放显存</button>
     <button class="btn btn-primary" id="drawerDone" type="button">完成</button>
   </div>
 </aside>
@@ -844,14 +846,15 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
 <script>
 /* ---------- i18n ---------- */
 var I18N={
-'zh-CN':{nav_home:'首页',nav_generate:'生图',nav_batch:'批量',nav_history:'历史',nav_status:'状态',nav_settings:'设置',sub:'支持 简中/繁中/英/日/韩 直接输入 · 默认 FLUX.2 Klein 蒸馏配置，开箱即用',preset:'预设',save_preset:'保存当前为预设',recent:'最近生成',neg_add:'＋ 负向提示词',neg_hide:'− 收起负向提示词'},
-'zh-TW':{nav_home:'首頁',nav_generate:'生圖',nav_batch:'批量',nav_history:'歷史',nav_status:'狀態',nav_settings:'設定',sub:'支援 簡中/繁中/英/日/韓 直接輸入 · 預設 FLUX.2 Klein 蒸餾配置',preset:'預設',save_preset:'儲存目前為預設',recent:'最近生成',neg_add:'＋ 負向提示詞',neg_hide:'− 收起負向提示詞'},
-'en-US':{nav_home:'Home',nav_generate:'Generate',nav_batch:'Batch',nav_history:'History',nav_status:'Status',nav_settings:'Settings',sub:'Type in zh-CN/zh-TW/en/ja/ko directly · FLUX.2 Klein defaults',preset:'Preset',save_preset:'Save as preset',recent:'Recent',neg_add:'＋ Negative prompt',neg_hide:'− Hide negative prompt'},
-'ja-JP':{nav_home:'ホーム',nav_generate:'生成',nav_batch:'バッチ',nav_history:'履歴',nav_status:'ステータス',nav_settings:'設定',sub:'簡中/繁中/英/日/韓を直接入力可',preset:'プリセット',save_preset:'プリセット保存',recent:'最近の生成',neg_add:'＋ ネガティブプロンプト',neg_hide:'− 閉じる'},
-'ko-KR':{nav_home:'홈',nav_generate:'생성',nav_batch:'배치',nav_history:'기록',nav_status:'상태',nav_settings:'설정',sub:'중국어/번체/영어/일어/한국어 직접 입력',preset:'프리셋',save_preset:'현재를 프리셋으로 저장',recent:'최근 생성',neg_add:'＋ 네거티브 프롬프트',neg_hide:'− 접기'}
+'zh-CN':{nav_home:'首页',nav_generate:'生图',nav_batch:'批量',nav_history:'历史',nav_status:'状态',nav_settings:'设置',sub:'支持 简中/繁中/英/日/韩 直接输入 · 默认 FLUX.2 Klein 蒸馏配置，开箱即用',preset:'预设',save_preset:'保存当前为预设',recent:'最近生成',neg_add:'＋ 负向提示词',neg_hide:'− 收起负向提示词',phase_connecting:'连接中',phase_loading_workflow:'加载工作流',phase_engine_ready:'引擎就绪',phase_patching:'打补丁',phase_queuing:'排队中',phase_sampling:'采样中',phase_executing:'执行节点',phase_image_saved:'已保存',phase_completed:'完成',phase_cancelling:'取消中'},
+'zh-TW':{nav_home:'首頁',nav_generate:'生圖',nav_batch:'批量',nav_history:'歷史',nav_status:'狀態',nav_settings:'設定',sub:'支援 簡中/繁中/英/日/韓 直接輸入 · 預設 FLUX.2 Klein 蒸餾配置',preset:'預設',save_preset:'儲存目前為預設',recent:'最近生成',neg_add:'＋ 負向提示詞',neg_hide:'− 收起負向提示詞',phase_connecting:'連接中',phase_loading_workflow:'載入工作流程',phase_engine_ready:'引擎就緒',phase_patching:'修補中',phase_queuing:'排隊中',phase_sampling:'採樣中',phase_executing:'執行節點',phase_image_saved:'已儲存',phase_completed:'完成',phase_cancelling:'取消中'},
+'en-US':{nav_home:'Home',nav_generate:'Generate',nav_batch:'Batch',nav_history:'History',nav_status:'Status',nav_settings:'Settings',sub:'Type in zh-CN/zh-TW/en/ja/ko directly · FLUX.2 Klein defaults',preset:'Preset',save_preset:'Save as preset',recent:'Recent',neg_add:'＋ Negative prompt',neg_hide:'− Hide negative prompt',phase_connecting:'Connecting',phase_loading_workflow:'Loading workflow',phase_engine_ready:'Engine ready',phase_patching:'Patching',phase_queuing:'Queuing',phase_sampling:'Sampling',phase_executing:'Executing',phase_image_saved:'Image saved',phase_completed:'Completed',phase_cancelling:'Cancelling'},
+'ja-JP':{nav_home:'ホーム',nav_generate:'生成',nav_batch:'バッチ',nav_history:'履歴',nav_status:'ステータス',nav_settings:'設定',sub:'簡中/繁中/英/日/韓を直接入力可',preset:'プリセット',save_preset:'プリセット保存',recent:'最近の生成',neg_add:'＋ ネガティブプロンプト',neg_hide:'− 閉じる',phase_connecting:'接続中',phase_loading_workflow:'ワークフロー読み込み中',phase_engine_ready:'エンジン準備完了',phase_patching:'パッチ適用中',phase_queuing:'キューに追加中',phase_sampling:'サンプリング中',phase_executing:'ノード実行中',phase_image_saved:'保存済み',phase_completed:'完了',phase_cancelling:'キャンセル中'},
+'ko-KR':{nav_home:'홈',nav_generate:'생성',nav_batch:'배치',nav_history:'기록',nav_status:'상태',nav_settings:'설정',sub:'중국어/번체/영어/일어/한국어 직접 입력',preset:'프리셋',save_preset:'현재를 프리셋으로 저장',recent:'최근 생성',neg_add:'＋ 네거티브 프롬프트',neg_hide:'− 접기',phase_connecting:'연결 중',phase_loading_workflow:'워크플로 로드 중',phase_engine_ready:'엔진 준비 완료',phase_patching:'패치 적용 중',phase_queuing:'대기열 추가 중',phase_sampling:'샘플링 중',phase_executing:'노드 실행 중',phase_image_saved:'저장됨',phase_completed:'완료',phase_cancelling:'취소 중'}
 };
 var langSel=document.getElementById('langSelect');
 function applyLang(l){document.documentElement.setAttribute('data-lang',l);var d=I18N[l]||I18N['zh-CN'];document.querySelectorAll('[data-i18n]').forEach(function(el){var k=el.getAttribute('data-i18n');if(d[k])el.textContent=d[k];});}
+function trPhase(phase){var l=document.documentElement.getAttribute('data-lang')||'zh-CN';var d=I18N[l]||I18N['zh-CN'];return d[phase]||phase;}
 langSel.addEventListener('change',function(e){applyLang(e.target.value);});
 /* 顶栏图标菜单：引擎 / 语言 */
 var engMenu=document.getElementById('engMenu'),langMenu=document.getElementById('langMenu');
@@ -937,6 +940,8 @@ document.getElementById('reuseSeed').addEventListener('click',function(){var e=d
 document.getElementById('b10').addEventListener('click',function(){var e=document.getElementById('batchSize');e.value=Math.min(9999,(+e.value||0)+10);e.dispatchEvent(new Event('input'));});
 document.getElementById('b100').addEventListener('click',function(){var e=document.getElementById('batchSize');e.value=Math.min(9999,(+e.value||0)+100);e.dispatchEvent(new Event('input'));});
 document.getElementById('restoreBtn').addEventListener('click',function(){document.getElementById('cfg').value=1.0;document.getElementById('steps').value=8;document.getElementById('width').value=1024;document.getElementById('height').value=1024;document.getElementById('seed').value=-1;document.getElementById('batchSize').value=1;document.getElementById('seedvr2Toggle').checked=true;document.getElementById('esesToggle').checked=true;document.getElementById('vramToggle').checked=true;document.getElementById('vramGb').value=0.6;document.getElementById('upscaleSeed').value=-1;document.getElementById('vramSeed').value=-1;updateEst();});
+/* D3: 释放显存按钮 */
+document.getElementById('freeVramBtn').addEventListener('click',function(){API.post('/engine/free').then(function(r){console.log('[Free VRAM]',r);}).catch(function(e){console.warn('[Free VRAM] failed',e);});});
 /* ---------- 估算 + 快照 ---------- */
 function estCount(){var n=+document.getElementById('batchSize').value||1;var coef=(document.getElementById('seedvr2Toggle').checked?2:1)+(document.getElementById('esesToggle').checked?1:0);return {n:n,coef:coef,total:n*coef};}
 function syncChips(){document.getElementById('snapRes').textContent=document.getElementById('width').value+' × '+document.getElementById('height').value;document.getElementById('snapSteps').textContent=document.getElementById('steps').value;document.getElementById('snapCfg').textContent=document.getElementById('cfg').value;document.getElementById('snapOut').textContent=estCount().total;document.getElementById('snapEngine').textContent=document.getElementById('engineSelect').value.indexOf('flux2')>-1?'FLUX.2 Klein':'Z-Image-Turbo';}
@@ -1064,7 +1069,7 @@ evt.addEventListener('task_status',function(e){
   try{
     var d=JSON.parse(e.data);
     if(d.task_id===currentTaskId||!currentTaskId){
-      if(d.progress!==undefined){progFill.style.width=d.progress+'%';phaseText.textContent=(d.phase||'')+' · '+d.progress+'%';qpPct.textContent=d.progress+'%';}
+      if(d.progress!==undefined){progFill.style.width=d.progress+'%';phaseText.textContent=trPhase(d.phase||'')+' · '+d.progress+'%';qpPct.textContent=d.progress+'%';}
       if(d.status){
         if(d.status==='completed'){genBtn.disabled=false;timer=null;phaseText.textContent='完成 · '+(d.result?d.result.length:0)+' 张输出';progFill.style.width='100%';qpDot.className='qd';qpPct.style.display='none';qpText.textContent='队列 0·0 · 完成';if(d.result&&d.result.length)renderOutReal(d.result);}
         else if(d.status==='failed'){genBtn.disabled=false;timer=null;phaseText.textContent='失败: '+(d.error||'');progFill.style.width='0%';qpDot.className='qd';qpPct.style.display='none';qpText.textContent='失败';}
@@ -1075,6 +1080,18 @@ evt.addEventListener('task_status',function(e){
   }catch(err){console.warn('[SSE] parse error',err);}
 });
 evt.addEventListener('heartbeat',function(e){console.log('[SSE] heartbeat');});
+evt.addEventListener('comfy_preview',function(e){
+  try{
+    var d=JSON.parse(e.data);
+    if(d.b64){
+      var img=document.createElement('img');
+      img.src='data:image/'+(d.format||'jpg')+';base64,'+d.b64;
+      img.style.cssText='max-width:100%;border-radius:6px;margin-top:6px';
+      var prog=document.getElementById('genProgress');
+      if(prog){var old=prog.querySelector('.preview-img');if(old)old.remove();img.className='preview-img';prog.appendChild(img);}
+    }
+  }catch(err){console.warn('[SSE] preview parse error',err);}
+});
 evt.addEventListener('gpu_status',function(e){
   try{
     var d=JSON.parse(e.data);
