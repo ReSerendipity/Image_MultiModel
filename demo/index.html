@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Image MultiModel · 生图工作台（在线模拟演示）</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23f98a25'/%3E%3Ccircle cx='22.5' cy='10.5' r='2.9' fill='%23fff' fill-opacity='.95'/%3E%3Cpath d='M4.5 23.5 12 15l5 5.5L21 16l6.5 7.5' stroke='%23fff' stroke-width='2.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M4.5 23.5h23' stroke='%23fff' stroke-opacity='.9' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+:root{
+  --seed-bg:#f5f5f5;--seed-fg:#1a1a1a;--seed-primary:#f98a25;--seed-accent:#ef6d1c;--seed-surface:#ffffff;
+  --bg:var(--seed-bg);--surface:var(--seed-surface);
+  --surface-2:color-mix(in srgb,var(--seed-fg) 6%,var(--seed-surface));
+  --surface-3:color-mix(in srgb,var(--seed-fg) 11%,var(--seed-surface));
+  --ink:var(--seed-fg);--ink-soft:color-mix(in srgb,var(--seed-fg) 66%,var(--seed-surface));
+  --ink-faint:color-mix(in srgb,var(--seed-fg) 45%,var(--seed-surface));
+  --accent:var(--seed-primary);--accent-strong:var(--seed-accent);
+  --accent-soft:color-mix(in srgb,var(--seed-primary) 12%,var(--seed-surface));
+  --accent-15:color-mix(in srgb,var(--seed-primary) 15%,transparent);
+  --wire:color-mix(in srgb,var(--seed-fg) 15%,var(--seed-surface));
+  --wire-strong:color-mix(in srgb,var(--seed-fg) 30%,var(--seed-surface));
+  --green:#22c55e;--red:#ef4444;--amber:#f59e0b;
+  --sans:'Inter',system-ui,"Segoe UI",sans-serif;
+  --radius:8px;--ctl-pad:5px 9px;--ctl-h:30px;
+  --topbar-h:52px;--statusbar-h:30px;
+}
+[data-theme="dark"]{--seed-bg:#17171a;--seed-fg:#ececec;--seed-surface:#232327;--overlay:rgba(24,24,28,.93)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer}
+select,input,textarea{font-family:inherit;font-size:12px;color:var(--ink);background:var(--surface-2);border:1px solid transparent;border-radius:6px;padding:var(--ctl-pad);height:var(--ctl-h);outline:none;transition:all .12s}
+select:hover,input:hover,textarea:hover{border-color:var(--wire)}
+select:focus,input:focus,textarea:focus{background:var(--surface);border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-15)}
+textarea{height:auto}
+.hidden{display:none!important}
+
+.demo-banner{background:linear-gradient(90deg,#fff4e8,#ffe9d2);color:#7c4a12;font-size:12px;padding:6px 16px;display:flex;gap:8px;align-items:center;border-bottom:1px solid #f3d9b8}
+[data-theme="dark"] .demo-banner{background:linear-gradient(90deg,#2a2016,#33251a);color:#e8b27a;border-color:#3d2c1d}
+.demo-banner .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none;animation:pulse 2s infinite}
+@keyframes pulse{50%{opacity:.35}}
+.demo-banner b{color:#d97706}
+[data-theme="dark"] .demo-banner b{color:#f59e0b}
+
+.topbar{position:fixed;top:0;left:0;right:0;height:var(--topbar-h);background:var(--surface);border-bottom:1px solid var(--wire);display:flex;align-items:center;gap:12px;padding:0 14px;z-index:40}
+.brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;white-space:nowrap}
+.brand .logo{width:24px;height:24px;border-radius:7px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px}
+.brand small{font-weight:400;color:var(--ink-faint);font-size:11px}
+.topbar .spacer{flex:1}
+.ctl{display:flex;gap:6px;align-items:center}
+.ctl label{font-size:12px;color:var(--ink-faint);white-space:nowrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:7px;font-size:12.5px;font-weight:600;padding:7px 14px;transition:.13s;color:#fff;background:linear-gradient(180deg,var(--accent),var(--accent-strong))}
+.btn:hover{filter:brightness(1.06)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.ghost{background:var(--surface-2);color:var(--ink);border:1px solid var(--wire)}
+.btn.ghost:hover{border-color:var(--wire-strong)}
+.badge{background:var(--accent-soft);color:var(--accent-strong);padding:3px 9px;border-radius:99px;font-size:11px;font-weight:600;white-space:nowrap}
+.badge.gray{background:var(--surface-2);color:var(--ink-faint)}
+.icon-btn{background:var(--surface-2);border:1px solid var(--wire);border-radius:7px;padding:6px 9px;font-size:12px;color:var(--ink-soft)}
+.icon-btn:hover{border-color:var(--wire-strong)}
+
+.layout{display:flex;gap:14px;padding:calc(var(--topbar-h) + 12px) 14px 44px;max-width:1460px;margin:0 auto}
+@media(max-width:960px){.layout{flex-direction:column}}
+.panel{background:var(--surface);border:1px solid var(--wire);border-radius:10px;padding:14px}
+.panel-title{font-size:11px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+.panel-title .bar{width:3px;height:13px;border-radius:2px;background:var(--accent)}
+.left{flex:1.15;min-width:0}
+.right{flex:1;min-width:0}
+
+.prompt-box{border:1px solid var(--wire);border-radius:10px;overflow:hidden;background:var(--surface)}
+.prompt-box textarea{width:100%;border:none;background:transparent;padding:12px 14px;min-height:104px;resize:vertical;font-size:13.5px;line-height:1.6;height:auto}
+.prompt-box .pb-foot{display:flex;align-items:center;gap:8px;padding:7px 10px;border-top:1px solid var(--wire);background:var(--surface-2);font-size:11.5px;color:var(--ink-faint)}
+.neg-row{margin-top:8px}
+.neg-row input{width:100%}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.row .fld{display:flex;flex-direction:column;gap:4px}
+.row .fld label{font-size:11px;color:var(--ink-faint)}
+.row .fld select,.row .fld input{width:auto;min-width:86px}
+.fld.grow{flex:1}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.chip{border:1px solid var(--wire);background:var(--surface-2);border-radius:99px;padding:4px 11px;font-size:12px;color:var(--ink-soft);transition:.12s}
+.chip:hover{border-color:var(--accent);color:var(--accent-strong)}
+.chip.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-strong);font-weight:600}
+.divider{height:1px;background:var(--wire);margin:12px 0}
+.gen-btn{width:100%;padding:11px;font-size:14px;border-radius:9px;margin-top:12px}
+
+/* 结果区 */
+.result-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:320px;color:var(--ink-faint);text-align:center;border:1.5px dashed var(--wire);border-radius:10px;padding:30px}
+.result-empty .ic{font-size:34px;margin-bottom:10px}
+.result-img-wrap{position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--wire);background:var(--surface-2)}
+.result-img-wrap img{display:block;width:100%;height:auto}
+.result-img-wrap .pending{position:absolute;inset:0;background:repeating-linear-gradient(45deg,var(--surface-2),var(--surface-2) 10px,var(--surface-3) 10px,var(--surface-3) 20px);animation:shimmer 1.2s linear infinite;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:var(--ink-faint)}
+@keyframes shimmer{to{background-position:40px 0}}
+.steps{width:220px;text-align:center;font-size:12px}
+.steps .bar{height:7px;background:var(--surface-3);border-radius:99px;overflow:hidden;margin-top:8px}
+.steps .fill{height:100%;background:linear-gradient(90deg,var(--accent),#ffb366);border-radius:99px;transition:width .25s}
+.meta-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.meta-tag{font-size:11px;background:var(--surface-2);border:1px solid var(--wire);padding:3px 8px;border-radius:6px;color:var(--ink-faint)}
+.actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.watermark-note{margin-top:10px;font-size:11px;color:var(--ink-faint);background:var(--surface-2);border-radius:7px;padding:7px 10px}
+
+/* 状态栏 */
+.statusbar{position:fixed;bottom:0;left:0;right:0;height:var(--statusbar-h);background:var(--surface);border-top:1px solid var(--wire);display:flex;align-items:center;gap:16px;padding:0 14px;font-size:11.5px;color:var(--ink-faint);z-index:40}
+.statusbar .item{display:flex;align-items:center;gap:5px}
+.statusbar .ok{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block}
+.statusbar .warn{width:7px;height:7px;border-radius:50%;background:var(--amber);display:inline-block}
+
+/* 抽屉 */
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(430px,94vw);background:var(--surface);border-left:1px solid var(--wire);z-index:90;transform:translateX(105%);transition:transform .25s ease;display:flex;flex-direction:column;box-shadow:-8px 0 30px rgba(0,0,0,.08)}
+.drawer.open{transform:none}
+.drawer-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--wire);font-weight:700;font-size:14px}
+.drawer-body{flex:1;overflow-y:auto;padding:14px 16px}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.32);z-index:80;opacity:0;pointer-events:none;transition:.2s}
+.overlay.show{opacity:1;pointer-events:auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.grid img{width:100%;height:120px;object-fit:cover;border-radius:8px;cursor:pointer;border:1px solid var(--wire);transition:.15s}
+.grid img:hover{border-color:var(--accent);transform:scale(1.02)}
+.hist-item{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--wire);align-items:center}
+.hist-item img{width:52px;height:52px;object-fit:cover;border-radius:7px}
+.hist-item .meta{flex:1;min-width:0}
+.hist-item .meta b{display:block;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hist-item .meta span{font-size:11px;color:var(--ink-faint)}
+.preset-item{border:1px solid var(--wire);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer;transition:.13s}
+.preset-item:hover{border-color:var(--accent)}
+.preset-item b{font-size:12.5px}
+.preset-item span{display:block;font-size:11px;color:var(--ink-faint);margin-top:2px}
+.param-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.param-grid .fld{display:flex;flex-direction:column;gap:4px}
+.param-grid label{font-size:11px;color:var(--ink-faint)}
+
+/* 模态 */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:120;display:flex;align-items:center;justify-content:center;padding:24px}
+.modal img{max-width:min(900px,100%);max-height:80vh;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+/* toast */
+.toast{position:fixed;bottom:44px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--seed-fg);color:var(--seed-bg);padding:9px 16px;border-radius:8px;font-size:12.5px;z-index:200;opacity:0;transition:.22s;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%)}
+footer{font-size:11.5px;color:var(--ink-faint);padding:8px 16px 40px;text-align:center}
+</style>
+</head>
+<body>
+
+<div class="demo-banner"><span class="dot"></span><span><b>在线模拟演示模式</b> — 纯前端仿真环境，不含模型推理。生成结果为内置示例图片，仅用于功能体验。</span></div>
+
+<header class="topbar">
+  <div class="brand"><div class="logo">IM</div><div>Image MultiModel <small>· 生图工作台（模拟）</small></div></div>
+  <div class="spacer"></div>
+  <div class="ctl" style="display:none"></div>
+  <div class="ctl">
+    <button class="icon-btn" id="drawerBtnPreset">预设</button>
+    <button class="icon-btn" id="drawerBtnHistory">历史</button>
+    <button class="icon-btn" id="drawerBtnGallery">画廊</button>
+    <button class="icon-btn" id="themeBtn" title="切换主题">🌗</button>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- 左：输入 -->
+  <div class="panel left">
+    <div class="panel-title"><span class="bar"></span>提示词</div>
+    <div class="prompt-box">
+      <textarea id="prompt" placeholder="描述你想生成的画面…（演示环境：结果来自内置示例库）">一只橘猫戴着宇航员头盔，坐在火星表面，背景是地球，电影级打光，超写实风格</textarea>
+      <div class="pb-foot"><span id="promptCount">0 字</span><span style="flex:1"></span><span class="badge gray">Flux.2 Klein-9B Distilled</span></div>
+    </div>
+    <div class="neg-row"><input id="negPrompt" placeholder="负面提示词（可选）…"></div>
+
+    <div class="chips" id="presetChips">
+      <span class="chip active" data-p="超写实摄影：微距昆虫，露珠，景深虚化，阳光">写实摄影</span>
+      <span class="chip" data-p="日系动漫：少女站在樱花树下，风吹起裙摆，新海诚风格">动漫</span>
+      <span class="chip" data-p="国风水墨画：高山流水，云雾缭绕，留白，宣纸质感">国风</span>
+      <span class="chip" data-p="产品渲染：机械键盘，赛博朋克霓虹光效，3D 渲染">产品图</span>
+    </div>
+
+    <div class="row">
+      <div class="fld"><label>模型</label><select id="model"><option>Flux.2 Klein-9B Distilled</option><option>Z Image Turbo</option></select></div>
+      <div class="fld"><label>宽</label><select id="w"><option>1024</option><option>768</option><option>512</option></select></div>
+      <div class="fld"><label>高</label><select id="h"><option>1024</option><option>768</option><option>512</option></select></div>
+      <div class="fld"><label>步数</label><select id="steps"><option>28</option><option>20</option><option>12</option></select></div>
+      <div class="fld"><label>种子</label><input id="seed" value="42" style="width:76px"></div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="panel-title"><span class="bar"></span>高级参数 <button class="icon-btn" id="advToggle" style="margin-left:auto;padding:3px 8px">展开 ▾</button></div>
+    <div id="advPanel" class="hidden">
+      <div class="param-grid">
+        <div class="fld"><label>引导强度 (CFG)</label><input id="cfg" type="number" value="3.5" step="0.5" min="1" max="12"></div>
+        <div class="fld"><label>采样器</label><select id="sampler"><option>euler</option><option>dpmpp_2m</option><option>uni_pc</option></select></div>
+        <div class="fld"><label>精度</label><select id="prec"><option>FP8</option><option>FP16</option></select></div>
+        <div class="fld"><label>Batch 分块</label><select id="chunk"><option>1</option><option>2</option><option>4</option></select></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <label class="fld" style="flex-direction:row;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="watermark" checked style="width:auto;height:auto"> 嵌入 DCT 数字水印</label>
+      </div>
+    </div>
+
+    <button class="btn gen-btn" id="genBtn">⚡ 开始生成（模拟）</button>
+    <div class="progress-wrap hidden" id="progressWrap" style="margin-top:12px">
+      <div class="steps" style="width:100%"><span id="stepText">排队中…</span><div class="bar"><div class="fill" id="stepFill" style="width:0%"></div></div></div>
+      <div style="font-size:11.5px;color:var(--ink-faint);margin-top:8px;font-family:ui-monospace,Consolas,monospace" id="genLog"></div>
+    </div>
+  </div>
+
+  <!-- 右：结果 -->
+  <div class="panel right">
+    <div class="panel-title"><span class="bar"></span>生成结果 <span class="badge gray" id="resultBadge">未生成</span></div>
+    <div class="result-empty" id="resultEmpty"><div class="ic">🎨</div><div>输入提示词后点击「开始生成」<br>演示环境将返回内置示例图片</div></div>
+    <div class="result-img-wrap hidden" id="resultWrap">
+      <div class="pending hidden" id="pendingOverlay"><span style="font-size:28px">✨</span><div class="steps">扩散采样中…<div class="bar"><div class="fill" id="samplingFill"></div></div></div></div>
+      <img id="resultImg" src="" alt="生成结果">
+    </div>
+    <div class="meta-row hidden" id="resultMeta"></div>
+    <div class="actions hidden" id="resultActions">
+      <button class="btn ghost" id="redoBtn">↻ 换一张</button>
+      <button class="btn ghost" id="zoomBtn">🔍 查看大图</button>
+      <button class="btn" id="dlBtn">⬇ 下载</button>
+    </div>
+    <div class="watermark-note hidden" id="wmNote">🔒 演示说明：真实系统会在输出中嵌入 DCT 频域数字水印（product_id + task_id + timestamp）；本演示不执行该步骤，图片为内置示例。</div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay"></div>
+
+<!-- 预设抽屉 -->
+<aside class="drawer" id="drawerPreset">
+  <div class="drawer-head">预设管理 <button class="icon-btn" data-close="drawerPreset">✕</button></div>
+  <div class="drawer-body">
+    <div class="preset-item" data-name="写实摄影"><b>写实摄影 · 微距</b><span>CFG 3.5 · 28 步 · 1024×1024 · euler</span></div>
+    <div class="preset-item" data-name="动漫风格"><b>日系动漫</b><span>CFG 4.0 · 28 步 · 1024×1024 · dpmpp_2m</span></div>
+    <div class="preset-item" data-name="国风水墨"><b>国风水墨</b><span>CFG 3.0 · 20 步 · 1024×768 · euler</span></div>
+    <div class="preset-item" data-name="产品渲染"><b>产品渲染</b><span>CFG 3.5 · 28 步 · 1024×1024 · uni_pc</span></div>
+    <button class="btn ghost" style="width:100%;margin-top:10px" onclick="showToast('预设已保存（模拟）')">＋ 将当前参数存为预设</button>
+  </div>
+</aside>
+
+<!-- 历史抽屉 -->
+<aside class="drawer" id="drawerHistory">
+  <div class="drawer-head">历史记录 <button class="icon-btn" data-close="drawerHistory">✕</button></div>
+  <div class="drawer-body" id="histList"></div>
+</aside>
+
+<!-- 画廊抽屉 -->
+<aside class="drawer" id="drawerGallery">
+  <div class="drawer-head">图片画廊 <span class="badge gray" id="galleryCount"></span> <button class="icon-btn" data-close="drawerGallery">✕</button></div>
+  <div class="drawer-body"><div class="grid" id="galleryGrid"></div></div>
+</aside>
+
+<div class="modal hidden" id="modal" onclick="this.classList.add('hidden')"><img id="modalImg" src="" alt="大图"></div>
+<div class="toast" id="toast"></div>
+
+<footer>Image MultiModel 在线模拟演示 · 生成结果为内置示例图片（来自仓库 outputs/）· 真实推理需 ComfyUI + Flux.2 / Z-Image 模型权重</footer>
+
+<div class="statusbar">
+  <span class="item"><span class="ok"></span>ComfyUI · 模拟在线</span>
+  <span class="item">队列 <b id="queueCount">0</b></span>
+  <span class="item">VRAM <span id="vramLive">12.4 GB</span></span>
+  <span class="item" style="margin-left:auto" id="engineName">Flux.2 Klein-9B Distilled · FP8</span>
+</div>
+
+<script>
+const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
+let toastTimer;
+function showToast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2300)}
+const GALLERY=[];
+for(let i=1;i<=12;i++)GALLERY.push(`assets/gallery/gen-${String(i).padStart(2,'0')}.jpg`);
+const PROMPTS=[
+  '一只橘猫戴着宇航员头盔，坐在火星表面，背景是地球，电影级打光，超写实风格',
+  '赛博朋克城市夜景，霓虹灯倒映在雨后的街道，行人撑伞，电影感构图',
+  '玻璃器皿中的微观世界，苔藓与迷你房屋，微距摄影，柔光',
+  '黄昏时分的雪山湖泊，倒影如镜，金色阳光，风光摄影大片',
+  '蒸汽朋克机械蝴蝶，黄铜与齿轮质感，深色背景，细节丰富',
+  '雨后森林里的小路，丁达尔光束穿过树冠，薄雾，梦幻氛围'
+];
+let curGen=0, curPrompt='';
+
+/* 主题 */
+function applyTheme(t){document.documentElement.dataset.theme=t}
+$('#themeBtn').onclick=()=>applyTheme(document.documentElement.dataset.theme==='dark'?'light':'dark');
+
+/* 提示词 */
+const ta=$('#prompt');
+function countChars(){const n=[...ta.value].length;$('#promptCount').textContent=n+' 字'}
+ta.addEventListener('input',countChars);countChars();
+$$('#presetChips .chip').forEach(c=>c.onclick=()=>{
+  $$('#presetChips .chip').forEach(x=>x.classList.remove('active'));c.classList.add('active');
+  ta.value=c.dataset.p;countChars();
+});
+$$('.preset-item').forEach(p=>p.onclick=()=>{
+  ta.value=p.dataset.name==='写实摄影'?'微距昆虫摄影，露珠，景深虚化，阳光':'已加载预设：'+p.dataset.name;countChars();
+  showToast('预设已应用（模拟）');
+});
+$('#advToggle').onclick=()=>{
+  const p=$('#advPanel'),open=!p.classList.contains('hidden');
+  p.classList.toggle('hidden');$('#advToggle').textContent=open?'展开 ▾':'收起 ▴';
+};
+
+/* 抽屉 */
+function openDrawer(id){$$('.drawer').forEach(d=>d.classList.remove('open'));$('#'+id).classList.add('open');$('#overlay').classList.add('show')}
+function closeDrawers(){$$('.drawer').forEach(d=>d.classList.remove('open'));$('#overlay').classList.remove('show')}
+$('#drawerBtnPreset').onclick=()=>openDrawer('drawerPreset');
+$('#drawerBtnHistory').onclick=()=>{renderHist();openDrawer('drawerHistory')};
+$('#drawerBtnGallery').onclick=()=>{renderGallery();openDrawer('drawerGallery')};
+$('#overlay').onclick=closeDrawers;
+$$('[data-close]').forEach(b=>b.onclick=()=>closeDrawers());
+
+/* 画廊 */
+function renderGallery(){
+  $('#galleryGrid').innerHTML=GALLERY.map((g,i)=>`<img src="${g}" alt="示例 ${i+1}" onclick="$('#modalImg').src='${g}';$('#modal').classList.remove('hidden')">`).join('');
+  $('#galleryCount').textContent=GALLERY.length+' 张';
+}
+/* 历史 */
+let histItems=[];
+function renderHist(){
+  $('#histList').innerHTML=histItems.slice().reverse().map(h=>`
+    <div class="hist-item"><img src="${h.img}" alt=""><div class="meta"><b>${h.prompt.slice(0,26)}${h.prompt.length>26?'…':''}</b><span>${h.model} · ${h.w}×${h.h} · ${h.time}</span></div><span class="badge gray">${h.state}</span></div>
+  `).join('')||'<div style="color:var(--ink-faint);text-align:center;padding:30px 0">暂无生成记录 — 先试试生成一张</div>';
+}
+
+/* 生成流程 */
+let generating=false;
+$('#genBtn').onclick=()=>{
+  if(generating)return;
+  const p=ta.value.trim()||'未命名画面';
+  curPrompt=p;
+  generating=true;$('#genBtn').disabled=true;
+  $('#resultEmpty').classList.add('hidden');$('#resultWrap').classList.remove('hidden');
+  $('#resultMeta').classList.add('hidden');$('#resultActions').classList.add('hidden');$('#wmNote').classList.add('hidden');
+  $('#resultBadge').textContent='生成中';$('#resultBadge').style.background='var(--accent-soft)';
+  $('#progressWrap').classList.remove('hidden');
+  $('#pendingOverlay').classList.remove('hidden');
+  $('#queueCount').textContent='1';
+  const log=$('#genLog');log.innerHTML='';
+  const addLog=t=>{const d=document.createElement('div');d.textContent=t;log.appendChild(d)};
+  addLog('[queue] 任务已入队 · task-'+Date.now().toString(36).toUpperCase());
+  const stepsN=+$('#steps').value;
+  let s=0;
+  const fill=$('#samplingFill'),st=$('#stepText');
+  const timer=setInterval(()=>{
+    s+=1+Math.floor(Math.random()*2);
+    if(s>=stepsN){s=stepsN}
+    fill.style.width=(s/stepsN*100)+'%';
+    st.textContent=`扩散采样 ${s} / ${stepsN} 步`;
+    if(s%7===0)addLog(`[sampling] step ${s}/${stepsN} · ${$('#model').value} / ${$('#prec').value} · ${$('#sampler').value}`);
+    if(s>=stepsN){
+      clearInterval(timer);
+      setTimeout(()=>{
+        curGen=(curGen+1)%GALLERY.length;
+        $('#resultImg').src=GALLERY[curGen];
+        $('#pendingOverlay').classList.add('hidden');
+        $('#progressWrap').classList.add('hidden');
+        $('#queueCount').textContent='0';
+        $('#resultBadge').textContent='已完成';
+        $('#resultBadge').style.background='';
+        const seed=$('#seed').value||String(Math.floor(Math.random()*1e9));
+        $('#resultMeta').classList.remove('hidden');
+        $('#resultMeta').innerHTML=`
+          <span class="meta-tag">${$('#model').value}</span><span class="meta-tag">${$('#w').value}×${$('#h').value}</span>
+          <span class="meta-tag">${stepsN} 步 · CFG ${$('#cfg').value}</span><span class="meta-tag">seed ${seed}</span>
+          <span class="meta-tag">⏱ ${(3.1+Math.random()*4).toFixed(1)}s（模拟）</span>`;
+        $('#resultActions').classList.remove('hidden');
+        $('#wmNote').classList.remove('hidden');
+        addLog('[done] 生成完成（模拟）· 返回内置示例图片');
+        histItems.unshift({img:GALLERY[curGen],prompt:p,model:$('#model').value,w:$('#w').value,h:$('#h').value,time:new Date().toLocaleTimeString('zh-CN',{hour12:false}),state:'done'});
+        if(histItems.length>20)histItems.pop();
+        generating=false;$('#genBtn').disabled=false;
+        showToast('生成完成（模拟）✓');
+      },900);
+    }
+  },260);
+};
+$('#redoBtn').onclick=()=>{curGen=(curGen+1)%GALLERY.length;$('#resultImg').src=GALLERY[curGen];showToast('已换一张示例图')};
+$('#zoomBtn').onclick=()=>{$('#modalImg').src=$('#resultImg').src;$('#modal').classList.remove('hidden')};
+$('#dlBtn').onclick=()=>{const a=document.createElement('a');a.href=$('#resultImg').src;a.download='image-multimodel-demo.jpg';a.click();showToast('已下载示例图片')};
+
+/* 状态栏模拟 */
+setInterval(()=>{const v=(8+Math.random()*10).toFixed(1);$('#vramLive').textContent=v+' GB'},2000);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDrawers();$('#modal').classList.add('hidden')}});
+</script>
+</body>
+</html>

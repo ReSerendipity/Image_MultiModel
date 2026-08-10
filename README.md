@@ -5,6 +5,14 @@
 **多模型 AI 图像生成平台 — 基于 ComfyUI 工作流引擎，支持 Flux.2、Z Image Turbo 等多模型工作流的统一 Web UI**
 
 > **Image MultiModel** — A unified multi-model AI image generation platform powered by ComfyUI workflow engine. Supports Flux.2 Klein-9B Distilled, Z Image Turbo, and extensible to more workflows.
+## 🧪 在线模拟演示（GitHub Pages）
+
+无需 ComfyUI / GPU / 模型权重，纯前端仿真环境即可体验生图工作台完整流程：
+
+**<https://reserendipity.github.io/Image_MultiModel/>** （由 `.github/workflows/pages-deploy.yml` 自动部署 `demo/` 目录，详见 [demo/README.md](demo/README.md)）
+
+---
+
 
 ---
 
