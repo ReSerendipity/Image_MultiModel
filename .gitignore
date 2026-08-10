@@ -77,3 +77,6 @@ data/checkpoints/
 
 # ── Docker ──────────────────────────────────────────────────
 docker-compose.override.yml
+
+# Auto-captured screenshots (output of tests/capture-screenshots.js)
+/screenshots/

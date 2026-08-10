@@ -8,6 +8,24 @@
 
 ---
 
+## 界面预览
+
+*浅色主题 — 生图工作台主页 / 高级参数 / 预设管理 / 历史记录 / 图片展示 / 批量模式*
+
+![主页浅色](docs/screenshots/current/light/01-home-full.png)
+
+![高级参数浅色](docs/screenshots/current/light/02-advanced-params-drawer.png)
+
+![预设管理浅色](docs/screenshots/current/light/03-presets-drawer.png)
+
+![历史记录浅色](docs/screenshots/current/light/04-history-drawer.png)
+
+![图片展示浅色](docs/screenshots/current/light/05-gallery-drawer.png)
+
+![批量模式浅色](docs/screenshots/current/light/06-batch-drawer.png)
+
+---
+
 ## 功能亮点
 
 | 特性 | 说明 |

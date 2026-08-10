@@ -5,14 +5,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Image MultiModel · 生图工作台（单页融合版）</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%237c5fd6'/%3E%3Ccircle cx='22.5' cy='10.5' r='2.9' fill='%23fff' fill-opacity='.95'/%3E%3Cpath d='M4.5 23.5 12 15l5 5.5L21 16l6.5 7.5' stroke='%23fff' stroke-width='2.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M4.5 23.5h23' stroke='%23fff' stroke-opacity='.9' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23f98a25'/%3E%3Ccircle cx='22.5' cy='10.5' r='2.9' fill='%23fff' fill-opacity='.95'/%3E%3Cpath d='M4.5 23.5 12 15l5 5.5L21 16l6.5 7.5' stroke='%23fff' stroke-width='2.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M4.5 23.5h23' stroke='%23fff' stroke-opacity='.9' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Serif+SC:wght@600;700&family=ZCOOL+XiaoWei&family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
 <style>
 /* ============ 种子令牌 ============ */
 :root{
-  --seed-bg:#f5f5f5;--seed-fg:#1a1a1a;--seed-primary:#7c5fd6;--seed-accent:#6b5bb8;--seed-surface:#ffffff;--seed-radius:8px;--seed-density:1;
+  --seed-bg:#f5f5f5;--seed-fg:#1a1a1a;--seed-primary:#f98a25;--seed-accent:#ef6d1c;--seed-surface:#ffffff;--seed-radius:8px;--seed-density:1;
   --bg:var(--seed-bg);--surface:var(--seed-surface);
   --surface-2:color-mix(in srgb,var(--seed-fg) 6%,var(--seed-surface));
   --surface-3:color-mix(in srgb,var(--seed-fg) 11%,var(--seed-surface));
@@ -75,10 +75,16 @@ textarea{height:auto}
 .pal-row{display:flex;align-items:center;gap:8px;padding:8px 2px 2px;border-top:1px solid var(--wire);margin-top:8px}
 .pal-row input[type=color]{width:38px;height:28px;border:1px solid var(--wire);border-radius:6px;padding:2px;background:var(--surface);cursor:pointer}
 .pal-dot{display:inline-block;width:14px;height:14px;border-radius:50%;background:var(--seed-primary);box-shadow:0 0 0 1px var(--wire)}
+/* ===== 标题字体选择 ===== */
+.font-list{display:flex;flex-direction:column;gap:2px}
+.font-item{display:block;width:100%;text-align:left;border:none;background:none;padding:8px 10px;font-size:16px;color:var(--ink);border-radius:6px;cursor:pointer;line-height:1.3}
+.font-item:hover{background:var(--surface-2)}
+.font-item.on{color:var(--accent-strong);font-weight:600}
+.font-item .fd{display:block;font-size:9.5px;color:var(--ink-faint);font-weight:400;margin-top:2px}
 /* ===== 布局 ===== */
 .layout{min-height:100vh;padding-top:var(--topbar-h);padding-bottom:var(--statusbar-h)}
-.stage{max-width:840px;margin:0 auto;padding:calc(var(--space) + 8px) var(--space) var(--space);position:relative}
-.big-title{font-size:24px;font-weight:700;letter-spacing:-.015em;text-align:center}
+.stage{max-width:960px;margin:0 auto;padding:calc(var(--space) + 8px) var(--space) var(--space);position:relative}
+.big-title{font-size:32px;font-weight:700;letter-spacing:.02em;text-align:center;margin-bottom:20px;font-family:var(--title-font,var(--sans));line-height:1.3}
 .big-title em{font-style:normal;color:var(--accent-strong)}
 .stage .sub{text-align:center;font-size:12px;color:var(--ink-soft);margin:7px 0 20px}
 /* Prompt 卡片 */
@@ -444,8 +450,14 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
       <button class="icon-btn" id="palBtn" title="切换主题色" type="button"><span class="pal-dot" id="palDot"></span></button>
       <div class="ico-pop pal-pop" id="palPop">
         <div class="pal-grid" id="palGrid"></div>
-        <div class="pal-row"><input type="color" id="palCustom" value="#7c5fd6" aria-label="自定义颜色"><span class="hint">自定义任意颜色</span></div>
+        <div class="pal-row"><input type="color" id="palCustom" value="#f98a25" aria-label="自定义颜色"><span class="hint">自定义任意颜色</span></div>
         <p class="hint" style="padding:6px 2px 0">共 24 种预设 + 自定义，选择会自动保存</p>
+      </div>
+    </span>
+    <span class="ico-wrap" data-component="Font Menu">
+      <button class="icon-btn" id="fontBtn" title="切换标题字体" type="button" style="font-weight:700;font-style:italic;font-size:16px">Aa</button>
+      <div class="ico-pop" id="fontPop" style="width:216px;padding:6px">
+        <div class="font-list" id="fontList"></div>
       </div>
     </span>
     <button class="icon-btn" id="aboutBtn" title="关于" type="button">ⓘ</button>
@@ -486,7 +498,6 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
 <div class="layout">
   <main class="stage" data-component="Stage">
     <div class="big-title">让每一句心语，<em>化作光影</em></div>
-    <p class="sub" data-i18n="sub">支持 简中/繁中/英/日/韩 直接输入 · 默认 FLUX.2 Klein 蒸馏配置，开箱即用</p>
 
     <div class="prompt-card" data-component="Prompt Input">
       <textarea id="posPrompt" placeholder="描述你想生成的画面，例如：一位亚洲女性肖像，柔和自然光，浅景深，胶片质感…">一位亚洲女性肖像，柔和自然光，浅景深，胶片质感，细节丰富</textarea>
@@ -644,6 +655,10 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
         <div class="search"><span>⌕</span><input id="histSearch" placeholder="搜索 Prompt / seed…" aria-label="搜索" data-i18n-ph="search_placeholder"></div>
         <select id="histStatus" aria-label="状态筛选" style="min-width:92px"><option value="">状态</option><option value="completed">成功</option><option value="failed">失败</option><option value="processing">进行中</option><option value="pending">排队中</option></select>
         <select id="histEngine" aria-label="引擎筛选" style="min-width:92px"><option value="">引擎</option></select>
+        <span style="margin-left:auto;display:flex;gap:5px">
+          <button class="btn btn-sm" id="histPurge" type="button" title="批量删除失败 / 排队中 / 进行中 / 已取消的记录">批量删除</button>
+          <button class="btn btn-sm" id="histClear" type="button" style="color:var(--red)" title="清空全部历史记录（含成功记录）">清除</button>
+        </span>
       </div>
       <table class="tbl">
         <thead><tr><th style="width:44px">预览</th><th class="pro">Prompt</th><th>状态</th><th style="width:86px">操作</th></tr></thead>
@@ -849,11 +864,11 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
 <script>
 /* ---------- i18n ---------- */
 var I18N={
-'zh-CN':{nav_home:'首页',nav_generate:'生图',nav_batch:'批量',nav_history:'历史',nav_status:'状态',nav_settings:'设置',sub:'支持 简中/繁中/英/日/韩 直接输入 · 默认 FLUX.2 Klein 蒸馏配置，开箱即用',preset:'预设',save_preset:'保存当前为预设',recent:'最近生成',neg_add:'＋ 负向提示词',neg_hide:'− 收起负向提示词',btn_generate:'▶ 生成',btn_advanced:'⚙ 高级参数',btn_gallery:'▦ 图片展示',btn_history:'◷ 历史记录',btn_batch:'▤ 批量模式',btn_presets:'▣ 预设管理',btn_share:'分享',btn_clear:'清空',btn_copy:'复制',btn_free_vram:'释放显存',btn_restore_default:'恢复默认',btn_done:'完成',btn_generate_batch:'▶ 生成批次',btn_cancel:'取消',batch_prompt_file:'Prompt 文件',batch_param_grid:'参数网格',search_placeholder:'搜索',phase_connecting:'连接中',phase_loading_workflow:'加载工作流',phase_engine_ready:'引擎就绪',phase_patching:'打补丁',phase_queuing:'排队中',phase_sampling:'采样中',phase_executing:'执行节点',phase_image_saved:'已保存',phase_completed:'完成',phase_cancelling:'取消中'},
-'zh-TW':{nav_home:'首頁',nav_generate:'生圖',nav_batch:'批量',nav_history:'歷史',nav_status:'狀態',nav_settings:'設定',sub:'支援 簡中/繁中/英/日/韓 直接輸入 · 預設 FLUX.2 Klein 蒸餾配置',preset:'預設',save_preset:'儲存目前為預設',recent:'最近生成',neg_add:'＋ 負向提示詞',neg_hide:'− 收起負向提示詞',btn_generate:'▶ 生成',btn_advanced:'⚙ 進階參數',btn_gallery:'▦ 圖片展示',btn_history:'◷ 歷史記錄',btn_batch:'▤ 批量模式',btn_presets:'▣ 預設管理',btn_share:'分享',btn_clear:'清空',btn_copy:'複製',btn_free_vram:'釋放顯存',btn_restore_default:'恢復預設',btn_done:'完成',btn_generate_batch:'▶ 生成批次',btn_cancel:'取消',batch_prompt_file:'Prompt 檔案',batch_param_grid:'參數網格',search_placeholder:'搜尋',phase_connecting:'連接中',phase_loading_workflow:'載入工作流程',phase_engine_ready:'引擎就緒',phase_patching:'修補中',phase_queuing:'排隊中',phase_sampling:'採樣中',phase_executing:'執行節點',phase_image_saved:'已儲存',phase_completed:'完成',phase_cancelling:'取消中'},
-'en-US':{nav_home:'Home',nav_generate:'Generate',nav_batch:'Batch',nav_history:'History',nav_status:'Status',nav_settings:'Settings',sub:'Type in zh-CN/zh-TW/en/ja/ko directly · FLUX.2 Klein defaults',preset:'Preset',save_preset:'Save as preset',recent:'Recent',neg_add:'＋ Negative prompt',neg_hide:'− Hide negative prompt',btn_generate:'▶ Generate',btn_advanced:'⚙ Advanced',btn_gallery:'▦ Gallery',btn_history:'◷ History',btn_batch:'▤ Batch',btn_presets:'▣ Presets',btn_share:'Share',btn_clear:'Clear',btn_copy:'Copy',btn_free_vram:'Free VRAM',btn_restore_default:'Reset',btn_done:'Done',btn_generate_batch:'▶ Generate Batch',btn_cancel:'Cancel',batch_prompt_file:'Prompt File',batch_param_grid:'Param Grid',search_placeholder:'Search',phase_connecting:'Connecting',phase_loading_workflow:'Loading workflow',phase_engine_ready:'Engine ready',phase_patching:'Patching',phase_queuing:'Queuing',phase_sampling:'Sampling',phase_executing:'Executing',phase_image_saved:'Image saved',phase_completed:'Completed',phase_cancelling:'Cancelling'},
-'ja-JP':{nav_home:'ホーム',nav_generate:'生成',nav_batch:'バッチ',nav_history:'履歴',nav_status:'ステータス',nav_settings:'設定',sub:'簡中/繁中/英/日/韓を直接入力可',preset:'プリセット',save_preset:'プリセット保存',recent:'最近の生成',neg_add:'＋ ネガティブプロンプト',neg_hide:'− 閉じる',btn_generate:'▶ 生成',btn_advanced:'⚙ 詳細設定',btn_gallery:'▦ ギャラリー',btn_history:'◷ 履歴',btn_batch:'▤ バッチ',btn_presets:'▣ プリセット',btn_share:'共有',btn_clear:'クリア',btn_copy:'コピー',btn_free_vram:'VRAM解放',btn_restore_default:'デフォルトに戻す',btn_done:'完了',btn_generate_batch:'▶ バッチ生成',btn_cancel:'キャンセル',batch_prompt_file:'Promptファイル',batch_param_grid:'パラメータグリッド',search_placeholder:'検索',phase_connecting:'接続中',phase_loading_workflow:'ワークフロー読み込み中',phase_engine_ready:'エンジン準備完了',phase_patching:'パッチ適用中',phase_queuing:'キューに追加中',phase_sampling:'サンプリング中',phase_executing:'ノード実行中',phase_image_saved:'保存済み',phase_completed:'完了',phase_cancelling:'キャンセル中'},
-'ko-KR':{nav_home:'홈',nav_generate:'생성',nav_batch:'배치',nav_history:'기록',nav_status:'상태',nav_settings:'설정',sub:'중국어/번체/영어/일어/한국어 직접 입력',preset:'프리셋',save_preset:'현재를 프리셋으로 저장',recent:'최근 생성',neg_add:'＋ 네거티브 프롬프트',neg_hide:'− 접기',btn_generate:'▶ 생성',btn_advanced:'⚙ 고급 매개변수',btn_gallery:'▦ 갤러리',btn_history:'◷ 기록',btn_batch:'▤ 배치',btn_presets:'▣ 프리셋',btn_share:'공유',btn_clear:'지우기',btn_copy:'복사',btn_free_vram:'VRAM 해제',btn_restore_default:'기본값 복원',btn_done:'완료',btn_generate_batch:'▶ 배치 생성',btn_cancel:'취소',batch_prompt_file:'Prompt 파일',batch_param_grid:'매개변수 그리드',search_placeholder:'검색',phase_connecting:'연결 중',phase_loading_workflow:'워크플로 로드 중',phase_engine_ready:'엔진 준비 완료',phase_patching:'패치 적용 중',phase_queuing:'대기열 추가 중',phase_sampling:'샘플링 중',phase_executing:'노드 실행 중',phase_image_saved:'저장됨',phase_completed:'완료',phase_cancelling:'취소 중'}
+'zh-CN':{nav_home:'首页',nav_generate:'生图',nav_batch:'批量',nav_history:'历史',nav_status:'状态',nav_settings:'设置',preset:'预设',save_preset:'保存当前为预设',recent:'最近生成',neg_add:'＋ 负向提示词',neg_hide:'− 收起负向提示词',btn_generate:'▶ 生成',btn_advanced:'⚙ 高级参数',btn_gallery:'▦ 图片展示',btn_history:'◷ 历史记录',btn_batch:'▤ 批量模式',btn_presets:'▣ 预设管理',btn_share:'分享',btn_clear:'清空',btn_copy:'复制',btn_free_vram:'释放显存',btn_restore_default:'恢复默认',btn_done:'完成',btn_generate_batch:'▶ 生成批次',btn_cancel:'取消',batch_prompt_file:'Prompt 文件',batch_param_grid:'参数网格',search_placeholder:'搜索',phase_connecting:'连接中',phase_loading_workflow:'加载工作流',phase_engine_ready:'引擎就绪',phase_patching:'打补丁',phase_queuing:'排队中',phase_sampling:'采样中',phase_executing:'执行节点',phase_image_saved:'已保存',phase_completed:'完成',phase_cancelling:'取消中'},
+'zh-TW':{nav_home:'首頁',nav_generate:'生圖',nav_batch:'批量',nav_history:'歷史',nav_status:'狀態',nav_settings:'設定',preset:'預設',save_preset:'儲存目前為預設',recent:'最近生成',neg_add:'＋ 負向提示詞',neg_hide:'− 收起負向提示詞',btn_generate:'▶ 生成',btn_advanced:'⚙ 進階參數',btn_gallery:'▦ 圖片展示',btn_history:'◷ 歷史記錄',btn_batch:'▤ 批量模式',btn_presets:'▣ 預設管理',btn_share:'分享',btn_clear:'清空',btn_copy:'複製',btn_free_vram:'釋放顯存',btn_restore_default:'恢復預設',btn_done:'完成',btn_generate_batch:'▶ 生成批次',btn_cancel:'取消',batch_prompt_file:'Prompt 檔案',batch_param_grid:'參數網格',search_placeholder:'搜尋',phase_connecting:'連接中',phase_loading_workflow:'載入工作流程',phase_engine_ready:'引擎就緒',phase_patching:'修補中',phase_queuing:'排隊中',phase_sampling:'採樣中',phase_executing:'執行節點',phase_image_saved:'已儲存',phase_completed:'完成',phase_cancelling:'取消中'},
+'en-US':{nav_home:'Home',nav_generate:'Generate',nav_batch:'Batch',nav_history:'History',nav_status:'Status',nav_settings:'Settings',preset:'Preset',save_preset:'Save as preset',recent:'Recent',neg_add:'＋ Negative prompt',neg_hide:'− Hide negative prompt',btn_generate:'▶ Generate',btn_advanced:'⚙ Advanced',btn_gallery:'▦ Gallery',btn_history:'◷ History',btn_batch:'▤ Batch',btn_presets:'▣ Presets',btn_share:'Share',btn_clear:'Clear',btn_copy:'Copy',btn_free_vram:'Free VRAM',btn_restore_default:'Reset',btn_done:'Done',btn_generate_batch:'▶ Generate Batch',btn_cancel:'Cancel',batch_prompt_file:'Prompt File',batch_param_grid:'Param Grid',search_placeholder:'Search',phase_connecting:'Connecting',phase_loading_workflow:'Loading workflow',phase_engine_ready:'Engine ready',phase_patching:'Patching',phase_queuing:'Queuing',phase_sampling:'Sampling',phase_executing:'Executing',phase_image_saved:'Image saved',phase_completed:'Completed',phase_cancelling:'Cancelling'},
+'ja-JP':{nav_home:'ホーム',nav_generate:'生成',nav_batch:'バッチ',nav_history:'履歴',nav_status:'ステータス',nav_settings:'設定',preset:'プリセット',save_preset:'プリセット保存',recent:'最近の生成',neg_add:'＋ ネガティブプロンプト',neg_hide:'− 閉じる',btn_generate:'▶ 生成',btn_advanced:'⚙ 詳細設定',btn_gallery:'▦ ギャラリー',btn_history:'◷ 履歴',btn_batch:'▤ バッチ',btn_presets:'▣ プリセット',btn_share:'共有',btn_clear:'クリア',btn_copy:'コピー',btn_free_vram:'VRAM解放',btn_restore_default:'デフォルトに戻す',btn_done:'完了',btn_generate_batch:'▶ バッチ生成',btn_cancel:'キャンセル',batch_prompt_file:'Promptファイル',batch_param_grid:'パラメータグリッド',search_placeholder:'検索',phase_connecting:'接続中',phase_loading_workflow:'ワークフロー読み込み中',phase_engine_ready:'エンジン準備完了',phase_patching:'パッチ適用中',phase_queuing:'キューに追加中',phase_sampling:'サンプリング中',phase_executing:'ノード実行中',phase_image_saved:'保存済み',phase_completed:'完了',phase_cancelling:'キャンセル中'},
+'ko-KR':{nav_home:'홈',nav_generate:'생성',nav_batch:'배치',nav_history:'기록',nav_status:'상태',nav_settings:'설정',preset:'프리셋',save_preset:'현재를 프리셋으로 저장',recent:'최근 생성',neg_add:'＋ 네거티브 프롬프트',neg_hide:'− 접기',btn_generate:'▶ 생성',btn_advanced:'⚙ 고급 매개변수',btn_gallery:'▦ 갤러리',btn_history:'◷ 기록',btn_batch:'▤ 배치',btn_presets:'▣ 프리셋',btn_share:'공유',btn_clear:'지우기',btn_copy:'복사',btn_free_vram:'VRAM 해제',btn_restore_default:'기본값 복원',btn_done:'완료',btn_generate_batch:'▶ 배치 생성',btn_cancel:'취소',batch_prompt_file:'Prompt 파일',batch_param_grid:'매개변수 그리드',search_placeholder:'검색',phase_connecting:'연결 중',phase_loading_workflow:'워크플로 로드 중',phase_engine_ready:'엔진 준비 완료',phase_patching:'패치 적용 중',phase_queuing:'대기열 추가 중',phase_sampling:'샘플링 중',phase_executing:'노드 실행 중',phase_image_saved:'저장됨',phase_completed:'완료',phase_cancelling:'취소 중'}
 };
 var langSel=document.getElementById('langSelect');
 function applyLang(l){document.documentElement.setAttribute('data-lang',l);var d=I18N[l]||I18N['zh-CN'];document.querySelectorAll('[data-i18n]').forEach(function(el){var k=el.getAttribute('data-i18n');if(d[k])el.textContent=d[k];});document.querySelectorAll('[data-i18n-ph]').forEach(function(el){var k=el.getAttribute('data-i18n-ph');if(d[k])el.placeholder=d[k];});/* 动态元素：negToggle 根据开关状态设置 */var nt=document.getElementById('negToggle');if(nt){var open=nt.classList.contains('open');nt.textContent=open?(d.neg_hide||'− '):(d.neg_add||'＋ ');}}
@@ -1330,6 +1345,46 @@ document.getElementById('histStatus').addEventListener('change',function(){_hist
 document.getElementById('histEngine').addEventListener('change',function(){_histEngine=this.value;_histPage=1;renderHist();});
 document.getElementById('histPrev').addEventListener('click',function(){if(_histPage>1){_histPage--;renderHist();}});
 document.getElementById('histNext').addEventListener('click',function(){_histPage++;renderHist();});
+// 批量删除：失败 / 排队中 / 进行中 / 已取消
+function fetchAllTaskIds(status){
+  var all=[],page=1;
+  function one(){
+    var q='/api/tasks?page='+page+'&page_size=200'+(status?'&status='+encodeURIComponent(status):'');
+    return fetch(q).then(function(r){return r.json();}).then(function(d){
+      (d.tasks||[]).forEach(function(t){if(t.task_id)all.push(t.task_id);});
+      if(page*200<(d.total||0)){page++;return one();}
+      return all;
+    });
+  }
+  return one();
+}
+function deleteTaskIds(ids){
+  if(!ids||!ids.length)return Promise.resolve({deleted:0});
+  return API.del('/tasks?task_ids='+ids.map(encodeURIComponent).join('&task_ids='));
+}
+document.getElementById('histPurge').addEventListener('click',function(){
+  var statuses=['failed','pending','processing','cancelled'],all=[];
+  Promise.all(statuses.map(function(s){return fetchAllTaskIds(s).then(function(ids){all=all.concat(ids);});})).then(function(){
+    var uniq=all.filter(function(v,i){return all.indexOf(v)===i;});
+    if(!uniq.length){window.alert('没有可清理的记录（失败 / 排队中 / 进行中 / 已取消）');return;}
+    if(!window.confirm('将批量删除 '+uniq.length+' 条记录（失败 / 排队中 / 进行中 / 已取消），不可恢复。确认？'))return;
+    deleteTaskIds(uniq).then(function(r){
+      window.alert('已删除 '+((r&&r.deleted)||uniq.length)+' 条记录');
+      _histPage=1;renderHist();loadRecent();loadQueueSummary();
+    }).catch(function(e){window.alert('删除失败: '+e);});
+  });
+});
+// 清除全部历史
+document.getElementById('histClear').addEventListener('click',function(){
+  fetchAllTaskIds(null).then(function(ids){
+    if(!ids.length){window.alert('当前没有历史记录');return;}
+    if(!window.confirm('将清除全部 '+ids.length+' 条历史记录（含成功记录），不可恢复。确认？'))return;
+    deleteTaskIds(ids).then(function(r){
+      window.alert('已清除 '+((r&&r.deleted)||ids.length)+' 条记录');
+      _histPage=1;renderHist();loadRecent();loadQueueSummary();
+    }).catch(function(e){window.alert('清除失败: '+e);});
+  });
+});
 
 /* ---------- F5: 预设右抽屉（真实渲染 + 应用/编辑/保存） ---------- */
 var _editPresetId=null;
@@ -1348,9 +1403,13 @@ function renderPresets(){
       c.innerHTML='<div class="nm">'+((p.name||'未命名').substring(0,20))+'</div>'+
         '<p class="ds">'+engLabel(p.engine_name)+'</p>'+
         '<div class="param-chips">'+chips+'</div>'+
-        '<div class="acts"><button class="btn btn-sm ap" type="button">应用</button><button class="btn btn-sm ed" type="button">编辑</button></div>';
+        '<div class="acts"><button class="btn btn-sm ap" type="button">应用</button><button class="btn btn-sm ed" type="button">编辑</button><button class="btn btn-sm del" type="button" style="color:var(--red)">删除</button></div>';
       c.querySelector('.ap').addEventListener('click',function(){applyPreset(p);});
       c.querySelector('.ed').addEventListener('click',function(){editPreset(p);});
+      c.querySelector('.del').addEventListener('click',function(){
+        if(!window.confirm('删除预设「'+(p.name||'')+'」？此操作不可恢复。'))return;
+        API.del('/presets/'+p.id).then(function(){renderPresets();}).catch(function(e){window.alert('删除失败: '+e);});
+      });
       pl.appendChild(c);
     });
   }).catch(function(e){console.warn('[Presets] load failed:',e);pl.innerHTML='<p style="grid-column:1/-1;text-align:center;color:var(--ink-faint);font-size:11px;padding:14px">加载失败</p>';});
@@ -1510,12 +1569,12 @@ function engLabel(k){return ENGINES[k]||k||'—';}
 
 /* ---------- F14: 主题色切换（24 预设 + 自定义，localStorage 持久化） ---------- */
 var ACCENTS=[
+['蜜桃橙','#f98a25','#ef6d1c'],['橙焰','#f97316','#ea580c'],['琥珀','#f59e0b','#d97706'],['柠檬','#eab308','#ca8a04'],
 ['紫罗兰','#7c5fd6','#6b5bb8'],['靛蓝','#6366f1','#4f46e5'],['宝蓝','#3b82f6','#2563eb'],['天蓝','#0ea5e9','#0284c7'],
 ['青色','#06b6d4','#0891b2'],['青绿','#14b8a6','#0d9488'],['翡翠','#10b981','#059669'],['苔绿','#84cc16','#65a30d'],
-['森林','#22c55e','#16a34a'],['柠檬','#eab308','#ca8a04'],['琥珀','#f59e0b','#d97706'],['橙焰','#f97316','#ea580c'],
-['朱红','#ef4444','#dc2626'],['玫红','#f43f5e','#e11d48'],['洋红','#ec4899','#db2777'],['紫红','#d946ef','#c026d3'],
-['葡萄紫','#a855f7','#9333ea'],['藕荷','#c084fc','#a855f7'],['深紫','#8b5cf6','#7c3aed'],['石板','#64748b','#475569'],
-['钢蓝','#475569','#334155'],['海蓝','#0f766e','#115e59'],['珊瑚','#fb7185','#f43f5e'],['蜜桃橙','#f98a25','#ef6d1c']
+['森林','#22c55e','#16a34a'],['朱红','#ef4444','#dc2626'],['玫红','#f43f5e','#e11d48'],['洋红','#ec4899','#db2777'],
+['紫红','#d946ef','#c026d3'],['葡萄紫','#a855f7','#9333ea'],['藕荷','#c084fc','#a855f7'],['深紫','#8b5cf6','#7c3aed'],
+['石板','#64748b','#475569'],['钢蓝','#475569','#334155'],['海蓝','#0f766e','#115e59'],['珊瑚','#fb7185','#f43f5e']
 ];
 function renderPalette(){
   var grid=document.getElementById('palGrid');if(!grid)return;
@@ -1539,18 +1598,18 @@ function applyAccent(primary,accent){
   syncPalette();
 }
 function syncPalette(){
-  var cur=(document.documentElement.style.getPropertyValue('--seed-primary')||'#7c5fd6').trim().toLowerCase();
+  var cur=(document.documentElement.style.getPropertyValue('--seed-primary')||'#f98a25').trim().toLowerCase();
   document.querySelectorAll('#palGrid .sw').forEach(function(b){b.classList.toggle('on',b.dataset.p.toLowerCase()===cur);});
 }
 function initAccent(){
   var saved=null;try{saved=JSON.parse(localStorage.getItem('imm_accent')||'null');}catch(e){}
   if(saved&&saved[0]){
-    var LEGACY={'#fdba74':'#f98a25','#fb923c':'#ef6d1c'};
+    var LEGACY={'#fdba74':'#f98a25','#fb923c':'#ef6d1c','#7c5fd6':'#f98a25','#6b5bb8':'#ef6d1c'};
     var s0=saved[0].toLowerCase(),s1=(saved[1]||'').toLowerCase();
     if(LEGACY[s0]){s0=LEGACY[s0];s1=LEGACY[s1]||s0;}
     applyAccent(s0,s1);
   }
-  else{applyAccent('#7c5fd6','#6b5bb8');}
+  else{applyAccent('#f98a25','#ef6d1c');}
 }
 var palBtn=document.getElementById('palBtn'),palPop=document.getElementById('palPop');
 if(palBtn)palBtn.addEventListener('click',function(e){
@@ -1564,6 +1623,51 @@ document.addEventListener('click',function(e){
   if(!e.target.closest('#palBtn')&&!e.target.closest('#palPop')){if(palPop)palPop.classList.remove('show');}
 });
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&palPop)palPop.classList.remove('show');});
+
+/* ---------- F15: 标题艺术字体切换（localStorage 持久化） ---------- */
+var FONTS=[
+  {name:'现代无衬线',desc:'Inter · 系统默认',fam:'var(--sans)'},
+  {name:'思源宋体',desc:'优雅衬线 · Noto Serif SC',fam:'"Noto Serif SC",serif'},
+  {name:'站酷小薇',desc:'文艺手写 · ZCOOL XiaoWei',fam:'"ZCOOL XiaoWei","Noto Serif SC",serif'},
+  {name:'马善政楷书',desc:'毛笔书法 · Ma Shan Zheng',fam:'"Ma Shan Zheng",cursive'}
+];
+function renderFontList(){
+  var box=document.getElementById('fontList');if(!box)return;
+  box.innerHTML='';
+  FONTS.forEach(function(f,i){
+    var b=document.createElement('button');
+    b.className='font-item';b.type='button';b.style.fontFamily=f.fam;
+    b.innerHTML=f.name+'<span class="fd">'+f.desc+'</span>';
+    b.addEventListener('click',function(){applyFont(i);});
+    box.appendChild(b);
+  });
+  syncFontList();
+}
+function applyFont(i){
+  var f=FONTS[i];if(!f)return;
+  document.documentElement.style.setProperty('--title-font',f.fam);
+  try{localStorage.setItem('imm_font',String(i));}catch(e){}
+  syncFontList();
+}
+function syncFontList(){
+  var saved=localStorage.getItem('imm_font');
+  var idx=(saved!==null&&FONTS[+saved])?+saved:0;
+  document.querySelectorAll('#fontList .font-item').forEach(function(b,i){b.classList.toggle('on',i===idx);});
+}
+function initFont(){
+  var saved=localStorage.getItem('imm_font');
+  applyFont((saved!==null&&FONTS[+saved])?+saved:0);
+}
+var fontBtn=document.getElementById('fontBtn'),fontPop=document.getElementById('fontPop');
+if(fontBtn)fontBtn.addEventListener('click',function(e){
+  e.stopPropagation();
+  engMenu.classList.remove('show');langMenu.classList.remove('show');if(palPop)palPop.classList.remove('show');
+  fontPop.classList.toggle('show');
+});
+document.addEventListener('click',function(e){
+  if(!e.target.closest('#fontBtn')&&!e.target.closest('#fontPop')){if(fontPop)fontPop.classList.remove('show');}
+});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&fontPop)fontPop.classList.remove('show');});
 
 function loadConfig(){
   return fetch('/api/config').then(function(r){return r.json();}).then(function(cfg){
@@ -1678,6 +1782,8 @@ function loadQueueSummary(){
 /* ---------- 页面加载完成后的初始化（真实数据） ---------- */
 renderPalette();
 initAccent();
+renderFontList();
+initFont();
 loadConfig().then(function(cfg){
   if(cfg)initEngines();
   if(cfg)initDefaults();

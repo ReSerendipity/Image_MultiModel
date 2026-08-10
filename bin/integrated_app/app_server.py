@@ -19,6 +19,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from .checkpoint import TaskCheckpoint
@@ -36,6 +37,31 @@ from .task_queue import Task, TaskQueue
 
 # ── 日志配置 ──────────────────────────────────────────────────
 logger = logging.getLogger("integrated_app")
+
+
+class VersionedStaticFiles(StaticFiles):
+    """差异化缓存静态文件（来源：Seedvr2 VersionedStaticFiles / TTS_MultiModel CachedStaticFiles）。
+
+    学习参考项目：前端开发时修改 HTML/CSS/JS 后刷新浏览器即生效（不命中旧缓存）；
+    同时字体长缓存（30 天）、图片短期缓存（1 天）避免无谓重复下载。
+    - CSS/JS/HTML/JSON：no-cache, must-revalidate（开发时经常改）
+    - 字体（woff2/woff/ttf/eot/otf）：public, max-age=2592000（30 天）
+    - 图片（png/jpg/jpeg/gif/svg/ico/webp）：public, max-age=86400（1 天）
+    """
+
+    def file_response(self, *args, **kwargs) -> Response:
+        """重写 file_response，根据文件类型添加差异化的 Cache-Control 头。"""
+        response = super().file_response(*args, **kwargs)
+        if args:
+            fp = str(args[0])
+            if fp.endswith((".css", ".js", ".html", ".json")):
+                response.headers["Cache-Control"] = "no-cache, must-revalidate"
+                response.headers["Pragma"] = "no-cache"
+            elif fp.endswith((".woff2", ".woff", ".ttf", ".eot", ".otf")):
+                response.headers["Cache-Control"] = "public, max-age=2592000"
+            elif fp.endswith((".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".webp")):
+                response.headers["Cache-Control"] = "public, max-age=86400"
+        return response
 
 
 def _auto_discover_routers() -> list:
@@ -423,24 +449,30 @@ def create_app() -> FastAPI:
     # ── 静态文件托管（单页 HTML） ─────────────────────────────
     static_dir = Path(__file__).parent / "static"
     if static_dir.exists():
-        # 挂载静态文件
-        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+        # 挂载静态文件（差异化缓存：HTML/JS/CSS 不缓存，改文件刷新即变）
+        app.mount("/static", VersionedStaticFiles(directory=str(static_dir)), name="static")
+
+        def _no_cache(resp: Response) -> Response:
+            """HTML/JS/CSS 响应禁用缓存，保证改文件后刷新浏览器即生效。"""
+            resp.headers["Cache-Control"] = "no-cache, must-revalidate"
+            resp.headers["Pragma"] = "no-cache"
+            return resp
 
         # 根路径 → index.html（唯一前端入口）
-        from fastapi.responses import FileResponse
-
         @app.get("/", include_in_schema=False)
         async def index():
-            return FileResponse(str(static_dir / "index.html"))
+            return _no_cache(FileResponse(str(static_dir / "index.html")))
 
         @app.get("/{full_path:path}", include_in_schema=False)
         async def catch_all(full_path: str):
             # 其他静态资源
             file = static_dir / full_path
             if file.exists() and file.is_file():
+                if full_path.endswith((".html", ".js", ".css", ".json")):
+                    return _no_cache(FileResponse(str(file)))
                 return FileResponse(str(file))
             # SPA fallback
-            return FileResponse(str(static_dir / "index.html"))
+            return _no_cache(FileResponse(str(static_dir / "index.html")))
 
     return app
 
