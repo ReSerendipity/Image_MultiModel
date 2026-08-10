@@ -12,8 +12,6 @@ import urllib.parse
 from pathlib import Path
 
 
-
-
 def _normalize_platform_path(decoded: str, platform_name: str) -> str:
     """跨平台统一路径语义（供 resolve 调用，独立函数便于单测）：
     1. 反斜杠统一视为分隔符——Linux 上 "\\" 不是分隔符，但攻击者提交
