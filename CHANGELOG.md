@@ -1,0 +1,97 @@
+# Changelog
+
+All notable changes to Image MultiModel will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [2.0.0] - 2026-08-10
+
+### Added
+
+- **ComfyUI 工作流引擎架构**：Engine / Client / Workflow 三层抽象，支持多后端负载均衡
+  - `comfy/client.py`：HTTP + WebSocket 双通道客户端，自动重连（≤3 次指数退避）
+  - `comfy/engine.py`：ComfyEngine 实现 ImageEngine Protocol（load / unload / infer_txt2img / cancel）
+  - `comfy/workflow.py`：WorkflowManager Patcher 6 步（深拷贝→模式切换→link 重连→widgets patch→batch chunk→节点校验）
+- **内置双工作流**：Flux.2 Klein-9B Distilled（高保真）+ Z Image Turbo（高速低显存）
+  - 每引擎一份 Schema YAML（`comfy/schemas/`），节点 ID 严格对齐 `widgets_values` 下标
+- **VRAM 预检 + 精度推荐系统**：推理前估算显存需求（×1.5 系数），推荐 FP8/FP16 精度与 batch chunk 大小
+- **批量任务队列**：异步单 Worker 串行 + SSE 实时推送 + 任务取消 + 断点恢复
+  - batch>100 时每 100 张自动落盘 checkpoint，崩溃重启自动续跑
+- **预设管理系统**：SQLite 存储，支持 CRUD + 导入导出 + 一键应用回填
+- **历史记录系统**：SQLite（WAL + FTS5 全文检索），支持搜索 / 筛选 / 分页 / 批量删除 / ZIP 导出 / 标签
+- **DCT 频域数字水印**：输出图像自动嵌入 `product_id + task_id + timestamp`，可溯源验证
+  - `scripts/verify_watermark.py` CLI 验证工具
+- **安全加固体系**：
+  - PathGuard 路径防护（规范化校验，防 `../` 路径穿越）
+  - CSRF 中间件（Token 头注入，防御跨站请求伪造）
+  - Rate Limit 限流（推理 / 上传 / 全局三维度）
+  - Integrity Manifest 完整性校验（SHA256 校验关键安全模块）
+  - Basic Auth / API Token 鉴权（可配置开关）
+- **i18n 五种语言**：中文 / 繁体中文 / 英文 / 日文 / 韩文，前端 JS 字典 + localStorage 持久化 + 防闪烁
+- **8 种布局方案 Figma 原型对比**（`prototypes/figma-refactor/layout-compare/`）：
+  - a-creative / b-split / c-collapsible / d-drawer / e-wizard / f-pipeline / g-master-detail / h-minimal
+  - 最终选定 d-drawer（抽屉式）布局：移动端适配好、操作路径短、空间利用率高
+- **GPU 状态监控**：SSE `gpu_status` 事件实时推送显存使用情况
+- **实时预览**：WS `b_preview` → base64 → SSE `comfy_preview` → 前端采样中实时预览
+- **释放显存功能**：`POST /api/engine/free` → ComfyUI `/free` → SSE 刷新
+- **历史清理 cron**：`config.yaml` 配置 cron 表达式 + `keep_days` 保留天数
+- **日志轮转**：RotatingFileHandler，按大小自动轮转保留 N 份
+- **辅助脚本体系**（8 个）：
+  - `benchmark.py`：性能基准（首页 / 历史 / health / SSE 四指标）
+  - `check_wcag.py`：WCAG 无障碍检查
+  - `generate_integrity_manifest.py`：完整性清单生成
+  - `migrate_outputs.py`：输出目录结构迁移（旧平铺 → engine/date）
+  - `pack_portable.ps1`：便携包 7 步打包
+  - `setup_symlinks.ps1`：模型符号链接设置（shared 模式 Junction 维护）
+  - `test_portable_mode.py`：便携模式验证
+  - `verify_watermark.py`：水印 CLI 验证
+- **测试体系**：40+ 个测试文件，287 passed / 0 failed
+  - Hypothesis 属性测试、Factory Boy 测试工厂、PathGuard 攻击测试、SQL 注入测试
+  - Playwright E2E（POM 页面对象模型 + 4 个场景）
+- **Pre-commit 钩子**：ruff + format + trailing-whitespace + check-yaml 等 6 项
+- **CI 工作流**：lint + test（3.12/3.13 矩阵）+ SAST（pip-audit）+ smoke 测试
+- **Docker 支持**：Dockerfile + docker-compose.yml 双配置
+- **WCAG AA 无障碍**：对比度校准（accent #6b5bb8 5.51:1 / primary #7c5fd6 4.70:1）
+- **双模式模型路径**：`shared`（与 ComfyUI 共享）/ `portable`（项目自包含）
+
+### Changed
+
+- 从 v1.x 单体架构重构为 ComfyUI 客户端 / 服务端分离架构
+- 前端从 Jinja2 + HTMX 多页模板改为单页融合版（SPA + REST + SSE）
+- 历史存储从 JSON 文件改为 SQLite（WAL + FTS5）
+- HTTP 客户端从 httpx 改为 aiohttp（与 ComfyUI WebSocket 生态兼容）
+- 主题色从薰衣草紫 #8b7bd8 调整为 #6b5bb8（WCAG AA 对比度达标）
+- 覆盖率门槛设为 75%（fail_under=75）
+
+### Security
+
+- 加入 PathGuard 路径防护，修复路径穿越漏洞（14 类攻击全拒绝）
+- 加入 CSRF 中间件，防御跨站请求伪造
+- 加入 Rate Limit 限流，防止滥用
+- 加入 Integrity Manifest，关键安全模块 SHA256 校验
+- 加入 DCT 频域水印，输出图像可溯源
+- 默认仅绑定 `127.0.0.1`，config.yaml host 字段只读
+
+### Fixed
+
+- `task_queue.py:97` f-string 语法错误（缺左花括号导致应用无法启动）
+- 水印 DCT 嵌入 uint8 回绕问题（MIN_Q 2→8、新增 MAX_Q=16、引擎裁剪 [0,255]）
+- 集成测试 8 个 `UnraisableExceptionWarning` 清零
+- outputs/ 旧平铺 PNG 迁移到 engine/date 目录结构
+- `logging.handlers` 导入缺失导致 RotatingFileHandler 不工作
+- i18n 新增 18 个 `btn_*` 键（5 语），消除界面裸键
+- WCAG AA 对比度不达标色值修复
+
+---
+
+## [1.0.0] - 2026-08-08
+
+### Added
+
+- 项目初始骨架：config.yaml + 2 个工作流 JSON + pretrained_models 目录结构
+- MASTER_PLAN.md 总体规划文档（M0~M10 里程碑分解）
+- PRD.md 产品需求文档
+- 基础测试：test_config + test_workflow（39 例）

@@ -61,6 +61,7 @@ bin/key.pem
 *.txt
 !requirements.txt
 !requirements-lock.txt
+!examples/prompts.txt
 !PRD.md
 !MASTER_PLAN.md
 !WEBAPP_GUIDE.md
