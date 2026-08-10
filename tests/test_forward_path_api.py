@@ -13,15 +13,12 @@ tests/test_forward_path_api.py — 前向路径完整接口测试（真实 Comfy
 
 from __future__ import annotations
 
-import sys
 import time
 import urllib.request
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from bin.integrated_app.app_server import create_app  # noqa: E402
 

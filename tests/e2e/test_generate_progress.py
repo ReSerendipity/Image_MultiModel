@@ -28,7 +28,7 @@ class TestGenerateProgress:
         page.wait_for_selector("#themeToggle")
         # 切换主题
         page.click("#themeToggle")
-        page.wait_for_timeout(300)
+        page.wait_for_selector("html[data-theme]", state="attached")
         # 验证 localStorage 已保存
         saved = page.evaluate("localStorage.getItem('imm_theme')")
         assert saved in ("light", "dark")

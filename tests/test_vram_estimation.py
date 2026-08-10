@@ -4,13 +4,6 @@ test_vram_estimation.py — ×1.5 系数 + FP8 回退 + chunk 推荐
 对应 AUDIT_REPORT_2.0 Y2: test_vram_estimation.py
 """
 
-import sys
-from pathlib import Path
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-BIN_DIR = PROJECT_ROOT / "bin"
-sys.path.insert(0, str(BIN_DIR))
-
 from integrated_app.gpu_utils import (
     GPUInfo,
     estimate_vram_requirement,

@@ -6,15 +6,9 @@ P2-1 改造：构造不同 VRAM 水位场景验证调度器行为
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-BIN_DIR = PROJECT_ROOT / "bin"
-sys.path.insert(0, str(BIN_DIR))
 
 from integrated_app.comfy.vram_scheduler import ComfyVramScheduler
 from integrated_app.config_models import VRamSchedulerConfig

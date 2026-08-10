@@ -12,15 +12,11 @@ tests/test_forward_batch_and_cancel.py — 批量/取消/LoRA 多层 前向路�
 
 from __future__ import annotations
 
-import sys
 import time
 import urllib.request
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from bin.integrated_app.app_server import create_app  # noqa: E402
 

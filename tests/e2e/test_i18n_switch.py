@@ -32,7 +32,7 @@ class TestI18nSwitch:
             sel.value = '{lang}';
             sel.dispatchEvent(new Event('change'));
         """)
-        page.wait_for_timeout(500)
+        page.wait_for_selector(f"html[data-lang='{lang}']", state="attached")
 
         # 验证 data-lang 属性
         assert page.get_attribute("html", "data-lang") == lang

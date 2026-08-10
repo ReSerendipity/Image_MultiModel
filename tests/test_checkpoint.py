@@ -7,13 +7,8 @@ tests/test_checkpoint.py — 断点续跑 save/load/续跑不重复 seed 校验
 from __future__ import annotations
 
 import json
-import sys
 import tempfile
 from pathlib import Path
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-BIN_DIR = PROJECT_ROOT / "bin"
-sys.path.insert(0, str(BIN_DIR))
 
 from integrated_app.checkpoint import TaskCheckpoint
 

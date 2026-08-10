@@ -4,14 +4,11 @@ test_batch_9999_split.py — Mock batch=9999 → chunk=16/4 拆分次数正确
 对应 AUDIT_REPORT_2.0 Y2: test_batch_9999_split.py
 """
 
-import sys
 from pathlib import Path
 
 import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-BIN_DIR = PROJECT_ROOT / "bin"
-sys.path.insert(0, str(BIN_DIR))
 
 from integrated_app.comfy.workflow import WorkflowManager
 from integrated_app.engine_interface import GenerationConfig

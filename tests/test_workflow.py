@@ -4,14 +4,11 @@ test_workflow.py — Workflow Patcher 6 步 + batch 拆分测试
 对应 MASTER_PLAN M1 验收: Mock batch=9999 拆分 + Patcher 快照
 """
 
-import sys
 from pathlib import Path
 
 import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-BIN_DIR = PROJECT_ROOT / "bin"
-sys.path.insert(0, str(BIN_DIR))
 
 from integrated_app.comfy.workflow import WorkflowManager
 from integrated_app.engine_interface import GenerationConfig

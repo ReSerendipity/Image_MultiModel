@@ -6,13 +6,6 @@ tests/test_i18n_backend.py — 后端错误文案 5 语言 100% 非空校验
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-BIN_DIR = PROJECT_ROOT / "bin"
-sys.path.insert(0, str(BIN_DIR))
-
 from integrated_app.comfy.engine import PHASE_KEY_MAP
 from integrated_app.i18n import ERROR_MESSAGES, get_error_message
 

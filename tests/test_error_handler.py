@@ -6,16 +6,9 @@ P1-4 改造：验证三类 handler 的正确性
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-BIN_DIR = PROJECT_ROOT / "bin"
-sys.path.insert(0, str(BIN_DIR))
 
 from integrated_app.exceptions import (
     ComfyUIConnectionError,

@@ -5,15 +5,9 @@ test_task_queue_cancel.py — 取消 → GPU 释放 ≤5s（Mock）
 """
 
 import asyncio
-import sys
 import time
-from pathlib import Path
 
 import pytest
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-BIN_DIR = PROJECT_ROOT / "bin"
-sys.path.insert(0, str(BIN_DIR))
 
 from integrated_app.task_queue import Task, TaskQueue, TaskStatus
 

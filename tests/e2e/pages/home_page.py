@@ -28,7 +28,7 @@ class HomePage(BasePage):
     def toggle_theme(self) -> None:
         """切换主题"""
         self.page.click(self.THEME_TOGGLE)
-        self.page.wait_for_timeout(300)
+        self.page.wait_for_selector("html[data-theme]", state="attached")
 
     def get_theme(self) -> str:
         """获取当前主题"""
@@ -41,7 +41,7 @@ class HomePage(BasePage):
             sel.value = '{lang}';
             sel.dispatchEvent(new Event('change'));
         """)
-        self.page.wait_for_timeout(500)
+        self.page.wait_for_selector(f"html[data-lang='{lang}']", state="attached")
 
     def get_language(self) -> str:
         """获取当前语言"""
@@ -63,7 +63,7 @@ class HomePage(BasePage):
         first_item = self.page.query_selector(f"{self.ENGINE_MENU} .ip-item")
         if first_item:
             first_item.click()
-            self.page.wait_for_timeout(500)
+            self.page.wait_for_selector(f"{self.ENGINE_SELECT}[value]:not([value=''])")
 
     def has_progress_bar(self) -> bool:
         """进度条是否存在"""

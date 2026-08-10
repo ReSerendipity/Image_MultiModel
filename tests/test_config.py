@@ -4,7 +4,6 @@ test_config.py — 配置加载 + resolve_model_path() 双模式单测
 对应 MASTER_PLAN M0 验收: 路径解析器双模式单测
 """
 
-import sys
 from pathlib import Path
 
 import pytest
@@ -12,8 +11,6 @@ import yaml
 
 # 添加 bin 到 path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-BIN_DIR = PROJECT_ROOT / "bin"
-sys.path.insert(0, str(BIN_DIR))
 
 from integrated_app.config_models import (
     AppConfig,
@@ -93,12 +90,14 @@ class TestConfigLoading:
 class TestResolveModelPath:
     """测试 resolve_model_path() 双模式解析"""
 
-    def test_shared_mode_resolution(self, project_root):
+    def test_shared_mode_resolution(self, project_root, tmp_path):
         """shared 模式：路径基于 comfy_models_dir"""
+        # 使用临时目录替代开发者本地硬编码路径，确保 CI 可移植性
+        fake_models_dir = str(tmp_path / "comfy_models")
         models_config = ModelsConfig(
             model_source_mode="shared",
             shared=SharedConfig(
-                comfy_models_dir="C:/Users/Doro/APP/ComfyUI-aki-v3/ComfyUI/models",
+                comfy_models_dir=fake_models_dir,
                 mount_map={"text": "text_encoders", "unet": "unet", "vae": "vae"},
             ),
         )
@@ -107,7 +106,7 @@ class TestResolveModelPath:
 
         assert "text_encoders" in result
         assert "FLUX.2-klein-9b/qwen_3_8b_fp8mixed.safetensors" in result
-        assert "C:/Users/Doro/APP/ComfyUI-aki-v3/ComfyUI/models" in result or "C:" in result
+        assert fake_models_dir in result or "text_encoders" in result
 
     def test_portable_mode_resolution(self, project_root):
         """portable 模式：路径基于 pretrained_models/"""

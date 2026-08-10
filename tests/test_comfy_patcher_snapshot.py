@@ -5,14 +5,11 @@ test_comfy_patcher_snapshot.py — 4 大开关 on/off 组合快照比对
 4 大开关: LoRA / SeedVR2 / Eses / VRAM on/off → patch 后 JSON 快照比对
 """
 
-import sys
 from pathlib import Path
 
 import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-BIN_DIR = PROJECT_ROOT / "bin"
-sys.path.insert(0, str(BIN_DIR))
 
 from integrated_app.comfy.workflow import WorkflowManager
 from integrated_app.engine_interface import GenerationConfig

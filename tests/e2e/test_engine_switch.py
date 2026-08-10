@@ -34,7 +34,7 @@ class TestEngineSwitch:
         first_item = page.query_selector("#engMenu .ip-item")
         if first_item:
             first_item.click()
-            page.wait_for_timeout(500)
+            page.wait_for_selector("#engineSelect[value]:not([value=''])")
             # 验证 engineSelect 有值
             val = page.evaluate("document.getElementById('engineSelect').value")
             assert val, "Engine select should have a value"

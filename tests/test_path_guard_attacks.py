@@ -4,14 +4,11 @@ test_path_guard_attacks.py — 14 类路径攻击全拒绝
 对应 AUDIT_REPORT_2.0 Y2: test_path_guard_attacks.py
 """
 
-import sys
 from pathlib import Path
 
 import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-BIN_DIR = PROJECT_ROOT / "bin"
-sys.path.insert(0, str(BIN_DIR))
 
 from integrated_app.security.path_guard import PathGuard, PathGuardError
 

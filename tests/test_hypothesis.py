@@ -7,17 +7,9 @@ tests/test_hypothesis.py — Hypothesis 属性测试
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 import numpy as np
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-BIN_DIR = PROJECT_ROOT / "bin"
-if str(BIN_DIR) not in sys.path:
-    sys.path.insert(0, str(BIN_DIR))
 
 from integrated_app.gpu_utils import estimate_vram_requirement, recommend_chunk_size
 

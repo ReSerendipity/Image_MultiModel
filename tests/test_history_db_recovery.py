@@ -4,14 +4,7 @@ test_history_db_recovery.py — 崩溃恢复两阶段（cleanup → recover）
 对应 AUDIT_REPORT_2.0 Y2: test_history_db_recovery.py
 """
 
-import sys
-from pathlib import Path
-
 import pytest
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-BIN_DIR = PROJECT_ROOT / "bin"
-sys.path.insert(0, str(BIN_DIR))
 
 from integrated_app.history_db import HistoryDB
 
