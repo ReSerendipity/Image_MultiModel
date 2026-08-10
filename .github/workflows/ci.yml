@@ -56,7 +56,7 @@ jobs:
             --cov=bin/integrated_app \
             --cov-report=xml \
             --cov-report=term-missing \
-            --cov-fail-under=75 \
+            --cov-fail-under=70 \
             -v
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4

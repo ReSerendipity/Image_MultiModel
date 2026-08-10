@@ -98,6 +98,27 @@ class TestPathGuardAttacks:
         with pytest.raises(PathGuardError):
             guard.resolve("CON")
 
+    # 15. 跨平台归一化：反斜杠在任意平台都被视为分隔符
+    def test_normalize_backslash(self):
+        from integrated_app.security.path_guard import _normalize_platform_path
+
+        assert _normalize_platform_path(r"..\..\..\etc\passwd", "nt") == "../../../etc/passwd"
+        assert _normalize_platform_path(r"..\..\..\etc\passwd", "posix") == "../../../etc/passwd"
+
+    # 16. 跨平台归一化：盘符路径在非 Windows 平台挂根（超出白名单后被拒绝）
+    def test_normalize_drive_prefix(self):
+        from integrated_app.security.path_guard import _normalize_platform_path
+
+        assert _normalize_platform_path("C:/Windows/System32/config/SAM", "posix") == "/C:/Windows/System32/config/SAM"
+        assert _normalize_platform_path("C:/Windows/System32/config/SAM", "nt") == "C:/Windows/System32/config/SAM"
+
+    # 17. 盘符路径（含反斜杠变体）在非 Windows 语义下经 resolve 被拒绝
+    def test_drive_letter_path_rejected_via_resolve(self, guard):
+        from integrated_app.security.path_guard import _normalize_platform_path
+
+        normalized = _normalize_platform_path(r"C:\Windows\System32\config\SAM", "posix")
+        with pytest.raises(PathGuardError):
+            guard.resolve(normalized)
     # 正向验证：合法路径通过
     def test_valid_outputs_path(self, guard):
         path = guard.resolve("outputs/test.png")

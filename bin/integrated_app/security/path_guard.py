@@ -12,6 +12,26 @@ import urllib.parse
 from pathlib import Path
 
 
+
+
+def _normalize_platform_path(decoded: str, platform_name: str) -> str:
+    """跨平台统一路径语义（供 resolve 调用，独立函数便于单测）：
+    1. 反斜杠统一视为分隔符——Linux 上 "\\" 不是分隔符，但攻击者提交
+       Windows 风格路径时可能混用，统一归一化后解析；
+    2. Windows 盘符绝对路径（C:\\... / C:/...）——非 Windows 平台上 pathlib
+       不认盘符，会把它当相对路径拼进白名单目录而漏过；挂到根模拟 Windows
+       绝对路径语义，由白名单检查自然拒绝（safe_join 传入的内部绝对路径
+       仍可正常通过白名单检查）。
+    """
+    decoded = decoded.replace("\\", "/")
+    if (
+        len(decoded) >= 2
+        and decoded[0].isalpha()
+        and decoded[1] == ":"
+        and platform_name != "nt"
+    ):
+        decoded = "/" + decoded
+    return decoded
 class PathGuardError(PermissionError):
     """路径穿越安全异常"""
     pass
@@ -64,16 +84,7 @@ class PathGuard:
         # —— 统一在入口拦截，避免平台行为差异）
         if "\x00" in decoded:
             raise PathGuardError(f"Path '{user_path}' contains null byte")
-        # 反斜杠统一视为分隔符（跨平台：Linux 上 "\" 不是分隔符，
-        # 但攻击者提交 Windows 风格路径时可能混用，统一归一化后解析）
-        decoded = decoded.replace("\\", "/")
-
-        # Windows 盘符绝对路径（C:\... / C:/...）：非 Windows 平台上
-        # pathlib 不认盘符，会把它当相对路径拼进白名单目录而漏过；
-        # 这里挂到根模拟 Windows 绝对路径语义，由白名单检查自然拒绝。
-        # （safe_join 传入的内部绝对路径仍可正常通过白名单检查）
-        if len(decoded) >= 2 and decoded[0].isalpha() and decoded[1] == ":" and os.name != "nt":
-            decoded = "/" + decoded
+        decoded = _normalize_platform_path(decoded, os.name)
         p = Path(decoded)
 
         # 如果是相对路径，相对于 base_dir 或 project_root 解析
