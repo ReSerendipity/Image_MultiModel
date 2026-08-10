@@ -58,6 +58,11 @@ class PathGuard:
             decoded = urllib.parse.unquote(user_path)
         else:
             decoded = str(user_path)
+        # 空字节注入：任何平台都直接拒绝（Windows 下 Path.resolve 会抛
+        # OSError 变体，Linux 下抛 ValueError: embedded null character
+        # —— 统一在入口拦截，避免平台行为差异）
+        if "\x00" in decoded:
+            raise PathGuardError(f"Path '{user_path}' contains null byte")
         p = Path(decoded)
 
         # 如果是相对路径，相对于 base_dir 或 project_root 解析
