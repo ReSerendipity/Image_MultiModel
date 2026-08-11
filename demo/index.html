@@ -610,18 +610,22 @@ const PAIRS=[
 ];
 const GALLERY=PAIRS.map(p=>p.img);
 const GALLERY_TYPE={};GALLERY.forEach((g,i)=>{GALLERY_TYPE[g]=(i%3===0?'orig':i%3===1?'sr':'cmp')});
-/* 按提示词关键词匹配固定配对图 */
+/* 按提示词关键词匹配固定配对图（长词优先，避免单字误命中） */
 function pickImage(promptText){
   const t=promptText.toLowerCase();
   const K=[
-    {k:['灰','沙发','项圈'],i:1},
-    {k:['橘猫','橘','午后','暖阳'],i:2},
-    {k:['白','强光','正面','极简'],i:3},
+    {k:['灰猫','灰色','沙发','项圈'],i:1},
+    {k:['橘猫','浅橘猫','午后','暖阳'],i:2},
+    {k:['白猫','白色','强光','极简'],i:3},
     {k:['浅橘','柔和','治愈'],i:4},
     {k:['特写','景深','电影'],i:5}
   ];
   let best=0,bestScore=0;
-  K.forEach(({k,i})=>{const s=k.filter(w=>t.includes(w)).length;if(s>bestScore){bestScore=s;best=i}});
+  K.forEach(({k,i})=>{
+    let s=0;
+    k.forEach(w=>{if(t.includes(w))s+=w.length>1?2:1});
+    if(s>bestScore){bestScore=s;best=i}
+  });
   return best;
 }
 const PROMPTS=[
