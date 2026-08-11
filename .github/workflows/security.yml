@@ -28,6 +28,7 @@ jobs:
   pip-audit:
     name: pip-audit - Python Dependency Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -60,6 +61,7 @@ jobs:
   trivy:
     name: Trivy - Container Image Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -88,6 +90,7 @@ jobs:
   codeql:
     name: CodeQL - Code Security Analysis
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       security-events: write
       actions: read
@@ -113,6 +116,7 @@ jobs:
   secret-scan:
     name: Secret Scanning
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:

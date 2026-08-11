@@ -1,4 +1,5 @@
 [tool.pytest.ini_options]
+addopts = "--strict-markers --tb=short --timeout=180"
 testpaths = ["tests"]
 asyncio_mode = "auto"
 norecursedirs = ["tests/e2e"]
