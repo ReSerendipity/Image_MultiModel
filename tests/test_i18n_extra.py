@@ -3,8 +3,6 @@ tests/test_i18n_extra.py — i18n fallback 链与 backend_errors 补充覆盖
 """
 from __future__ import annotations
 
-import pytest
-
 from integrated_app import i18n
 
 
