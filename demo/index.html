@@ -291,7 +291,7 @@ footer{font-size:11.5px;color:var(--ink-faint);padding:8px 16px 40px;text-align:
   <div class="panel left">
     <div class="panel-title"><span class="bar"></span>提示词</div>
     <div class="prompt-box">
-      <textarea id="prompt" placeholder="描述你想生成的画面…（演示环境：结果来自内置示例库）">一只橘猫戴着宇航员头盔，坐在火星表面，背景是地球，电影级打光，超写实风格</textarea>
+      <textarea id="prompt" placeholder="描述你想生成的画面…（提示词与示例图一一配对）">一只浅色猫咪坐在窗台上，自然光洒落，毛发细节清晰，写实摄影风格</textarea>
       <div class="pb-foot"><span id="promptCount">0 字 · ≈0 token</span><span style="flex:1"></span>
         <button class="icon-btn" id="clearPos" title="清空" style="padding:2px 7px">✕</button>
         <button class="icon-btn" id="copyPos" title="复制" style="padding:2px 7px">⧉</button>
@@ -304,10 +304,10 @@ footer{font-size:11.5px;color:var(--ink-faint);padding:8px 16px 40px;text-align:
     </div>
 
     <div class="chips" id="presetChips">
-      <span class="chip active" data-p="超写实摄影：微距昆虫，露珠，景深虚化，阳光">写实摄影</span>
-      <span class="chip" data-p="日系动漫：少女站在樱花树下，风吹起裙摆，新海诚风格">动漫</span>
-      <span class="chip" data-p="国风水墨画：高山流水，云雾缭绕，留白，宣纸质感">国风</span>
-      <span class="chip" data-p="产品渲染：机械键盘，赛博朋克霓虹光效，3D 渲染">产品图</span>
+      <span class="chip active" data-p="一只浅色猫咪坐在窗台上，自然光洒落，毛发细节清晰，写实摄影风格">窗台猫咪 · 写实</span>
+      <span class="chip" data-p="灰色猫咪慵懒地卧在沙发上，戴着项圈，室内自然光，实拍质感">沙发猫咪 · 实拍</span>
+      <span class="chip" data-p="橘猫坐在窗台边，午后阳光照射，眼神明亮，写实摄影大片">橘猫 · 暖阳</span>
+      <span class="chip" data-p="白色猫咪坐在窗台上，强光下毛发通透，正面视角，极简背景">白猫 · 强光</span>
     </div>
 
     <div class="row">
@@ -392,7 +392,7 @@ footer{font-size:11.5px;color:var(--ink-faint);padding:8px 16px 40px;text-align:
       <button class="btn ghost" id="favBtn">☆ 收藏</button>
       <button class="btn" id="dlBtn">⬇ 下载</button>
     </div>
-    <div class="watermark-note hidden" id="wmNote">🔒 演示说明：真实系统会在输出中嵌入 DCT 频域数字水印（product_id + task_id + timestamp）；本演示不执行该步骤，图片为内置示例。</div>
+    <div class="watermark-note hidden" id="wmNote">🔒 演示说明：真实系统会在输出中嵌入 DCT 频域数字水印（product_id + task_id + timestamp）。本演示为模拟环境：返回的示例图与提示词固定配对（内置 6 组），不执行真实推理。</div>
   </div>
 </div>
 
@@ -600,16 +600,35 @@ footer{font-size:11.5px;color:var(--ink-faint);padding:8px 16px 40px;text-align:
 const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
 let toastTimer;
 function showToast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2300)}
-const GALLERY=[];
-for(let i=1;i<=12;i++)GALLERY.push(`assets/gallery/gen-${String(i).padStart(2,'0')}.jpg`);
+const PAIRS=[
+  {img:'assets/gallery/gen-01.jpg',prompt:'一只浅色猫咪坐在窗台上，自然光洒落，毛发细节清晰，写实摄影风格'},
+  {img:'assets/gallery/gen-03.jpg',prompt:'灰色猫咪慵懒地卧在沙发上，戴着项圈，室内自然光，实拍质感'},
+  {img:'assets/gallery/gen-05.jpg',prompt:'橘猫坐在窗台边，午后阳光照射，眼神明亮，写实摄影大片'},
+  {img:'assets/gallery/gen-08.jpg',prompt:'白色猫咪坐在窗台上，强光下毛发通透，正面视角，极简背景'},
+  {img:'assets/gallery/gen-10.jpg',prompt:'浅橘色猫咪坐在窗台，自然光，柔和色调，治愈系写实照片'},
+  {img:'assets/gallery/gen-02.jpg',prompt:'猫咪特写：浅色猫坐在窗台，景深虚化背景，电影感打光'}
+];
+const GALLERY=PAIRS.map(p=>p.img);
 const GALLERY_TYPE={};GALLERY.forEach((g,i)=>{GALLERY_TYPE[g]=(i%3===0?'orig':i%3===1?'sr':'cmp')});
+/* 按提示词关键词匹配固定配对图 */
+function pickImage(promptText){
+  const t=promptText.toLowerCase();
+  const K=[
+    {k:['灰','沙发','项圈'],i:1},
+    {k:['橘猫','橘','午后','暖阳'],i:2},
+    {k:['白','强光','正面','极简'],i:3},
+    {k:['浅橘','柔和','治愈'],i:4},
+    {k:['特写','景深','电影'],i:5}
+  ];
+  let best=0,bestScore=0;
+  K.forEach(({k,i})=>{const s=k.filter(w=>t.includes(w)).length;if(s>bestScore){bestScore=s;best=i}});
+  return best;
+}
 const PROMPTS=[
-  '一只橘猫戴着宇航员头盔，坐在火星表面，背景是地球，电影级打光，超写实风格',
-  '赛博朋克城市夜景，霓虹灯倒映在雨后的街道，行人撑伞，电影感构图',
-  '玻璃器皿中的微观世界，苔藓与迷你房屋，微距摄影，柔光',
-  '黄昏时分的雪山湖泊，倒影如镜，金色阳光，风光摄影大片',
-  '蒸汽朋克机械蝴蝶，黄铜与齿轮质感，深色背景，细节丰富',
-  '雨后森林里的小路，丁达尔光束穿过树冠，薄雾，梦幻氛围'
+  '一只浅色猫咪坐在窗台上，自然光洒落，毛发细节清晰，写实摄影风格',
+  '灰色猫咪慵懒地卧在沙发上，戴着项圈，室内自然光，实拍质感',
+  '橘猫坐在窗台边，午后阳光照射，眼神明亮，写实摄影大片',
+  '白色猫咪坐在窗台上，强光下毛发通透，正面视角，极简背景'
 ];
 let curGen=0, curPrompt='', lastSeed=42, favs=new Set(), generating=false, genToken=0, pageZoom=100;
 const ENGINES={flux:{label:'Flux.2 Klein-9B Distilled',snap:'Flux.2 · FP8'},zimg:{label:'Z-Image-Turbo',snap:'Z-Image · FP8'}};
@@ -840,10 +859,10 @@ $('#histClear').onclick=()=>{
 
 /* 预设 CRUD */
 let presets=[
-  {name:'写实摄影 · 微距',desc:'微距昆虫特写',engine:'flux',json:'{"cfg":3.5,"steps":28}',fav:true},
-  {name:'日系动漫',desc:'新海诚风格',engine:'flux',json:'{"cfg":4.0,"steps":28}',fav:false},
-  {name:'国风水墨',desc:'宣纸质感',engine:'flux',json:'{"cfg":3.0,"steps":20}',fav:false},
-  {name:'产品渲染',desc:'赛博霓虹',engine:'zimg',json:'{"cfg":3.5,"steps":28}',fav:false},
+  {name:'窗台猫咪 · 自然光',desc:'浅色猫窗台写实',engine:'flux',json:'{"cfg":3.5,"steps":28}',prompt:'一只浅色猫咪坐在窗台上，自然光洒落，毛发细节清晰，写实摄影风格',fav:true},
+  {name:'沙发猫咪 · 实拍',desc:'灰猫卧沙发',engine:'flux',json:'{"cfg":4.0,"steps":28}',prompt:'灰色猫咪慵懒地卧在沙发上，戴着项圈，室内自然光，实拍质感',fav:false},
+  {name:'橘猫 · 午后暖阳',desc:'橘猫窗台阳光',engine:'flux',json:'{"cfg":3.0,"steps":20}',prompt:'橘猫坐在窗台边，午后阳光照射，眼神明亮，写实摄影大片',fav:false},
+  {name:'白猫 · 强光极简',desc:'白猫强光正面',engine:'zimg',json:'{"cfg":3.5,"steps":28}',prompt:'白色猫咪坐在窗台上，强光下毛发通透，正面视角，极简背景',fav:false},
 ];
 let peIdx=-1;
 function renderPresets(){
@@ -862,8 +881,10 @@ window.togglePFav=function(i){presets[i].fav=!presets[i].fav;renderPresets()};
 window.applyPreset=function(i){
   const p=presets[i];
   try{const j=JSON.parse(p.json);if(j.cfg)$('#cfg').value=j.cfg;if(j.steps)$('#stepsN').value=j.steps}catch(e){}
+  if(p.prompt){ta.value=p.prompt;countChars()}
   if(p.engine==='zimg')setEngine('zimg');
-  showToast(`已应用预设「${p.name}」`);
+  updateSnap();
+  showToast('已应用预设「'+p.name+'」（提示词与参数已回填）');
 };
 window.delPreset=function(i){if(confirm('删除该预设？')){presets.splice(i,1);renderPresets();showToast('已删除（模拟）')}};
 window.editPreset=function(i){peIdx=i;openPresetEdit()};
@@ -985,8 +1006,7 @@ $('#genBtn').onclick=()=>{
       clearInterval(timer);
       setTimeout(()=>{
         if(genToken!==myRun)return;
-        curGen=(curGen+1)%GALLERY.length;
-        const img=GALLERY[curGen];
+        const img=PAIRS[pickImage(p)].img;
         $('#resultImg').src=img;
         $('#pendingOverlay').classList.add('hidden');
         $('#progressWrap').classList.add('hidden');
