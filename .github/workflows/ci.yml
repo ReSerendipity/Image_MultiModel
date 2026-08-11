@@ -9,10 +9,14 @@ on:
     # 每日 UTC 02:00（北京时间 10:00）运行全量测试
     - cron: "0 2 * * *"
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Lint & Compile Check
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -31,6 +35,7 @@ jobs:
   test:
     name: Test + Coverage (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     strategy:
       matrix:
         python-version: ["3.12", "3.13"]
@@ -49,6 +54,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
+          pip check
           pip install pytest-cov pytest-asyncio pytest-timeout pytest-xdist hypothesis factory-boy
       - name: Run tests with coverage
         run: |
@@ -67,6 +73,7 @@ jobs:
   sast:
     name: SAST - pip-audit
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -88,6 +95,7 @@ jobs:
   smoke:
     name: Smoke Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
