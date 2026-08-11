@@ -129,7 +129,7 @@ comfy:
   load_balance: prefer_local
 inference:
   default_steps: 10
-  default_cfg: 1
+  default_cfg: 1.0
   default_sampler: dpmpp_3m_sde_gpu
   default_scheduler: sgm_uniform
   default_seed: -1
