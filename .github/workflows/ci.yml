@@ -110,6 +110,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
+          pip check
           pip install pytest-cov pytest-asyncio
       - name: Run smoke tests (core critical path)
         run: |
