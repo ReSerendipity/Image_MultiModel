@@ -305,6 +305,19 @@ python -m pytest tests/e2e -m e2e
 
 ---
 
+
+## 模型许可说明
+
+> 本表为**模型权重**的许可清单（项目代码为 Apache-2.0，见 [LICENSE](LICENSE)）。
+> **接入新模型时：更新本表 + `config.yaml` 中对应引擎的 `license` 字段。**
+
+| 模型 | 引擎 key | 权重许可 | 商用 | 说明 |
+|---|---|---|---|---|
+| FLUX.2 Klein-9B（含第三方衍生权重，如 DarkBeast 量化版） | `flux2_klein_9b_distilled` | FLUX Non-Commercial | ❌ 需向 Black Forest Labs 取得商业授权 | 默认引擎；商用发行物请勿内嵌其权重 |
+| Z-Image Turbo（阿里通义） | `z_image_turbo` | Apache-2.0 | ✅ 可商用 | 建议作为商用默认引擎 |
+| SeedVR2（字节跳动，超分组件） | —（工作流内置） | Apache-2.0 | ✅ 可商用 | 见 NOTICE |
+
+**新增模型检查清单**：① 在 `config.yaml` 填写真实 `license` 字段；② 更新本表；③ 非商用模型（NC/自定义许可）不得作为商用发行物默认引擎、不随商业发行物分发；④ 使用前核对许可最新版本。
 ## 许可证
 
 本项目采用 [Apache License 2.0](LICENSE) 开源协议。

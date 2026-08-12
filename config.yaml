@@ -100,7 +100,7 @@ models:
       default_height: 1024
       image_formats:
       - png
-      license: Qwen Image Community License
+      license: Apache-2.0
       tags:
       - turbo
       - fast

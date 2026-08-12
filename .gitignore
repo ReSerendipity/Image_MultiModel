@@ -81,3 +81,6 @@ docker-compose.override.yml
 
 # Auto-captured screenshots (output of tests/capture-screenshots.js)
 /screenshots/
+
+# 水印签名密钥（仅本机，严禁入库/随包分发）
+.watermark_key

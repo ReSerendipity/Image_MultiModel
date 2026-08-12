@@ -14,10 +14,17 @@ watermark.py — DCT 频域不可感知数字水印（PRD §8.6 / 附录 E）
 
 from __future__ import annotations
 
+import hashlib
+import hmac
+import logging
 import math
+import os
 import time
+from pathlib import Path
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 # ── 水印参数 ─────────────────────────────────────────────
 BLOCK = 8                 # DCT 块大小
@@ -74,6 +81,51 @@ def _payload_string(product_id: str, task_id: str, ts: float) -> str:
     return f"{product_id}|{task_id}|{int(ts)}"
 
 
+# ── 密钥签名（v2）────────────────────────────────────────
+# 载荷格式（签名版）: "<product_id>|<task_id>|<ts>|<hmac-sha256 hex>"
+# 未配置密钥时嵌入未签名载荷（兼容旧版验证）；配置密钥后仅持钥者可伪造通过验证的水印。
+_WATERMARK_KEY_ENV = "IMAGE_MULTIMODEL_WATERMARK_KEY"
+_WATERMARK_KEY_FILE = Path(__file__).resolve().parent.parent.parent / ".watermark_key"
+_SIG_LEN = 64  # sha256 hex 长度
+
+
+def _load_secret_key() -> bytes | None:
+    """加载水印签名密钥（环境变量优先，其次项目根 .watermark_key 文件）。"""
+    env_key = os.environ.get(_WATERMARK_KEY_ENV, "").strip()
+    if env_key:
+        return env_key.encode("utf-8")
+    try:
+        if _WATERMARK_KEY_FILE.exists():
+            key = _WATERMARK_KEY_FILE.read_text(encoding="utf-8").strip()
+            if key:
+                return key.encode("utf-8")
+    except Exception as e:
+        logger.debug(f"读取水印密钥文件失败: {e}")
+    return None
+
+
+def _sign_payload(payload: str, key: bytes) -> str:
+    """对水印载荷附加 HMAC-SHA256 签名。"""
+    digest = hmac.new(key, payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    return f"{payload}|{digest}"
+
+
+def _verify_signed(signed_payload: str, key: bytes) -> str | None:
+    """验证签名载荷，返回原始载荷；签名缺失或无效返回 None。
+
+    提取噪声可能产生非 ASCII 字符，digest 必须为 64 位 hex 才参与比对。
+    """
+    if len(signed_payload) < _SIG_LEN + 1:
+        return None
+    payload, digest = signed_payload[:-_SIG_LEN - 1], signed_payload[-_SIG_LEN:]
+    if not digest.isascii() or any(c not in "0123456789abcdefABCDEF" for c in digest):
+        return None
+    expected = hmac.new(key, payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    if hmac.compare_digest(expected, digest):
+        return payload
+    return None
+
+
 # ── 嵌入 / 提取 ─────────────────────────────────────────
 def embed_watermark(
     image: np.ndarray,
@@ -88,6 +140,14 @@ def embed_watermark(
     """
     ts = timestamp if timestamp is not None else time.time()
     payload = _payload_string(product_id, task_id, ts)
+    key = _load_secret_key()
+    if key is not None:
+        payload = _sign_payload(payload, key)
+    else:
+        logger.warning(
+            "未配置水印签名密钥，将嵌入未签名水印（不可证伪归属）。"
+            "请运行 scripts/init_watermark_key.py 生成密钥"
+        )
     bits = _str_to_bits(payload)
 
     arr = np.asarray(image, dtype=np.float64)
@@ -152,8 +212,20 @@ def extract_watermark(image: np.ndarray, n_bits: int) -> list[int]:
 
 
 def verify(image: np.ndarray, product_id: str, task_id: str, timestamp: float) -> bool:
-    """校验水印是否可正确还原"""
+    """校验水印是否可正确还原。
+
+    - 配置了密钥时（推荐）：严格验证 HMAC 签名，仅持有密钥嵌入的水印通过；
+      旧版未签名水印将验证失败（无法证明真伪）。
+    - 未配置密钥时：回退旧版位级比对（弱验证）。
+    """
     payload = _payload_string(product_id, task_id, timestamp)
+    key = _load_secret_key()
+    if key is not None:
+        signed = _sign_payload(payload, key)
+        bits = _str_to_bits(signed)
+        got = extract_watermark(image, len(bits))
+        extracted = _bits_to_str(got)
+        return _verify_signed(extracted, key) is not None
     bits = _str_to_bits(payload)
     got = extract_watermark(image, len(bits))
     return got == bits
