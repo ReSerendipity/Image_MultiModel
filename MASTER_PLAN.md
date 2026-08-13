@@ -199,6 +199,18 @@ Image_MultiModel/
 ### M3 · 留空
 - 无 img2img/ControlNet 节点，不规划（PRD v1.3 边界规则）；用户提供含对应节点的新工作流后再补
 
+### M7 · 原生进程内引擎 + 双后端模式（已完成，v1.2.0）
+- **目标**：无需外部 ComfyUI 进程即可在应用进程内出图，复用本机 Comfy 源码，不重新实现模型网络。
+- `bin/integrated_app/native/` 包落地：
+  - `source.py`：把 `references/ComfyUI` + aki-v3 自定义节点注入 `sys.path`（幂等）
+  - `executor.py`：复用 `comfy.sd` / `comfy.samplers` 完成 加载→CLIP编码→采样→VAE解码
+  - `engine.py`：`NativeEngine` 实现 `ImageEngine` Protocol，输出经 `PathGuard` 校验落盘 + DCT 水印 + 缩略图
+  - `lora.py` / `seedvr.py` / `compares.py` / `vram.py` / `preview.py`：Phase 3 能力扩展
+- `config.yaml` 新增 `z_image_turbo_native`（`backend: native`）；`routes/engine_routes.py` 按 `backend` 分发 `ComfyEngine` / `NativeEngine`；前端引擎菜单支持「全部 / ComfyUI / 原生」切换。
+- `engine_interface.py` 的 `GenerationConfig` 新增 `lora_stack` 动态字段。
+- 测试：`tests/test_native_*.py`（zimage_poc / lora / seedvr / compares / vram / preview / batch_cancel / security）。
+- **验收**：双后端引擎均满足 `ImageEngine` Protocol；原生引擎出图链路代码走通；`_save_outputs` 路径穿越攻击向量全部被 `PathGuard` 拒绝；版本号三处同步至 v1.2.0。
+
 **总计 ≈ 16 周**（与 PRD 一致）；前端因单页化省去多页模板开发，余量用于 5 语言与 batch=9999 稳定性。
 
 ---

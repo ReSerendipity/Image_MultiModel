@@ -55,7 +55,7 @@ class TestConfigLoading:
 
     def test_app_config_builds(self, app_config):
         """AppConfig 构建成功"""
-        assert app_config.version == "1.0.0"
+        assert app_config.version == "1.2.0"
         assert app_config.server.host == "127.0.0.1"
         assert app_config.server.port == 8288
         assert app_config.models.model_source_mode in ("shared", "portable")

@@ -1,4 +1,4 @@
-version: 1.1.0
+version: 1.2.0
 server:
   host: 127.0.0.1
   port: 8288
@@ -40,6 +40,9 @@ models:
       comfy_backend_preference: local
       workflow_file: workflows/Flux.2_Klein-9B-Distilled.json
       parameter_schema: bin/integrated_app/comfy/schemas/flux2_klein_9b_distilled.yaml
+      comfy_source_dir: ''
+      custom_nodes_dir: ''
+      seedvr2_source_dir: ''
       text_encoder:
         sub_dir: text
         sub_path: FLUX.2-klein-9b/qwen_3_8b_fp8mixed.safetensors
@@ -77,6 +80,9 @@ models:
       comfy_backend_preference: local
       workflow_file: workflows/Z_image_turbo.json
       parameter_schema: bin/integrated_app/comfy/schemas/z_image_turbo.yaml
+      comfy_source_dir: ''
+      custom_nodes_dir: ''
+      seedvr2_source_dir: ''
       text_encoder:
         sub_dir: text
         sub_path: Z_image(turbo)/qwen_3_4b_fp8_mixed.safetensors
@@ -105,6 +111,45 @@ models:
       - turbo
       - fast
       - real-time
+      - low-vram
+    z_image_turbo_native:
+      name: z_image_turbo_native
+      display_name: Z-Image Turbo (原生)
+      display_name_en: Z-Image Turbo (Native)
+      backend: native
+      comfy_backend_preference: local
+      workflow_file: workflows/Z_image_turbo.json
+      parameter_schema: ''
+      comfy_source_dir: references/ComfyUI
+      custom_nodes_dir: ''
+      seedvr2_source_dir: ''
+      text_encoder:
+        sub_dir: text
+        sub_path: Z_image(turbo)/qwen_3_4b_fp8_mixed.safetensors
+      unet:
+        sub_dir: unet
+        sub_path: Z-image_turbo-bf16/z_image_turbo_bf16.safetensors
+      vae:
+        sub_dir: vae
+        sub_path: FLUX.1-dev(Z-image(turbo))/ae.safetensors
+      vram_gb: 10.0
+      ram_gb: 16.0
+      default_precision: bf16
+      fallback_precision: fp8
+      supported_features:
+      - txt2img
+      - lora_stack_6
+      - seedvr2_upscale_2x
+      - eses_compare
+      - reserved_vram
+      default_width: 1024
+      default_height: 1024
+      image_formats:
+      - png
+      license: Apache-2.0
+      tags:
+      - turbo
+      - native
       - low-vram
 comfy:
   backends:

@@ -82,7 +82,11 @@ class ModelPaths(BaseModel):
 
 
 class EngineConfig(BaseModel):
-    """引擎声明——对齐 TTS_MultiModel declarative engines"""
+    """引擎声明——对齐 TTS_MultiModel declarative engines
+
+    backend == "native" 时，原生引擎复用本地 Comfy 源码在进程内执行，
+    通过 comfy_source_dir / custom_nodes_dir 指向复用源码位置。
+    """
     name: str
     display_name: str = ""
     display_name_en: str = ""
@@ -90,6 +94,10 @@ class EngineConfig(BaseModel):
     comfy_backend_preference: str = "local"
     workflow_file: str = ""
     parameter_schema: str = ""
+    # ── native 引擎字段（backend == "native" 时使用）──
+    comfy_source_dir: str = ""      # 复用 Comfy 核心 comfy/ 包所在目录（如 references/ComfyUI）
+    custom_nodes_dir: str = ""      # 复用自定义节点源码所在目录（如 aki-v3/ComfyUI/custom_nodes）
+    seedvr2_source_dir: str = ""    # SeedVR2_VideoUpscaler 自定义节点目录（可选，命中 custom_nodes_dir 全扫）
     text_encoder: ModelPaths | None = None
     unet: ModelPaths | None = None
     vae: ModelPaths | None = None

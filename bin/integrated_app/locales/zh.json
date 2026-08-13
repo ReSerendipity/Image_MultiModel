@@ -63,6 +63,11 @@
   "phase_image_saved": "已保存",
   "phase_completed": "完成",
   "phase_cancelling": "取消中",
+  "backend_mode": "后端模式",
+  "backend_mode_comfyui": "ComfyUI",
+  "backend_mode_native": "原生",
+  "engine_load_native_failed": "原生引擎加载失败",
+  "engine_native_ready": "原生引擎已就绪",
   "backend_errors": {
     "engine_not_found": "引擎不存在: {name}",
     "engine_not_ready": "引擎未就绪，请先加载模型",

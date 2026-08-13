@@ -39,7 +39,7 @@
 | 特性 | 说明 |
 |---|---|
 | **多工作流引擎** | 内置 Flux.2 Klein-9B Distilled、Z Image Turbo 工作流，支持一键扩展 |
-| **ComfyUI 后端** | 基于 ComfyUI 客户端 / 服务端架构，工作流 JSON 直接可导入导出 |
+| **双后端模式** | ComfyUI 后端（默认，需外部 ComfyUI 进程）或原生进程内引擎（`backend: native`，复用本机 Comfy 源码，无需外部 ComfyUI 进程即可出图） |
 | **显存预检** | 推理前自动估算 VRAM 需求，推荐精度（FP8/FP16）与 batch chunk 大小 |
 | **批量任务队列** | 异步任务队列 + SSE 实时推送，支持批量生成、任务取消、断点恢复 |
 | **预设管理** | 可保存常用参数组合为预设，一键加载复用 |
@@ -57,7 +57,7 @@
 | **操作系统** | Windows 10/11（推荐） / Linux |
 | **GPU** | NVIDIA CUDA GPU（推荐 8GB+ VRAM） |
 | **Python** | **两种方式均可**：<br>• **推荐**：系统 Python 3.10+（3.12 最佳），需勾选 "Add Python to PATH"<br>• **备选**：内置 WinPython（`WPy64-312101/`），完全隔离无需系统 Python |
-| **后端引擎** | ComfyUI（本地启动或远程服务均可，由 `config.yaml` 配置） |
+| **后端引擎** | 双模式：ComfyUI 后端（需外部 ComfyUI 进程，默认）或原生进程内引擎（`backend: native`，复用本机 Comfy 源码，无需外部 ComfyUI 进程） |
 
 ---
 
@@ -138,6 +138,30 @@ bin/integrated_app/comfy/schemas/
 
 ---
 
+## 双后端模式
+
+自 v1.2.0 起，平台支持 **两种推理后端**，每个引擎通过 `config.yaml → models.engines.*.backend` 指定：
+
+| 后端 | `backend` 值 | 依赖 | 说明 |
+|---|---|---|---|
+| **ComfyUI 后端**（默认） | `comfyui` | 需要运行中的外部 ComfyUI（本地或远程，`8188` 端口） | 通过 HTTP + WebSocket 客户端提交工作流 JSON，由外部 ComfyUI 进程执行推理 |
+| **原生进程内引擎** | `native` | 复用项目内 `references/ComfyUI` 源码 + aki-v3 自定义节点源码，**无需外部 ComfyUI 进程** | 在应用进程内直接调用 `comfy.sd` / `comfy.samplers` 完成加载→编码→采样→解码出图 |
+
+> ℹ️ **原生引擎不重新实现模型网络**：它复用 `references/ComfyUI/`（内含 `comfy/`、`comfy_extras/`、`comfy_execution/` 等顶层包）与 aki-v3 自定义节点源码，通过 `native/source.ensure_loaded()` 把该目录注入 `sys.path`，在同一进程内完成推理。
+>
+> 原生引擎示例条目（`config.yaml`）：
+> ```yaml
+> z_image_turbo_native:
+>   name: z_image_turbo_native
+>   backend: native
+>   comfy_source_dir: references/ComfyUI
+>   # ... 与 comfyui 引擎相同的 text_encoder / unet / vae 模型路径
+> ```
+
+**前端切换**：引擎菜单顶部可切换 **全部 / ComfyUI / 原生**，按后端过滤引擎列表；选中后加载对应引擎即可生成。
+
+---
+
 ## 项目结构
 
 ```
@@ -153,6 +177,11 @@ Image_MultiModel/
 │       │   ├── client.py        # ComfyUI WebSocket + HTTP 客户端
 │       │   ├── engine.py        # 推理引擎封装
 │       │   └── workflow.py      # 工作流加载 / 参数注入 / 校验
+│       ├── native/              # 原生进程内引擎（backend: native）
+│       │   ├── source.py        # 复用 references/ComfyUI 源码（sys.path 注入）
+│       │   ├── executor.py      # 复用 comfy.sd / comfy.samplers 推理流程
+│       │   ├── engine.py        # NativeEngine（ImageEngine 实现）
+│       │   ├── lora.py / seedvr.py / compares.py / vram.py / preview.py
 │       ├── routes/              # API 路由（生成 / 任务 / 预设 / 系统 / 配置）
 │       ├── middleware/          # CSRF、限流、Request ID 中间件
 │       ├── security/            # PathGuard 路径防护 + integrity 完整性
@@ -189,7 +218,7 @@ Image_MultiModel/
 
 | 层级 | 技术 |
 |---|---|
-| 推理后端 | ComfyUI Engine + WebSocket/HTTP 客户端 |
+| 推理后端 | 双模式：ComfyUI Engine + WebSocket/HTTP 客户端（`comfyui`）或原生进程内引擎（`native`，复用本地 Comfy 源码） |
 | 深度学习 | PyTorch (CUDA)、工作流：Flux.2 Klein-9B、Z Image Turbo |
 | Web 框架 | FastAPI + Uvicorn |
 | 前端 | 单页应用（SPA，静态托管）+ SSE 实时推送 |

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN" data-theme="light" data-lang="zh-CN">
 <head>
 <script>/* B1: 涓婚闃查棯鐑?鈥?鍦?CSS 娓叉煋鍓嶅悓姝ヨ缃富棰橈紙榛樿娴呰壊锛?*/(function(){var t=localStorage.getItem('imm_theme')||'light';var l=localStorage.getItem('imm_lang')||'zh-CN';document.documentElement.setAttribute('data-theme',t);document.documentElement.setAttribute('data-lang',l);})();</script>
@@ -60,6 +60,10 @@ textarea{height:auto}
 .ico-pop{position:absolute;top:calc(100% + 8px);right:0;width:196px;background:var(--surface);border:1px solid var(--wire);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.14);padding:5px;display:none;z-index:96}
 .ico-pop.show{display:block}
 .ip-item{display:block;width:100%;text-align:left;border:none;background:none;padding:7px 10px;font-size:12px;color:var(--ink);border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.eng-mode{display:flex;gap:4px;padding:4px 6px;margin-bottom:4px;border-bottom:1px solid var(--wire)}
+.eng-mode button{flex:1;border:none;background:none;color:var(--ink);font-size:11px;padding:4px 0;border-radius:5px;cursor:pointer;white-space:nowrap}
+.eng-mode button:hover{background:var(--surface-2)}
+.eng-mode button.on{color:var(--accent-strong);font-weight:600;background:var(--surface-2)}
 .ip-item:hover{background:var(--surface-2)}
 .ip-item.on{color:var(--accent-strong);font-weight:600}
 .ip-item.on::before{content:"鉁?";color:var(--accent)}
@@ -1657,12 +1661,39 @@ document.addEventListener('click',function(e){
 });
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&fontPop)fontPop.classList.remove('show');});
 
+function tr(key,fb){var l=document.documentElement.getAttribute('data-lang')||'zh-CN';var d=I18N[l]||I18N['zh-CN'];return d[key]||fb;}
+function applyBackendFilter(){
+  ENGINES={};
+  Object.keys(_ALL_ENGINES).forEach(function(k){
+    var e=_ALL_ENGINES[k];
+    if(_backendMode==='all'||e.backend===_backendMode){ENGINES[k]=e.display_name;}
+  });
+}
+function buildEngModeRow(menu){
+  var modes=[['all','backend_mode','全部'],['comfyui','backend_mode_comfyui','ComfyUI'],['native','backend_mode_native','Native']];
+  var row=document.createElement('div');row.className='eng-mode';
+  modes.forEach(function(m){
+    var b=document.createElement('button');b.type='button';b.dataset.mode=m[0];b.dataset.k=m[1];
+    b.textContent=tr(m[1],m[2]);
+    b.addEventListener('click',function(){_backendMode=b.dataset.mode;applyBackendFilter();initEngines();});
+    if(m[0]===_backendMode)b.className='on';
+    row.appendChild(b);
+  });
+  menu.appendChild(row);
+}
+function renderEngModeLabels(){
+  var fb={'all':'全部','comfyui':'ComfyUI','native':'Native'};
+  document.querySelectorAll('#engMenu .eng-mode button').forEach(function(b){if(b.dataset.k)b.textContent=tr(b.dataset.k,fb[b.dataset.mode]);});
+}
+langSel.addEventListener('change',function(){renderEngModeLabels();});
 function loadConfig(){
   return fetch('/api/config').then(function(r){return r.json();}).then(function(cfg){
     _CFG=cfg;
     var engs=cfg.models&&cfg.models.engines||{};
-    ENGINES={};
-    Object.keys(engs).forEach(function(k){ENGINES[k]=engs[k].display_name||k;});
+    _ALL_ENGINES={};
+    Object.keys(engs).forEach(function(k){_ALL_ENGINES[k]={display_name:engs[k].display_name||k,backend:engs[k].backend||'native'};});
+    applyBackendFilter();
+    initEngines();
     return cfg;
   }).catch(function(e){console.warn('[Init] config load failed:',e);return null;});
 }
@@ -1675,7 +1706,7 @@ function initEngines(){
   if(!keys.length||!sel)return;
   var cur=sel.value;
   sel.innerHTML='';
-  if(menu)menu.innerHTML='';
+  if(menu){menu.innerHTML='';buildEngModeRow(menu);}
   keys.forEach(function(k){
     var label=ENGINES[k];
     var o=document.createElement('option');o.value=k;o.textContent=label;sel.appendChild(o);

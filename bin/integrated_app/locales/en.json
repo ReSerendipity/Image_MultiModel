@@ -63,6 +63,11 @@
   "phase_image_saved": "Image saved",
   "phase_completed": "Completed",
   "phase_cancelling": "Cancelling",
+  "backend_mode": "Backend Mode",
+  "backend_mode_comfyui": "ComfyUI",
+  "backend_mode_native": "Native",
+  "engine_load_native_failed": "Native engine load failed",
+  "engine_native_ready": "Native engine ready",
   "backend_errors": {
     "engine_not_found": "Engine not found: {name}",
     "engine_not_ready": "Engine not ready, please load model first",

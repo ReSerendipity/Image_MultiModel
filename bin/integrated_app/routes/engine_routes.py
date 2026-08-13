@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -19,6 +20,7 @@ from ..config import get_config
 from ..engine_interface import get_registry
 from ..i18n import get_error_message
 from ..model_manager import ModelState, get_model_manager
+from ..native.engine import NativeEngine
 from ..sse import get_sse_bus
 
 logger = logging.getLogger(__name__)
@@ -51,6 +53,7 @@ async def list_engines(request: Request) -> dict[str, Any]:
             "name": eng_name,
             "display_name": eng_cfg.display_name,
             "display_name_en": eng_cfg.display_name_en,
+            "backend": eng_cfg.backend,
             "ready": state == "loaded",
             "state": state,
             "active": eng_name == registry.active_engine_name,
@@ -84,18 +87,34 @@ async def load_engine(req: EngineLoadRequest, request: Request) -> dict[str, Any
 
     # 注册引擎工厂（如果未注册）
     if engine_name not in registry._factories:
-        def factory(**kwargs):
-            return ComfyEngine(
-                name=engine_name,
-                display_name=eng_cfg.display_name,
-                display_name_en=eng_cfg.display_name_en,
-                config={
-                    "workflow_file": eng_cfg.workflow_file,
-                    "parameter_schema": eng_cfg.parameter_schema,
-                    "comfy_backend_preference": eng_cfg.comfy_backend_preference,
-                },
-            )
-        registry.register(engine_name, factory)
+        if eng_cfg.backend == "native":
+            # 原生引擎：comfy_source_dir 拼接为项目根下的绝对路径（相对路径不可靠）
+            comfy_source_dir = str(Path(cfg.project_root) / eng_cfg.comfy_source_dir).replace("\\", "/")
+
+            def native_factory(**kwargs):
+                return NativeEngine(
+                    name=engine_name,
+                    display_name=eng_cfg.display_name,
+                    display_name_en=eng_cfg.display_name_en,
+                    config={
+                        "comfy_source_dir": comfy_source_dir,
+                        "custom_nodes_dir": eng_cfg.custom_nodes_dir,
+                    },
+                )
+            registry.register(engine_name, native_factory)
+        else:
+            def factory(**kwargs):
+                return ComfyEngine(
+                    name=engine_name,
+                    display_name=eng_cfg.display_name,
+                    display_name_en=eng_cfg.display_name_en,
+                    config={
+                        "workflow_file": eng_cfg.workflow_file,
+                        "parameter_schema": eng_cfg.parameter_schema,
+                        "comfy_backend_preference": eng_cfg.comfy_backend_preference,
+                    },
+                )
+            registry.register(engine_name, factory)
 
     # 注册 SSE 观察者（如果未注册）
     if not model_mgr._observers:

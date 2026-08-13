@@ -58,13 +58,21 @@
 │  ├─ client.py         HTTP + WebSocket 双通道客户端（自动重连）  │
 │  ├─ workflow.py       WorkflowManager Patcher 6 步              │
 │  └─ vram_scheduler.py VRAM 调度器（高低水位线 + 动态 batch）     │
+│  Native Engine 抽象层 (native/)   ← 双后端模式的进程内引擎       │
+│  ├─ engine.py         NativeEngine（ImageEngine 实现）           │
+│  ├─ source.py         复用 references/ComfyUI 源码（sys.path）   │
+│  ├─ executor.py       复用 comfy.sd / comfy.samplers 推理        │
+│  └─ lora/seedvr/compares/vram/preview.py                        │
 └──────────────────────────┬──────────────────────────────────────┘
-                           │ WebSocket / HTTP
-┌──────────────────────────▼──────────────────────────────────────┐
-│  ComfyUI Server（本地或远程）                                    │
-│  接收工作流 JSON → 执行节点图 → GPU 推理 → 返回结果图片          │
-│  WS /ws 推送进度事件（progress/executed/executing/b_preview）   │
-└──────────────────────────┬──────────────────────────────────────┘
+                           │      WebSocket / HTTP   │  直接调用（进程内）
+┌──────────────────────────▼──────────────────────┐  │
+│  ComfyUI Server（本地或远程，comfyui 后端）      │  │
+│  接收工作流 JSON → 执行节点图 → GPU 推理 → 返回  │  │
+└─────────────────────────────────────────────────┘  │
+┌──────────────────────────▼──────────────────────┐  │
+│  本地 Comfy 源码（native 后端，进程内 GPU 推理）  │◄─┘
+│  references/ComfyUI + aki-v3 自定义节点源码      │
+└─────────────────────────────────────────────────┘
                            │ CUDA
 ┌──────────────────────────▼──────────────────────────────────────┐
 │  GPU 硬件层                                                      │
@@ -170,6 +178,56 @@ POST /api/generate/batch
 
 ---
 
+## 原生进程内引擎（双后端模式）
+
+自 v1.2.0 起，平台支持双后端：`comfyui`（默认，需外部 ComfyUI 进程）与 `native`（进程内复用本地 Comfy 源码）。`routes/engine_routes.py` 按引擎配置的 `backend` 字段分发到 `ComfyEngine` 或 `NativeEngine`。
+
+### native/ 包模块职责
+
+| 模块 | 职责 |
+|------|------|
+| `native/source.py` | **Comfy 源码装载**：把 `references/ComfyUI`（含 `comfy/`、`comfy_extras/`、`comfy_execution/`、`nodes.py` 等兄弟顶层包）整体注入 `sys.path[0]`，保证 `import comfy` 命中本地复用源码而非外部安装的 ComfyUI 包；`ensure_loaded()` 幂等，仅装载一次 |
+| `native/executor.py` | **推理执行器**：复用 `comfy.sd`（`load_diffusion_model` / `load_clip` / `VAE`）、`comfy.samplers`（`calculate_sigmas` / `sampler_object` / `sample`）完成 加载→CLIP 编码→采样→VAE 解码 全链路；同步阻塞，供 async 层包在 executor 线程 |
+| `native/engine.py` | **NativeEngine**：实现 `ImageEngine` Protocol（`is_ready / load / unload / infer_txt2img / cancel`）；`load()` 解析模型路径 + 调用 `source.ensure_loaded()`，`infer_txt2img()` 在线程池运行 `executor.txt2img`，结果经 `_save_outputs()` 落盘 + DCT 水印 + 缩略图 |
+| `native/lora.py` / `seedvr.py` / `compares.py` / `vram.py` / `preview.py` | 原生引擎的 LoRA / SeedVR2 超分 / 双图对比 / 显存预留 / 实时预览等能力（Phase 3） |
+
+### 如何复用 Comfy 源码（sys.path 注入）
+
+```
+native/source.py
+  ensure_loaded(comfy_root=None)
+    ├─ comfy_root 默认 = <项目根>/references/ComfyUI
+    ├─ 校验 dir/comfy 存在
+    ├─ sys.path.insert(0, comfy_root)          # 命中 comfy/comfy_extras/... 顶层包
+    ├─ [可选] custom_nodes_dir 注入 custom_nodes/
+    └─ import comfy                            # 验证可导入
+```
+
+> ⚠️ `comfy_source_dir` 为相对路径时，需基于项目根拼成**绝对路径**后再装载（见 AGENTS.md Known Gotchas）。
+
+### executor 调用 comfy 关键流程
+
+```
+executor.txt2img(config, model_paths, on_progress, cancel_flag)
+  ├─ source.ensure_loaded(comfy_root)
+  ├─ comfy.sd.load_diffusion_model(unet_path)     # 自动检测 Z-Image/Lumina2 架构
+  ├─ comfy.sd.load_clip([te_path])                # qwen_image 类型自动检测
+  ├─ comfy.sd.VAE(sd=...)                         # 加载 VAE
+  ├─ clip.tokenize + encode_from_tokens_scheduled # CLIP 编码
+  ├─ comfy.samplers.calculate_sigmas(model_sampling, sgm_uniform, steps)
+  ├─ comfy.samplers.sampler_object(dpmpp_3m_sde_gpu)
+  ├─ comfy.samplers.sample(...)                   # 采样 + 进度/取消回调
+  └─ vae.decode(→RGB 张量)                        # VAE 解码出图
+```
+
+### 双模式注册与前端切换
+
+- **注册**：`model_registry.py` 扫描 `config.yaml → models.engines.*`，按 `backend` 字段实例化 `ComfyEngine` 或 `NativeEngine`（`z_image_turbo_native` 即 `backend: native` 示例）。
+- **路由分发**：`routes/engine_routes.py` 的 load/unload/infer 统一走 `ImageEngine` Protocol，对上层透明。
+- **前端切换**：`static/index.html` 引擎菜单顶部提供「全部 / ComfyUI / 原生」过滤，按 `backend` 展示引擎列表。
+
+---
+
 ## 模块职责
 
 | 模块 | 文件 | 职责 | 依赖 |
@@ -181,6 +239,9 @@ POST /api/generate/batch
 | **ComfyUI 引擎** | `comfy/engine.py` | ComfyEngine 实现 (load/unload/infer/cancel) | client, workflow |
 | **工作流管理** | `comfy/workflow.py` | Patcher 6步 + Schema YAML 加载 + 节点校验 | config |
 | **VRAM 调度** | `comfy/vram_scheduler.py` | 高低水位线 + 动态 batch 调整 | gpu_utils |
+| **原生引擎（进程内）** | `native/engine.py` | NativeEngine 实现，进程内复用 Comfy 源码推理 | native/source, native/executor |
+| **Comfy 源码装载** | `native/source.py` | 把 `references/ComfyUI` + aki-v3 自定义节点注入 sys.path | — |
+| **原生执行器** | `native/executor.py` | 复用 comfy.sd / comfy.samplers 完成出图链路 | source, torch |
 | **任务队列** | `task_queue.py` | 异步单Worker串行 + 取消回调 + 超时 + 恢复 | engine_interface |
 | **历史数据库** | `history_db.py` | SQLite WAL+FTS5 + tasks/outputs/presets + 崩溃恢复 | config |
 | **模型管理** | `model_manager.py` / `model_registry.py` | 引擎生命周期 + 观察者模式 → SSE | engine_interface |

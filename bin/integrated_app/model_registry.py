@@ -50,6 +50,7 @@ class ModelRegistry:
                 "name": engine_name,
                 "display_name": engine_cfg.display_name,
                 "display_name_en": engine_cfg.display_name_en,
+                "backend": getattr(engine_cfg, "backend", "comfyui"),
                 "config": engine_cfg.model_dump(),
             }
 

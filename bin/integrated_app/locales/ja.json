@@ -63,6 +63,11 @@
   "phase_image_saved": "保存済み",
   "phase_completed": "完了",
   "phase_cancelling": "キャンセル中",
+  "backend_mode": "バックエンドモード",
+  "backend_mode_comfyui": "ComfyUI",
+  "backend_mode_native": "ネイティブ",
+  "engine_load_native_failed": "ネイティブエンジンの読み込みに失敗しました",
+  "engine_native_ready": "ネイティブエンジン準備完了",
   "backend_errors": {
     "engine_not_found": "エンジンが見つかりません: {name}",
     "engine_not_ready": "エンジンの準備ができていません。モデルを先にロードしてください",

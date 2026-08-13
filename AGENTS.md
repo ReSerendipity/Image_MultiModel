@@ -1,8 +1,8 @@
 # Image MultiModel AGENTS.md — AI 辅助开发指南
 
-> 🧬 **自进化协议版本**：v1.1  
+> 🧬 **自进化协议版本**：v1.2  
 > 📅 **最后更新日期**：2026-08-13  
-> 🎯 **对应项目版本**：v1.1.0（Apache-2.0 开源协议）
+> 🎯 **对应项目版本**：v1.2.0（Apache-2.0 开源协议）
 
 ---
 
@@ -18,8 +18,8 @@ AI Agent 打开本文件后的 **第一件事** 是执行下面的「🧪 自进
 5. **🏷️ 版本递增（Version Increment）**：每次更新本文件内容后，**必须** 做三件事：① 文件顶部「自进化协议版本号」+0.1（小改）或 +1.0（大改/框架调整）；② 更新「最后更新日期」；③ 在文件末尾「📋 自进化修订记录表」追加一行记录。
 
 ### 🧪 自进化自检清单（每次启动工作前必跑）
-- [ ] 目录结构（`bin/integrated_app/`、`routes/`、`comfy/`、`middleware/`、`security/`、`tests/`）是否和第 3 节模块边界描述一致？
-- [ ] 2 个工作流引擎（flux2_klein_9b_distilled / z_image_turbo）的配置是否和 `config.yaml → models.engines` 实际条目一致？
+- [ ] 目录结构（`bin/integrated_app/`、`routes/`、`comfy/`、`native/`、`middleware/`、`security/`、`tests/`）是否和第 3 节模块边界描述一致？
+- [ ] 2 个工作流引擎（flux2_klein_9b_distilled / z_image_turbo）及原生引擎（z_image_turbo_native，`backend: native`）的配置是否和 `config.yaml → models.engines` 实际条目一致？
 - [ ] 上次工作是否踩了新坑？如果是，是否已追加到第 14 节 Known Gotchas？
 - [ ] 是否新增了路由文件？如果是，是否已确保文件内定义了 `router = APIRouter(...)` 变量（app_server.py 使用 `pkgutil.iter_modules` 自动发现，无需手动注册）？
 - [ ] 新增的翻译 key 是否已完成 5 种语言 JSON 同步（见第 8 节 i18n 规范）？
@@ -115,6 +115,11 @@ Image_MultiModel/
 │   │   │   ├── workflow.py      ← WorkflowManager Patcher 6 步（深拷贝→模式→link→widgets→batch→校验）
 │   │   │   ├── vram_scheduler.py ← 推理前 VRAM 预检 + batch chunk 自动切分
 │   │   │   └── schemas/         ← 每引擎一份 YAML，节点 ID 严格对齐 widgets_values 下标
+│   │   ├── native/              ← 原生进程内引擎（backend: native，🚫 复用 comfy 源码需先 ensure_loaded）
+│   │   │   ├── source.py        ← 把 references/ComfyUI + aki-v3 自定义节点注入 sys.path（幂等）
+│   │   │   ├── executor.py      ← 复用 comfy.sd / comfy.samplers 推理（加载→编码→采样→解码）
+│   │   │   ├── engine.py        ← NativeEngine（ImageEngine 实现，输出落盘过 PathGuard）
+│   │   │   ├── lora.py / seedvr.py / compares.py / vram.py / preview.py ← Phase 3 能力
 │   │   ├── routes/              ← API 路由层（🚫 禁止写推理逻辑 / 业务逻辑）
 │   │   │   ├── __init__.py      ← 手动 include_router 注册（⚠️ 新路由必须在这里加一行）
 │   │   │   ├── config_routes.py ← /api/config/*（引擎列表 / 模型扫描 / 预设 CRUD）
@@ -444,6 +449,7 @@ pre-commit run -a
 | M4 | 批量 + 历史 | `routes/task_routes.py` / `history_db.py` / `routes/output_routes.py` / `routes/preset_routes.py` |
 | M5 | UI/UX | `static/index.html` / `locales/*.json` |
 | M6 | 性能 + 安全 | `security/` / `scripts/benchmark.py` / `middleware/` / `Dockerfile` |
+| M7 | 原生引擎 + 双后端 | `native/`（source / executor / engine / lora / seedvr / compares / vram / preview）/ `config.yaml`（backend: native）|
 
 ---
 
@@ -630,6 +636,8 @@ pre-commit run -a
 | 12 | **新路由文件必须在 routes/__init__.py 手动注册** | 新增 `routes/report_routes.py` 写了一堆路由，启动后 Swagger 里没有，curl 全 404 | ~~Image_MultiModel 的 routes/__init__.py 是 **手动维护** 的列表~~ **已修正**：app_server.py 的 `_auto_discover_routers()` 使用 `pkgutil.iter_modules` 自动发现 routes/ 下所有模块。新建 `xxx_routes.py` 后只需：① 文件内定义 `router = APIRouter(...)`（变量名必须叫 router）② 自动注册，无需修改 `routes/__init__.py` | 2026-08-02 |
 | 13 | **CLIP 模型不能在模块 import 时加载** | 在 `content_filter.py` 中全局实例化 `content_filter = ContentSafetyFilter()` 时在 `__init__` 中调用 `clip.load()` | import 模块时卡住 5-10 秒下载 CLIP 模型，且如果 clip 包未安装则 import 直接报错导致整个应用无法启动 | CLIP 模型必须 **懒加载**：`__init__` 只设标志位 `_loaded = False`，首次调用 `check_image()` 时才 `_ensure_loaded()` 加载。如果 clip 包未安装，返回降级结果（`is_safe=True` + `details.degraded=True`），不阻止应用启动 | 2026-08-13 |
 | 14 | **MiDaS / OpenPose 模型需联网下载，不能在 import 时加载** | `preprocessors/midas.py` 和 `openpose.py` 在模块级别实例化模型 | 离线环境（`HF_HUB_OFFLINE=1`）下 `torch.hub.load()` 报错，导致 import 失败 | 所有重型模型预处理器必须懒加载：`_ensure_loaded()` 方法首次调用时才下载/加载模型，失败时设置 `_load_error` 并返回 False。`is_available()` 只检查依赖包是否可导入，不检查模型是否已下载 | 2026-08-13 |
+| 15 | **复用 comfy 源码必须先 source.ensure_loaded() 注入 sys.path** | 原生引擎（`backend: native`）在 `native/executor.py` / `native/engine.py` 里 `import comfy.sd` / `comfy.samplers` | `ModuleNotFoundError: No module named 'comfy'` 或命中了外部安装的 ComfyUI 包（版本不符导致 API 对不上） | 任何 `import comfy.*` 之前先调 `source.ensure_loaded(comfy_root=...)`（幂等，把 `references/ComfyUI` 注入 `sys.path[0]`），保证命中本地复用源码而非外部包 | 2026-08-13 |
+| 16 | **comfy_source_dir 相对路径需拼项目根绝对路径** | `config.yaml → models.engines.*.comfy_source_dir` 写相对路径（如 `references/ComfyUI`），`native/engine.load()` 直接把它当绝对路径传给 `source.ensure_loaded()` | `RuntimeError: Comfy source dir invalid ... (missing 'comfy/' package)`，因为相对路径基于进程 cwd 解析成了错误位置 | 解析 `comfy_source_dir` 时若为相对路径，先 `Path(project_root) / comfy_source_dir` 拼成绝对路径再装载；`source._default_comfy_root()` 已内置 `{项目根}/references/ComfyUI` 兜底 | 2026-08-13 |
 
 ---
 
@@ -640,5 +648,7 @@ pre-commit run -a
 | v1.0 | 2026-08-10 | 初始建立自进化协议（项目健康度评估报告建议补齐） | 从 Image_MultiModel 项目健康度评估报告建议补齐：建立自进化协议（5 条铁律 + 7 项自检清单）+ 完整目录树 + 5 条硬约束 + 启动命令章节（一键脚本 + 手动 + 3 步验证）+ i18n 多语言规范章节（JSON 5 语言 6 步流程 + test_i18n_coverage.py 校验）+ 版本号同步清单（3 个文件 3 处：config.yaml / __init__.py / CHANGELOG.md）+ CI 3 个 Workflow 说明 + 安全注意事项 6 条（PathGuard / CSRF / RateLimit / Integrity / Watermark / 网络）+ 集中化 12 条 Known Gotchas 表格 + 3 条 SOP（新增引擎 / 新增路由 / Bug 修复后追坑追修订） | v2.0.0 |
 
 | v1.1 | 2026-08-13 | 实施全功能实施指南 P0 三项任务（CLIP 安全检测 / 提示词扩展 / ControlNet 预处理器） | 新增模块：`security/content_filter.py` / `prompt_expander.py` / `preprocessors/`（canny + midas + openpose）；新增路由：`safety_routes.py` / `prompt_routes.py` / `preprocess_routes.py`；修正 Gotcha #12（routes 自动发现，非手动注册）；新增 Gotcha #13（CLIP 懒加载）+ #14（MiDaS/OpenPose 懒加载）；新增 SOP-4（新增安全/预处理器模块）；i18n 新增 9 个 key 5 语同步；版本号 1.0.0 → 1.1.0 三处同步 | v1.1.0 |
+
+| v1.2 | 2026-08-13 | 原生进程内引擎（M7）+ 双后端模式改造 | 新增模块边界：`native/` 包（source / executor / engine / lora / seedvr / compares / vram / preview）；更新自检清单与第 3 节目录树；里程碑对应表追加 M7；新增 Gotcha #15（复用 comfy 源码需 ensure_loaded 注入 sys.path）+ #16（comfy_source_dir 相对路径需拼项目根绝对路径）；新增安全测试 `tests/test_native_security.py`；版本号 1.1.0 → 1.2.0 三处同步 | v1.2.0 |
 
 <!-- 🔄 下次更新 AGENTS.md 时，在上面表格末尾追加新一行，不要删除历史记录 -->

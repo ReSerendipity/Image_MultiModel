@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
@@ -52,6 +52,9 @@ class GenerationConfig:
     lora_6_name: str = ""
     lora_6_strength: float = 0.2
 
+    # ── 动态 LoRA 栈（不局限于 6 层；优先使用，空则回退旧 6 层字段）──
+    lora_stack: list[dict] = field(default_factory=list)  # [{name, strength}, ...]
+
     # ── SeedVR2 超分（id=61/62/63） ──
     seedvr2_enable: bool = True
     seedvr2_resolution: int = 2048
@@ -85,6 +88,21 @@ class GenerationConfig:
         """从字典恢复"""
         known = {f.name for f in cls.__dataclass_fields__.values()}  # type: ignore
         return cls(**{k: v for k, v in d.items() if k in known})
+
+    def effective_lora_stack(self) -> list[dict]:
+        """返回实际生效的 LoRA 栈。
+
+        优先使用动态 ``lora_stack``；为空时回退到旧 6 层字段
+        （``lora_N_name`` + ``lora_N_strength``），供前端自定义数量与旧数据兼容。
+        """
+        if self.lora_stack:
+            return [dict(x) for x in self.lora_stack if x.get("name")]
+        stack: list[dict] = []
+        for i in range(1, 7):
+            name = getattr(self, f"lora_{i}_name", "") or ""
+            if name:
+                stack.append({"name": name, "strength": getattr(self, f"lora_{i}_strength", 1.0)})
+        return stack
 
 
 # ── ImageEngine Protocol ─────────────────────────────────────
