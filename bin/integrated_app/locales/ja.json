@@ -92,6 +92,14 @@
     "config_invalid": "無効な設定: {detail}",
     "preset_not_found": "プリセットが見つかりません",
     "preset_name_exists": "プリセット名が既に存在します",
+    "content_blocked": "コンテンツがブロックされました: {reason}",
+    "prompt_expand_success": "プロンプト拡張成功",
+    "prompt_suggest_success": "提案を生成しました",
+    "preprocess_canny_success": "Cannyエッジ検出完了",
+    "preprocess_depth_success": "深度推定完了",
+    "preprocess_pose_success": "姿勢検出完了",
+    "preprocess_failed": "前処理失敗: {detail}",
+    "preprocess_not_available": "プリプロセッサが利用できません: {name}",
     "unknown_error": "不明なエラー: {detail}"
   }
 }

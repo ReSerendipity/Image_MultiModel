@@ -92,6 +92,14 @@
     "config_invalid": "Invalid config: {detail}",
     "preset_not_found": "Preset not found",
     "preset_name_exists": "Preset name already exists",
+    "content_blocked": "Content blocked: {reason}",
+    "prompt_expand_success": "Prompt expanded successfully",
+    "prompt_suggest_success": "Suggestions generated",
+    "preprocess_canny_success": "Canny edge detection completed",
+    "preprocess_depth_success": "Depth estimation completed",
+    "preprocess_pose_success": "Pose detection completed",
+    "preprocess_failed": "Preprocessing failed: {detail}",
+    "preprocess_not_available": "Preprocessor not available: {name}",
     "unknown_error": "Unknown error: {detail}"
   }
 }

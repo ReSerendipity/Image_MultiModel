@@ -1,8 +1,8 @@
 # Image MultiModel AGENTS.md — AI 辅助开发指南
 
-> 🧬 **自进化协议版本**：v1.0  
-> 📅 **最后更新日期**：2026-08-10  
-> 🎯 **对应项目版本**：v2.0.0（Apache-2.0 开源协议）
+> 🧬 **自进化协议版本**：v1.1  
+> 📅 **最后更新日期**：2026-08-13  
+> 🎯 **对应项目版本**：v1.1.0（Apache-2.0 开源协议）
 
 ---
 
@@ -21,7 +21,7 @@ AI Agent 打开本文件后的 **第一件事** 是执行下面的「🧪 自进
 - [ ] 目录结构（`bin/integrated_app/`、`routes/`、`comfy/`、`middleware/`、`security/`、`tests/`）是否和第 3 节模块边界描述一致？
 - [ ] 2 个工作流引擎（flux2_klein_9b_distilled / z_image_turbo）的配置是否和 `config.yaml → models.engines` 实际条目一致？
 - [ ] 上次工作是否踩了新坑？如果是，是否已追加到第 14 节 Known Gotchas？
-- [ ] 是否新增了路由文件？如果是，是否已在 `bin/integrated_app/routes/__init__.py` 中手动注册？
+- [ ] 是否新增了路由文件？如果是，是否已确保文件内定义了 `router = APIRouter(...)` 变量（app_server.py 使用 `pkgutil.iter_modules` 自动发现，无需手动注册）？
 - [ ] 新增的翻译 key 是否已完成 5 种语言 JSON 同步（见第 8 节 i18n 规范）？
 - [ ] 上次更新是否正确递增了自进化协议版本号 + 追加了修订记录表？
 - [ ] 版本号是否已同步：`config.yaml` / `bin/integrated_app/__init__.py` / `CHANGELOG.md` 三处一致？
@@ -528,12 +528,11 @@ pre-commit run -a
            raise HTTPException(404, _("preset_not_found"))  # 错误文案走 i18n
        return new_preset
    ```
-3. **如果是新路由文件（新建了 xxx_routes.py）** → **必须** 手动在 `routes/__init__.py` 里加一行：
+3. **如果是新路由文件（新建了 xxx_routes.py）** → **无需手动注册**（app_server.py 使用 `pkgutil.iter_modules` 自动发现 routes/ 下所有模块）：
    ```python
-   from .xxx_routes import router as xxx_router
-   # 然后在下面 routers 列表里加：
-   routers = [config_router, engine_router, generate_router, output_router, preset_router, system_router, task_router, xxx_router]
-   # ⚠️ Image_MultiModel 的 routes/__init__.py 是手动 include 的，没有 auto_register！忘记加这一行 = 404
+   # 只需在文件内定义 router 变量即可自动注册
+   router = APIRouter(prefix="/api/xxx", tags=["xxx"])
+   # ⚠️ 变量名必须叫 router，否则 _auto_discover_routers() 不会发现它
    ```
 4. **补 Pydantic 模型**：如果是新请求/响应体，在 `config_models.py` 里加 `PresetForkRequest` / `PresetInfo`（如果已存在就跳过）
 5. **补测试**：`tests/test_api_contract.py` 追加 `POST /api/preset/fork` 的响应契约，`tests/test_preset_routes.py` 追加成功 / 失败场景
@@ -543,7 +542,6 @@ pre-commit run -a
 
 **关联文件**：
 - `bin/integrated_app/routes/preset_routes.py`（或新文件）
-- `bin/integrated_app/routes/__init__.py`（新增路由文件时必改）
 - `bin/integrated_app/config_models.py`
 - `tests/test_api_contract.py`
 - `tests/test_preset_routes.py`
@@ -569,6 +567,43 @@ pre-commit run -a
      | v1.1 | 2026-08-10 | 修复 ComfyClient WS 重连 Bug | 追加 Known Gotcha #12（WS 重连映射丢失）+ 修正 routes/__init__.py 手动注册说明 | v2.0.1 |
 5. 现在再 commit：commit message 里带 `fix(xxx)` 且说明踩了哪个坑（方便以后回溯）
 
+#### SOP-4: 新增安全检测 / 预处理器模块（如 CLIP 检测、ControlNet 预处理）
+**适用条件**：需要新增依赖外部模型的检测/预处理功能（如 CLIP 内容过滤、MiDaS 深度估计、OpenPose 姿态检测）
+
+**步骤**：
+1. **创建模块文件**：
+   - 安全检测 → `security/xxx.py`（如 `content_filter.py`）
+   - 预处理器 → `preprocessors/xxx.py`（如 `canny.py`）
+2. **懒加载设计**（铁律）：
+   - `__init__` 只设 `_loaded = False`，不加载模型
+   - `_ensure_loaded()` 方法首次调用时才加载
+   - `is_available()` 只检查依赖包是否可导入，不检查模型是否下载
+   - 依赖未安装时优雅降级（返回安全默认值，不崩溃）
+3. **创建路由文件** `routes/xxx_routes.py`：
+   - 文件内定义 `router = APIRouter(prefix="/api/xxx", tags=["xxx"])`
+   - app_server.py 的 `_auto_discover_routers()` 会自动发现
+4. **补 i18n**：5 个 `locales/*.json` 同步加 `backend_errors` 新 key
+5. **补依赖**：`requirements.txt` 追加新依赖包
+6. **补测试**：`tests/test_xxx.py` 覆盖：
+   - 正常场景（安全提示词通过 / Canny 边缘检测出边缘）
+   - 异常场景（违规拦截 / 空图片 ValueError）
+   - 降级场景（CLIP 未安装时 check_image 降级放行）
+   - 协议测试（PreprocessorProtocol isinstance 验证）
+7. **集成到现有流程**（如果需要）：
+   - 生成路由集成 → 在 `routes/generate_routes.py` 中 import 并调用
+   - 不要在路由层写推理逻辑，只调 filter / preprocessor
+8. **版本号同步**：`config.yaml` / `__init__.py` / `CHANGELOG.md` 三处版本 +0.1
+
+**验证**：启动服务 → Swagger `/docs` 出现新路由 → curl 测试成功/失败场景 → 单元测试通过
+
+**关联文件**：
+- `bin/integrated_app/security/content_filter.py`（或 `preprocessors/xxx.py`）
+- `bin/integrated_app/routes/xxx_routes.py`
+- `tests/test_xxx.py`
+- `bin/integrated_app/locales/*.json`
+- `requirements.txt`
+- `config.yaml` / `bin/integrated_app/__init__.py` / `CHANGELOG.md`
+
 ---
 
 ## 14. 常见陷阱（Known Gotchas）— 血泪教训汇总
@@ -592,7 +627,9 @@ pre-commit run -a
 | 9 | **Uvicorn workers 只能 1，多 worker 必 OOM** | 为了提升并发，`uvicorn ... --workers 4` 或 Gunicorn 多 worker | 每个 worker 都独立初始化 ModelRegistry + 各加载一次 Flux.2 引擎到 GPU，VRAM 占用 ×4 → 直接 OOM 崩溃 | workers 永远 = 1，并发通过 `TaskQueue` 队列串行化。真要水平扩展 → 多实例 + 前面 Nginx 负载均衡（每台机器 GPU 1 份模型） | 2026-07-18 |
 | 10 | **batch>9999 时自动切 100 子任务落盘 checkpoint** | 一开始没做 batch chunk，用户传 `batch=9999` 想生成数据集 | ComfyUI 一次性接 9999 张 → 内存爆 / OOM / 中途崩溃前面全白跑（1 小时白等） | `task_queue.py` 收到 batch>100 时按 `chunk_size=100` 自动切 N 个子任务，每个子任务完成后 `checkpoint = {"task_id": xxx, "completed_chunks": [0..N-1], "outputs": [...]}` 原子写入 `data/cache/{task_id}.checkpoint.json`；崩溃重启后 `POST /api/task/{id}/resume` 读 checkpoint 跳过已完成 chunk | 2026-07-22 |
 | 11 | **DCT 水印 uint8 回绕** | `watermark.py` 嵌入时 `dct_coeffs += delta_watermark`，没做 clip | 取反的 delta 把 uint8 搞成 255+ → 回绕到 0 → 水印提取时 hash 对不上 → `verify_watermark.py` 说图像是伪造的 | 嵌入前 `dct_coeffs_float = dct_coeffs.astype(np.float32)` → 加减完 `np.clip(dct_coeffs_float, 0, 255).astype(np.uint8)` → 再做 IDCT；加单测 `test_watermark_embed_extract_roundtrip` 用各种 seed + prompt 跑 100 张，提取准确率必须 100% | 2026-07-28 |
-| 12 | **新路由文件必须在 routes/__init__.py 手动注册** | 新增 `routes/report_routes.py` 写了一堆路由，启动后 Swagger 里没有，curl 全 404 | Image_MultiModel 的 routes/__init__.py 是 **手动维护** 的列表（没有 auto_register），不像 TTS_MultiModel 有 auto_register 扫描。新建 `xxx_routes.py` 后必须：① 文件顶部 `router = APIRouter(...)`（变量名必须叫 router）② 在 `routes/__init__.py` 的 `routers = [...]` 列表里手动加一项 | 2026-08-02 |
+| 12 | **新路由文件必须在 routes/__init__.py 手动注册** | 新增 `routes/report_routes.py` 写了一堆路由，启动后 Swagger 里没有，curl 全 404 | ~~Image_MultiModel 的 routes/__init__.py 是 **手动维护** 的列表~~ **已修正**：app_server.py 的 `_auto_discover_routers()` 使用 `pkgutil.iter_modules` 自动发现 routes/ 下所有模块。新建 `xxx_routes.py` 后只需：① 文件内定义 `router = APIRouter(...)`（变量名必须叫 router）② 自动注册，无需修改 `routes/__init__.py` | 2026-08-02 |
+| 13 | **CLIP 模型不能在模块 import 时加载** | 在 `content_filter.py` 中全局实例化 `content_filter = ContentSafetyFilter()` 时在 `__init__` 中调用 `clip.load()` | import 模块时卡住 5-10 秒下载 CLIP 模型，且如果 clip 包未安装则 import 直接报错导致整个应用无法启动 | CLIP 模型必须 **懒加载**：`__init__` 只设标志位 `_loaded = False`，首次调用 `check_image()` 时才 `_ensure_loaded()` 加载。如果 clip 包未安装，返回降级结果（`is_safe=True` + `details.degraded=True`），不阻止应用启动 | 2026-08-13 |
+| 14 | **MiDaS / OpenPose 模型需联网下载，不能在 import 时加载** | `preprocessors/midas.py` 和 `openpose.py` 在模块级别实例化模型 | 离线环境（`HF_HUB_OFFLINE=1`）下 `torch.hub.load()` 报错，导致 import 失败 | 所有重型模型预处理器必须懒加载：`_ensure_loaded()` 方法首次调用时才下载/加载模型，失败时设置 `_load_error` 并返回 False。`is_available()` 只检查依赖包是否可导入，不检查模型是否已下载 | 2026-08-13 |
 
 ---
 
@@ -601,5 +638,7 @@ pre-commit run -a
 | 自进化版本 | 日期 | 触发原因 | 更新内容摘要 | 对应项目版本 |
 |:---------:|------|---------|------------|:------------:|
 | v1.0 | 2026-08-10 | 初始建立自进化协议（项目健康度评估报告建议补齐） | 从 Image_MultiModel 项目健康度评估报告建议补齐：建立自进化协议（5 条铁律 + 7 项自检清单）+ 完整目录树 + 5 条硬约束 + 启动命令章节（一键脚本 + 手动 + 3 步验证）+ i18n 多语言规范章节（JSON 5 语言 6 步流程 + test_i18n_coverage.py 校验）+ 版本号同步清单（3 个文件 3 处：config.yaml / __init__.py / CHANGELOG.md）+ CI 3 个 Workflow 说明 + 安全注意事项 6 条（PathGuard / CSRF / RateLimit / Integrity / Watermark / 网络）+ 集中化 12 条 Known Gotchas 表格 + 3 条 SOP（新增引擎 / 新增路由 / Bug 修复后追坑追修订） | v2.0.0 |
+
+| v1.1 | 2026-08-13 | 实施全功能实施指南 P0 三项任务（CLIP 安全检测 / 提示词扩展 / ControlNet 预处理器） | 新增模块：`security/content_filter.py` / `prompt_expander.py` / `preprocessors/`（canny + midas + openpose）；新增路由：`safety_routes.py` / `prompt_routes.py` / `preprocess_routes.py`；修正 Gotcha #12（routes 自动发现，非手动注册）；新增 Gotcha #13（CLIP 懒加载）+ #14（MiDaS/OpenPose 懒加载）；新增 SOP-4（新增安全/预处理器模块）；i18n 新增 9 个 key 5 语同步；版本号 1.0.0 → 1.1.0 三处同步 | v1.1.0 |
 
 <!-- 🔄 下次更新 AGENTS.md 时，在上面表格末尾追加新一行，不要删除历史记录 -->

@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.0] - 2026-08-13
+
+### Added
+
+- **CLIP 安全内容检测**（全功能实施指南 P0 任务1）：
+  - `security/content_filter.py`：基于 CLIP 的图片安全检测 + 关键词提示词过滤
+  - CLIP 模型懒加载，未安装时优雅降级为纯关键词过滤
+  - `routes/safety_routes.py`：`POST /api/safety/check-prompt` + `POST /api/safety/check-image`
+  - 集成到 `/api/generate` 生成流程，违规提示词自动拦截
+  - 27 个不安全关键词覆盖（NSFW / 暴力 / 仇恨 / 自残 / 毒品 / 武器等）
+- **Fooocus 风格提示词扩展**（全功能实施指南 P0 任务2）：
+  - `prompt_expander.py`：智能提示词扩写系统
+  - 6 种预设风格（cinematic / anime / photorealistic / oil_painting / digital_art / fantasy）
+  - 自动质量增强（masterpiece / best quality / ultra detailed / 8k）+ keyword:weight 加权语法
+  - 5 种场景智能推荐（portrait / landscape / still_life / architecture / fantasy）
+  - `routes/prompt_routes.py`：`POST /api/prompt/expand` + `POST /api/prompt/suggest` + `GET /api/prompt/styles` + `GET /api/prompt/scenes`
+- **ControlNet 预处理器系统**（全功能实施指南 P0 任务3）：
+  - `preprocessors/canny.py`：Canny 边缘检测（自适应百分位阈值）
+  - `preprocessors/midas.py`：MiDaS 深度估计（DPT_Large 模型懒加载）
+  - `preprocessors/openpose.py`：OpenPose 人体姿态检测（controlnet_aux 懒加载）
+  - `PreprocessorProtocol` 协议 + 注册表模式，支持扩展自定义预处理器
+  - `routes/preprocess_routes.py`：`POST /api/preprocess/canny` + `POST /api/preprocess/depth` + `POST /api/preprocess/pose` + `GET /api/preprocess/list`
+  - Base64 图片输入输出，无需文件 I/O
+- **i18n 新增 9 个后端错误 key**（5 种语言同步）：`content_blocked` / `prompt_expand_success` / `prompt_suggest_success` / `preprocess_canny_success` / `preprocess_depth_success` / `preprocess_pose_success` / `preprocess_failed` / `preprocess_not_available`
+- **新增依赖**：`clip-anytorch>=2.0.0`（CLIP 安全检测）、`controlnet-aux>=0.0.9`（OpenPose 预处理）
+
+### Security
+
+- 生成流程集成 CLIP 内容安全过滤，违规提示词自动拦截（400 响应）
+- 安全检测路由的图片路径过 PathGuard 校验
+
+---
+
 ## [2.0.0] - 2026-08-10
 
 ### Added

@@ -92,6 +92,14 @@
     "config_invalid": "配置无效: {detail}",
     "preset_not_found": "预设不存在",
     "preset_name_exists": "预设名称已存在",
+    "content_blocked": "内容被拦截: {reason}",
+    "prompt_expand_success": "提示词扩写成功",
+    "prompt_suggest_success": "推荐已生成",
+    "preprocess_canny_success": "Canny 边缘检测完成",
+    "preprocess_depth_success": "深度估计完成",
+    "preprocess_pose_success": "姿态检测完成",
+    "preprocess_failed": "预处理失败: {detail}",
+    "preprocess_not_available": "预处理器不可用: {name}",
     "unknown_error": "未知错误: {detail}"
   }
 }

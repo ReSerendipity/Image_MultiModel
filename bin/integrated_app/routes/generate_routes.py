@@ -92,6 +92,13 @@ async def generate(req: GenerateRequest, request: Request) -> GenerateResponse:
     if req.batch_size < 1 or req.batch_size > 9999:
         raise HTTPException(400, detail=get_error_message("batch_too_large"))
 
+    # 内容安全过滤（P0 任务1: CLIP 安全检测集成）
+    from ..security.content_filter import filter_image_generation
+
+    is_safe, reason = filter_image_generation(req.positive_prompt)
+    if not is_safe:
+        raise HTTPException(400, detail=get_error_message("content_blocked", reason=reason))
+
     # 显存预检
     vram_est = preflight_vram(
         engine_vram_gb=engine_cfg.vram_gb,
