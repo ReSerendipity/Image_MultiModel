@@ -88,7 +88,7 @@ async def sse_events(request: Request) -> StreamingResponse:
     """
     GET /api/events — SSE 单连接事件总线
 
-    事件类型: task_status / comfy_preview / model_status / gpu_status / queue_status / heartbeat
+    事件类型: task_status / preview / model_status / gpu_status / queue_status / heartbeat
     """
     bus = get_sse_bus()
     queue = await bus.subscribe()

@@ -93,6 +93,12 @@ class NativeEngine:
         from . import source
 
         comfy_root = self._config.get("comfy_source_dir") or None
+        if comfy_root:
+            # Gotcha #16：相对路径需拼项目根为绝对路径，避免基于进程 cwd 解析到错误位置
+            p = Path(comfy_root)
+            if not p.is_absolute():
+                p = Path(cfg.project_root) / p
+            comfy_root = str(p.resolve())
         source.ensure_loaded(comfy_root=comfy_root)
 
         if on_progress:

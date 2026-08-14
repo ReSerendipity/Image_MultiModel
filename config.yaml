@@ -11,7 +11,7 @@ server:
     keyfile: bin/key.pem
 models:
   model_source_mode: shared
-  default_engine: flux2_klein_9b_distilled
+  default_engine: z_image_turbo_native
   shared:
     comfy_models_dir: C:/Users/Doro/APP/ComfyUI-aki-v3/ComfyUI/models
     mount_map:
@@ -32,92 +32,11 @@ models:
       controlnet: controlnet
       checkpoint: checkpoints
   engines:
-    flux2_klein_9b_distilled:
-      name: flux2_klein_9b_distilled
-      display_name: FLUX.2 Klein-9B Distilled
-      display_name_en: FLUX.2 Klein-9B Distilled
-      backend: comfyui
-      comfy_backend_preference: local
-      workflow_file: workflows/Flux.2_Klein-9B-Distilled.json
-      parameter_schema: bin/integrated_app/comfy/schemas/flux2_klein_9b_distilled.yaml
-      comfy_source_dir: ''
-      custom_nodes_dir: ''
-      seedvr2_source_dir: ''
-      text_encoder:
-        sub_dir: text
-        sub_path: FLUX.2-klein-9b/qwen_3_8b_fp8mixed.safetensors
-      unet:
-        sub_dir: unet
-        sub_path: FLUX.2-klein-9b-fp8/flux-2-klein-9b-kv-fp8.safetensors
-      vae:
-        sub_dir: vae
-        sub_path: FLUX.2-klein-9b/flux2-vae.safetensors
-      vram_gb: 11.0
-      ram_gb: 24.0
-      default_precision: fp8
-      fallback_precision: fp8
-      supported_features:
-      - txt2img
-      - lora_stack_6
-      - seedvr2_upscale_2x
-      - eses_compare
-      - reserved_vram
-      default_width: 1024
-      default_height: 1024
-      image_formats:
-      - png
-      license: FLUX.2 Non-Commercial
-      tags:
-      - realistic
-      - high-quality
-      - distilled
-      - fast
-    z_image_turbo:
-      name: z_image_turbo
-      display_name: Z-Image Turbo
-      display_name_en: Z-Image Turbo
-      backend: comfyui
-      comfy_backend_preference: local
-      workflow_file: workflows/Z_image_turbo.json
-      parameter_schema: bin/integrated_app/comfy/schemas/z_image_turbo.yaml
-      comfy_source_dir: ''
-      custom_nodes_dir: ''
-      seedvr2_source_dir: ''
-      text_encoder:
-        sub_dir: text
-        sub_path: Z_image(turbo)/qwen_3_4b_fp8_mixed.safetensors
-      unet:
-        sub_dir: unet
-        sub_path: Z-image_turbo-bf16/z_image_turbo_bf16.safetensors
-      vae:
-        sub_dir: vae
-        sub_path: FLUX.1-dev(Z-image(turbo))/ae.safetensors
-      vram_gb: 10.0
-      ram_gb: 16.0
-      default_precision: bf16
-      fallback_precision: fp8
-      supported_features:
-      - txt2img
-      - lora_stack_6
-      - seedvr2_upscale_2x
-      - eses_compare
-      - reserved_vram
-      default_width: 1024
-      default_height: 1024
-      image_formats:
-      - png
-      license: Apache-2.0
-      tags:
-      - turbo
-      - fast
-      - real-time
-      - low-vram
     z_image_turbo_native:
       name: z_image_turbo_native
       display_name: Z-Image Turbo (原生)
       display_name_en: Z-Image Turbo (Native)
       backend: native
-      comfy_backend_preference: local
       workflow_file: workflows/Z_image_turbo.json
       parameter_schema: ''
       comfy_source_dir: references/ComfyUI
@@ -151,27 +70,6 @@ models:
       - turbo
       - native
       - low-vram
-comfy:
-  backends:
-    local:
-      name: local
-      display_name: 本机 ComfyUI (aki-v3)
-      base_url: http://127.0.0.1:8188
-      ws_url: ws://127.0.0.1:8188/ws
-      auth_token: ''
-      client_id_prefix: img_multimodel_
-      health_check_interval_s: 30
-      auto_spawn_if_dead: false
-      spawn:
-        comfy_root: C:/Users/Doro/APP/ComfyUI-aki-v3/ComfyUI
-        launch_exe: python
-        extra_args:
-        - --listen
-        - 127.0.0.1
-        - --port
-        - '8188'
-        - --lowvram
-  load_balance: prefer_local
 inference:
   default_steps: 10
   default_cfg: 1.0
@@ -235,7 +133,6 @@ runtime:
     poll_interval_s: 0.5
     heartbeat_interval_s: 30
     max_duration_s: 3600
-    send_comfy_preview: true
     preview_b64_max_width: 256
   vram_scheduler:
     enabled: false
@@ -317,7 +214,6 @@ cache:
   dir: data/cache
   max_size_mb: 500
   ttl_s: 86400
-  comfy_object_info_ttl_s: 3600
 acceleration:
   vllm:
     enabled: false

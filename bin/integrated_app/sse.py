@@ -2,7 +2,7 @@
 sse.py — SSE 单连接事件总线
 
 对应 MASTER_PLAN §5.2: SSE（单连接事件总线，附录 C2）
-事件类型: task_status / comfy_preview / model_status / gpu_status / queue_status
+事件类型: task_status / preview / model_status / gpu_status / queue_status
 """
 
 from __future__ import annotations

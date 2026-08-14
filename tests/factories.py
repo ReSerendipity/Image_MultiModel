@@ -78,6 +78,6 @@ class TaskFactory(factory.Factory):
         model = Task
 
     task_id = factory.Sequence(lambda n: f"factory-task-{n:04d}")
-    engine = "flux2_klein_9b_distilled"
+    engine = "z_image_turbo_native"
     config = factory.LazyAttribute(lambda obj: GenerationConfigFactory().to_dict())
     mode = "txt2img"

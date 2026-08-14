@@ -21,26 +21,36 @@ Write-Host "        检查: Get-NetTCPConnection -LocalPort 8288 | Select LocalP
 Write-Host "[STEP 2] 切换 model_source_mode → portable" -ForegroundColor Cyan
 $content = Get-Content $ConfigFile -Raw
 $content = $content -replace "model_source_mode:\s*""?shared""?", "model_source_mode: `"portable`""
-$content = $content -replace "auto_spawn_if_dead:\s*""?false""?", "auto_spawn_if_dead: `"true`""
 Set-Content $ConfigFile $content -Encoding UTF8
-Write-Host "        config.yaml 已切换为 portable；请人工核对 comfy.backends.local.spawn.comfy_root" -ForegroundColor Green
+Write-Host "        config.yaml 已切换为 portable" -ForegroundColor Green
 
 # STEP 3: 复制模型进 pretrained_models/
-Write-Host "[STEP 3] 复制模型进 pretrained_models/（text_encoders/unet/vae/loras/seedvr2）" -ForegroundColor Cyan
-$CopyPlan = @{
-    "text_encoders" = @("text", "*.safetensors")
-    "unet"          = @("unet", "*.safetensors")
-    "vae"           = @("vae", "*.safetensors")
-}
-foreach ($dest in $CopyPlan.Keys) {
-    $src = Join-Path $ProjectRoot $CopyPlan[$dest][0]
-    $dst = Join-Path $ProjectRoot "pretrained_models\$dest"
-    if (-not (Test-Path $dst)) { New-Item -ItemType Directory -Path $dst -Force | Out-Null }
-    if (Test-Path $src) {
-        Copy-Item (Join-Path $src "*") $dst -Recurse -Force
-        Write-Host "        已复制 $dest" -ForegroundColor Green
-    } else {
-        Write-Warning "        源目录不存在，跳过: $src"
+Write-Host "[STEP 3] 从 shared.comfy_models_dir 复制模型进 pretrained_models/（text_encoders/unet/vae）" -ForegroundColor Cyan
+$ComfyDir = ""
+if ($content -match "comfy_models_dir:\s*""?(?<dir>[^""\r\n]+)""?") { $ComfyDir = $Matches["dir"].TrimEnd("\") }
+if (-not $ComfyDir) {
+    Write-Warning "        无法从 config.yaml 读取 comfy_models_dir，跳过模型复制"
+} else {
+    # 本应用所需模型家族（原根目录 Junction 指向的 aki 目录）
+    $CopyPlan = @{
+        "text_encoders" = @("text_encoders", @("FLUX.2-klein-9b", "Z_image(turbo)"))
+        "unet"          = @("unet", @("FLUX.2-klein-9b-fp8", "Z-image_turbo-bf16"))
+        "vae"           = @("vae", @("FLUX.1-dev(Z-image(turbo))", "FLUX.2-klein-9b"))
+    }
+    foreach ($dest in $CopyPlan.Keys) {
+        $subDir = $CopyPlan[$dest][0]
+        $families = $CopyPlan[$dest][1]
+        $dst = Join-Path $ProjectRoot "pretrained_models\$dest"
+        if (-not (Test-Path $dst)) { New-Item -ItemType Directory -Path $dst -Force | Out-Null }
+        foreach ($fam in $families) {
+            $src = Join-Path (Join-Path $ComfyDir $subDir) $fam
+            if (Test-Path $src) {
+                Copy-Item (Join-Path $src "*") (Join-Path $dst $fam) -Recurse -Force
+                Write-Host "        已复制 $subDir/$fam" -ForegroundColor Green
+            } else {
+                Write-Warning "        源目录不存在，跳过: $src"
+            }
+        }
     }
 }
 Write-Host "        ⚠ 请确认 pretrained_models/seedvr2 含 ema_vae_fp16 + seedvr2_ema_3b_fp16（便携包必带）" -ForegroundColor Yellow

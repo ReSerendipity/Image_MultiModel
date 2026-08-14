@@ -67,18 +67,16 @@ class TestConfigLoading:
             AppConfig.from_yaml(config_yaml, project_root=str(project_root))
 
     def test_engines_loaded(self, app_config):
-        """引擎声明正确加载"""
+        """引擎声明正确加载（完全脱离 ComfyUI，仅原生引擎）"""
         engines = app_config.models.engines
-        assert "flux2_klein_9b_distilled" in engines
-        assert "z_image_turbo" in engines
+        assert "z_image_turbo_native" in engines
+        # 已完全脱离 ComfyUI：不应再出现 comfyui 后端引擎
+        assert "flux2_klein_9b_distilled" not in engines
+        assert "z_image_turbo" not in engines
 
-        flux = engines["flux2_klein_9b_distilled"]
-        assert flux.backend == "comfyui"
-        assert flux.workflow_file == "workflows/Flux.2_Klein-9B-Distilled.json"
-
-        zturbo = engines["z_image_turbo"]
-        assert zturbo.backend == "comfyui"
-        assert zturbo.workflow_file == "workflows/Z_image_turbo.json"
+        native = engines["z_image_turbo_native"]
+        assert native.backend == "native"
+        assert native.workflow_file == "workflows/Z_image_turbo.json"
 
     def test_config_safe_dict_redacts_secrets(self, app_config):
         """脱敏：auth_token / password 不暴露"""
@@ -126,7 +124,7 @@ class TestResolveModelPath:
 
     def test_engine_model_paths_resolution(self, app_config, project_root):
         """引擎的所有模型路径都能解析"""
-        flux = app_config.models.engines["flux2_klein_9b_distilled"]
+        flux = app_config.models.engines["z_image_turbo_native"]
         paths = resolve_engine_model_paths(flux, app_config.models, project_root)
 
         assert "text_encoder" in paths
@@ -137,8 +135,8 @@ class TestResolveModelPath:
             assert path.endswith(".safetensors"), f"{key} path doesn't end with .safetensors: {path}"
 
     def test_z_image_paths_resolution(self, app_config, project_root):
-        """Z-Image 引擎路径解析"""
-        z = app_config.models.engines["z_image_turbo"]
+        """Z-Image 原生引擎路径解析"""
+        z = app_config.models.engines["z_image_turbo_native"]
         paths = resolve_engine_model_paths(z, app_config.models, project_root)
 
         assert "text_encoder" in paths

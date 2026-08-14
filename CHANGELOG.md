@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.1] - 2026-08-14
+
+### Fixed
+
+- **修复 `index.html` mojibake 乱码**：文件中文曾因多次 GBK/UTF-8 往返编码被破坏（页面出现 `?` 乱码），且自动修复脚本用 `errors="replace"` 进一步丢失 1118 个字符。已从干净的 git 提交 `014edd3` 重建全量中文，恢复为纯 UTF-8（0 乱码字符）
+
+### Changed
+
+- **前端 UI 优化**：顶部栏图标按钮添加文字标签（主题、颜色、字体、关于、设置、模型、语言），移除冗余的「全部 / Native」引擎过滤选项，引擎选择简化为直接显示引擎列表
+- **彻底脱离 ComfyUI 前端残留**：移除「释放显存」按钮（`freeVramBtn`，对应已删除的 `/engine/free` 端点）、「ComfyUI 后端」状态面板（local/gpu-cluster · 8188）、状态栏 `CONN: LOCAL:8188`、关于面板「统一驱动 ComfyUI」副标题与「驱动本地 ComfyUI」特性条目
+- **引擎引用统一为 `z_image_turbo_native`**：硬编码引擎菜单 / `engineSelect` / 预设默认引擎 / 快照与状态栏文本由 `flux2_klein_9b_distilled`、`z_image_turbo`、`FLUX.2 Klein` 全部改为 `Z-Image Turbo（原生）`
+
+---
+
 ## [1.2.0] - 2026-08-13
 
 ### Added

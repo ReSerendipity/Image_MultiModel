@@ -2,7 +2,7 @@
 tests/test_engine_routes.py — 引擎路由深度测试
 
 对应 N19: engine_routes.py 覆盖率提升
-覆盖：GET /api/engines, POST /api/engine/load, POST /api/engine/unload, POST /api/engine/free
+覆盖：GET /api/engines, POST /api/engine/load, POST /api/engine/unload
 """
 
 from __future__ import annotations
@@ -66,12 +66,12 @@ class TestEngineLoad:
         assert r.status_code == 404
 
     def test_load_existing_engine(self, client: TestClient) -> None:
-        """加载已注册引擎 → 200 或 500（取决于 ComfyUI 在线 + registry 状态）"""
-        r = client.post("/api/engine/load", json={"engine_name": "flux2_klein_9b_distilled"})
+        """加载已注册引擎 → 200 或 500（取决于 registry 状态）"""
+        r = client.post("/api/engine/load", json={"engine_name": "z_image_turbo_native"})
         assert r.status_code in (200, 500), f"Got {r.status_code}: {r.text[:200]}"
         if r.status_code == 200:
             body = r.json()
-            assert body["engine_name"] == "flux2_klein_9b_distilled"
+            assert body["engine_name"] == "z_image_turbo_native"
             assert body["status"] in ("loaded", "error", "loading")
 
 
@@ -81,13 +81,4 @@ class TestEngineUnload:
     def test_unload_no_active_engine(self, client: TestClient) -> None:
         """无活动引擎 → 200 或 500（registry 状态依赖）"""
         r = client.post("/api/engine/unload")
-        assert r.status_code in (200, 500), f"Got {r.status_code}: {r.text[:200]}"
-
-
-class TestEngineFree:
-    """POST /api/engine/free — 释放显存"""
-
-    def test_free_vram(self, client: TestClient) -> None:
-        """释放显存 → 200 或 500（取决于 ComfyUI 在线）"""
-        r = client.post("/api/engine/free")
         assert r.status_code in (200, 500), f"Got {r.status_code}: {r.text[:200]}"

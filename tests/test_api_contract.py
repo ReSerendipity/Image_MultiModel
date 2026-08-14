@@ -41,7 +41,7 @@ def _valid_generate_payload() -> dict:
         "vram_enable": True, "vram_reserved_gb": 0.6,
         "vram_mode": "auto", "vram_seed": -1,
         "output_format": "png", "output_prefix": "{engine}",
-        "engine_name": "flux2_klein_9b_distilled",
+        "engine_name": "z_image_turbo_native",
     }
 
 
@@ -110,7 +110,7 @@ class TestBasicContract:
         name = f"契约测试预设-{uuid.uuid4().hex[:8]}"
         r = client.post(
             "/api/presets",
-            json={"name": name, "engine_name": "flux2_klein_9b_distilled", "config": {"steps": 8}},
+            json={"name": name, "engine_name": "z_image_turbo_native", "config": {"steps": 8}},
         )
         assert r.status_code == 200
 
@@ -189,7 +189,7 @@ class TestTaskRoutes:
 
     def test_list_tasks_with_filters(self, client: TestClient) -> None:
         """GET /api/tasks 带筛选参数"""
-        r = client.get("/api/tasks?status=completed&engine=flux2_klein_9b_distilled")
+        r = client.get("/api/tasks?status=completed&engine=z_image_turbo_native")
         assert r.status_code == 200
         body = r.json()
         assert "tasks" in body
@@ -207,7 +207,7 @@ class TestPresetRoutes:
         name = f"lifecycle-{uuid.uuid4().hex[:8]}"
         r = client.post(
             "/api/presets",
-            json={"name": name, "engine_name": "flux2_klein_9b_distilled", "config": {"steps": 8}},
+            json={"name": name, "engine_name": "z_image_turbo_native", "config": {"steps": 8}},
         )
         assert r.status_code == 200
         pid = r.json()["id"]
@@ -257,7 +257,7 @@ class TestPresetRoutes:
     def test_preset_import(self, client: TestClient) -> None:
         """POST /api/presets/import → 200"""
         r = client.post("/api/presets/import", json=[
-            {"name": f"import-{uuid.uuid4().hex[:8]}", "engine_name": "flux2_klein_9b_distilled", "config": {}},
+            {"name": f"import-{uuid.uuid4().hex[:8]}", "engine_name": "z_image_turbo_native", "config": {}},
         ])
         assert r.status_code == 200
         body = r.json()

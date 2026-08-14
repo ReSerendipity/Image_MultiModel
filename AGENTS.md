@@ -1,7 +1,7 @@
 # Image MultiModel AGENTS.md — AI 辅助开发指南
 
-> 🧬 **自进化协议版本**：v1.2  
-> 📅 **最后更新日期**：2026-08-13  
+> 🧬 **自进化协议版本**：v1.7  
+> 📅 **最后更新日期**：2026-08-14  
 > 🎯 **对应项目版本**：v1.2.0（Apache-2.0 开源协议）
 
 ---
@@ -56,7 +56,7 @@ AI Agent 打开本文件后的 **第一件事** 是执行下面的「🧪 自进
 ```python
 # 1. Stdlib（import sys / os / asyncio / typing / json）
 # 2. Third-party（import fastapi / pydantic / yaml / aiohttp / numpy / PIL）
-# 3. Local project（from integrated_app.config import get_config / from integrated_app.comfy.engine import ComfyEngine）
+# 3. Local project（from integrated_app.config import get_config / from integrated_app.native.engine import NativeEngine）
 ```
 
 ### 2.3 格式化 / Lint 命令
@@ -109,13 +109,7 @@ Image_MultiModel/
 │   │   ├── sse.py               ← SSE 事件 Broker（任务进度 / 系统状态实时推送）
 │   │   ├── task_queue.py        ← 异步单 Worker 串行任务队列（批量 / 取消 / 断点恢复 checkpoint）
 │   │   ├── watermark.py         ← DCT 频域数字水印嵌入 / 提取 / 验证（product_id + task_id + timestamp）
-│   │   ├── comfy/               ← ComfyUI 引擎层（🚫 禁止出现 FastAPI / SQLite 代码）
-│   │   │   ├── client.py        ← HTTP + WebSocket 双通道客户端（自动重连 ≤3 次指数退避）
-│   │   │   ├── engine.py        ← ComfyEngine 实现 ImageEngine Protocol
-│   │   │   ├── workflow.py      ← WorkflowManager Patcher 6 步（深拷贝→模式→link→widgets→batch→校验）
-│   │   │   ├── vram_scheduler.py ← 推理前 VRAM 预检 + batch chunk 自动切分
-│   │   │   └── schemas/         ← 每引擎一份 YAML，节点 ID 严格对齐 widgets_values 下标
-│   │   ├── native/              ← 原生进程内引擎（backend: native，🚫 复用 comfy 源码需先 ensure_loaded）
+│   │   ├── native/              ← 原生进程内引擎（唯一引擎，backend: native，🚫 复用 comfy 源码需先 ensure_loaded）
 │   │   │   ├── source.py        ← 把 references/ComfyUI + aki-v3 自定义节点注入 sys.path（幂等）
 │   │   │   ├── executor.py      ← 复用 comfy.sd / comfy.samplers 推理（加载→编码→采样→解码）
 │   │   │   ├── engine.py        ← NativeEngine（ImageEngine 实现，输出落盘过 PathGuard）
@@ -145,7 +139,7 @@ Image_MultiModel/
 ├── workflows/                   ← ComfyUI 工作流 JSON（每引擎一份，可导入导出）
 │   ├── Flux.2_Klein-9B-Distilled.json
 │   └── Z_image_turbo.json
-├── pretrained_models/           ← portable 模式模型目录（shared 模式不用，符号链接到 ComfyUI）
+├── pretrained_models/           ← portable 模式唯一模型目录（独立运行时模型放这里；shared 模式直接走 shared.comfy_models_dir，不再用根目录链接）
 ├── tests/                       ← 测试体系（详见第 4 节）
 │   ├── e2e/                     ← Playwright E2E 测试
 │   └── *.py                     ← 单元 / 集成 / 安全测试
@@ -154,8 +148,8 @@ Image_MultiModel/
 │   ├── check_wcag.py            ← 前端 WCAG 2.1 AA 无障碍检查
 │   ├── generate_integrity_manifest.py ← 重新生成 security/integrity_manifest.json
 │   ├── migrate_outputs.py       ← 旧版本 outputs/ 目录迁移工具
-│   ├── pack_portable.ps1        ← 打包便携版（含 WinPython + 模型）
-│   ├── setup_symlinks.ps1       ← shared 模式创建模型目录符号链接
+│   ├── pack_portable.ps1        ← 打包便携版（含 WinPython + 模型；STEP 3 直接读 shared.comfy_models_dir 拷贝）
+│   ├── setup_symlinks.ps1       ← 【已退役】不再创建根目录 Junction（shared 直接走 comfy_models_dir）
 │   ├── test_portable_mode.py    ← 便携模式自检脚本
 │   └── verify_watermark.py      ← DCT 水印 CLI 验证工具
 ├── docs/                        ← 文档（API / ARCHITECTURE / DEPLOYMENT / 健康度评估报告 / 截图）
@@ -178,8 +172,8 @@ Image_MultiModel/
 ```
 
 ### 🔴 5 条硬约束（违反一条直接导致生产事故）
-1. **`routes/` 目录永远不写业务逻辑**：路由只能做：参数校验（Pydantic Model）+ 调 `model_manager` / `task_queue` / `history_db` / `*_service` + 返回响应。**路由文件里不允许出现 `torch.*` / `numpy.*` / 任何推理相关代码**，也不允许直接操作 `comfy/client.py`（必须通过 `engine_interface` 或 `model_manager`）。
-2. **`comfy/` 只是引擎适配层**：不做业务编排、不写 DB、不写业务日志（只抛异常给上层）。ComfyEngine 实现只做一件事：接收参数 → 调 ComfyUI → 返回图像 list。
+1. **`routes/` 目录永远不写业务逻辑**：路由只能做：参数校验（Pydantic Model）+ 调 `model_manager` / `task_queue` / `history_db` / `*_service` + 返回响应。**路由文件里不允许出现 `torch.*` / `numpy.*` / 任何推理相关代码**，推理必须通过 `engine_interface` 或 `model_manager`。
+2. **`native/` 是唯一引擎实现**：项目已完全脱离外部 ComfyUI 进程，推理统一走进程内 `NativeEngine`（复用本地 `references/ComfyUI` 源码，使用前必须先 `source.ensure_loaded()` 注入 sys.path）。`native/` 不做业务编排、不写 DB、不写业务日志（只抛异常给上层）。
 3. **`static/` 前端代码绝对不包含 Python 逻辑，后端代码绝对不包含前端逻辑**：前后端通过 REST API + SSE 解耦。FastAPI 只负责静态文件托管，不允许在 Python 里拼 HTML / JS / CSS 字符串。
 4. **所有推理任务单 Worker 串行执行**（`task_queue.py`，信号量=1）。严禁路由层直接并发 `await engine.infer_txt2img()`——哪怕 GPU 空闲也不行。Flux.2 9B + 大 batch 并发 GPU VRAM 直接爆 OOM。
 5. **所有文件路径操作必须过 PathGuard**：任何用户输入参与路径拼接（读取 outputs、保存 presets、读取上传图片）→ 必须 `PathGuard.resolve(base_dir, user_input)`，**禁止 `os.path.join(base, user_input)` 的组合**。
@@ -638,6 +632,11 @@ pre-commit run -a
 | 14 | **MiDaS / OpenPose 模型需联网下载，不能在 import 时加载** | `preprocessors/midas.py` 和 `openpose.py` 在模块级别实例化模型 | 离线环境（`HF_HUB_OFFLINE=1`）下 `torch.hub.load()` 报错，导致 import 失败 | 所有重型模型预处理器必须懒加载：`_ensure_loaded()` 方法首次调用时才下载/加载模型，失败时设置 `_load_error` 并返回 False。`is_available()` 只检查依赖包是否可导入，不检查模型是否已下载 | 2026-08-13 |
 | 15 | **复用 comfy 源码必须先 source.ensure_loaded() 注入 sys.path** | 原生引擎（`backend: native`）在 `native/executor.py` / `native/engine.py` 里 `import comfy.sd` / `comfy.samplers` | `ModuleNotFoundError: No module named 'comfy'` 或命中了外部安装的 ComfyUI 包（版本不符导致 API 对不上） | 任何 `import comfy.*` 之前先调 `source.ensure_loaded(comfy_root=...)`（幂等，把 `references/ComfyUI` 注入 `sys.path[0]`），保证命中本地复用源码而非外部包 | 2026-08-13 |
 | 16 | **comfy_source_dir 相对路径需拼项目根绝对路径** | `config.yaml → models.engines.*.comfy_source_dir` 写相对路径（如 `references/ComfyUI`），`native/engine.load()` 直接把它当绝对路径传给 `source.ensure_loaded()` | `RuntimeError: Comfy source dir invalid ... (missing 'comfy/' package)`，因为相对路径基于进程 cwd 解析成了错误位置 | 解析 `comfy_source_dir` 时若为相对路径，先 `Path(project_root) / comfy_source_dir` 拼成绝对路径再装载；`source._default_comfy_root()` 已内置 `{项目根}/references/ComfyUI` 兜底 | 2026-08-13 |
+| 17 | **seed 超节点上限 / 空 LoRA 沿用损坏默认值** | `workflow.py _resolve_seeds()` 用 `random.randint(0, 2**53-1)` 生成三个 seed，但 ReservedVRAMSetter 上限 2^50、SeedVR2VideoUpscaler 上限 2^32；`_patch_widgets()` 对空 LoRA 名 `continue` 沿用工作流里损坏的默认 `.safetensors` | ComfyUI `/prompt` 返回 400 `prompt_outputs_failed_validation`：`Value xxx bigger than max of ...: seed`（节点 78/80）+ `lora_name: '.safetensors' not in (list of length 64)` | ① `_resolve_seeds()` 按节点分档：主 seed→2^53、seedvr2→2^32-1、vram→2^50-1，且对手工输入也 `min/max` 钳制；② 空 LoRA 名写入空串而非 `continue`，让 `to_api_format()` 移除该层；③ `to_api_format()` COMBO 匹配加 basename 兜底 | 2026-08-13 |
+| 18 | **backend: native 仍走 ComfyEngine 连 ComfyUI 8188** | 选原生引擎（`z_image_turbo_native`，`backend: native`）生成，但 `app_server.py` worker 硬编码 `engine = ComfyEngine(...)` 不按 backend 分发 | `ConnectionError: Cannot connect to ComfyUI at http://127.0.0.1:8188 ... 远程计算机拒绝网络连接`，即使不依赖外部 ComfyUI 仍报错 | worker 里按 `getattr(ecfg, "backend", "comfyui")` 分发：`native` → `NativeEngine(name, display_name, display_name_en, config={workflow_file, comfy_source_dir})`；否则才建 `ComfyEngine` | 2026-08-13 |
+| 19 | **根目录 text/unet/vae Junction 误导模型摆放** | 项目根曾建 `text/`、`unet/`、`vae/` 指向 aki 的 Junction（`setup_symlinks.ps1` / 手工），但运行时 `resolve_engine_model_paths` 从不读它们（shared 用 `comfy_models_dir`，portable 用 `pretrained_models/`） | 项目根看起来"模型在这"实际指向外部，独立运行时放错位置、误导认知 | 根目录不再允许模型链接；模型只走两处：shared→`models.shared.comfy_models_dir`，portable→`pretrained_models/`。已删除 6 个遗留 Junction，退役 `setup_symlinks.ps1`，`pack_portable.ps1` STEP 3 改从 `comfy_models_dir` 直接拷贝 | 2026-08-13 |
+| 20 | **完全脱离 ComfyUI 后遗留 HTTP 引擎引用** | 决定项目完全脱离外部 ComfyUI 进程、统一走进程内 `NativeEngine`，但前后端/测试/脚本仍残留 `integrated_app.comfy.*`、`ComfyEngine`、`ComfyClient`、`8188`、`/engine/free` 等引用 | ① 测试 collection 报 `ModuleNotFoundError: No module named 'integrated_app.comfy'`；② 前端仍显示 ComfyUI 后端状态 / 释放显存按钮；③ 生成接口因 `flux2_klein_9b_distilled` 引擎已删除返回 404 | 全量清理：删除 `bin/integrated_app/comfy/` HTTP 引擎包；`app_server.py` worker 与 `engine_routes.py` 工厂统一走 `NativeEngine`（删除 `/engine/free` 端点）；`config.yaml`/`config_models.py` 只保留 `z_image_turbo_native`（backend: native）；前端移除 ComfyUI 状态/释放显存/backend 过滤/comfy_preview；删除 `test_comfy_vram_scheduler.py`、`test_ws_reconnect.py`，`test_i18n_backend.py` 改引 `native.engine.PHASE_KEY_MAP`，各测试引擎名改 `z_image_turbo_native`；`benchmark.py`/`pack_portable.ps1` 去 8188/auto_spawn 残留 | 2026-08-13 |
+| 21 | **HTML 中文 mojibake 乱码 + 自动修复脚本二次破坏** | `static/index.html` 中文经多次 GBK/UTF-8 往返编码被破坏（曾提交到 git 的 `6b63310`/`978f7ab`），页面出现 `?` 乱码；随后用 `errors="replace"` 的自动修复脚本想"反向还原"，反而把 1118 个字符永久替换成 `\ufffd` 丢失 | 浏览器显示中文变 `涓婚闃查棯`（UTF-8 被当 GBK 解码）或 `主?防闪?`（非法字节被替换成 `?`/``）；部分字符因 PUA / `\ufffd` 已不可逆 | ① 不要用 `errors="replace"` 的脚本去"还原"乱码——数据已丢，越改越坏；② 正确做法：从**干净的 git 提交**（`git log` 逐个验证 `SET=设置` 筛出 `014edd3`）整文件重建，再按需求重做改动；③ 结构化 diff 判断：乱码提交与干净提交通常**仅中文不同、结构一致**，用 `git diff --no-index` 对齐即可确认；④ 改 HTML 前先 `python -c "t=open(f,encoding='utf-8').read();assert t.count('\ufffd')==0"` | 2026-08-14 |
 
 ---
 
@@ -650,5 +649,15 @@ pre-commit run -a
 | v1.1 | 2026-08-13 | 实施全功能实施指南 P0 三项任务（CLIP 安全检测 / 提示词扩展 / ControlNet 预处理器） | 新增模块：`security/content_filter.py` / `prompt_expander.py` / `preprocessors/`（canny + midas + openpose）；新增路由：`safety_routes.py` / `prompt_routes.py` / `preprocess_routes.py`；修正 Gotcha #12（routes 自动发现，非手动注册）；新增 Gotcha #13（CLIP 懒加载）+ #14（MiDaS/OpenPose 懒加载）；新增 SOP-4（新增安全/预处理器模块）；i18n 新增 9 个 key 5 语同步；版本号 1.0.0 → 1.1.0 三处同步 | v1.1.0 |
 
 | v1.2 | 2026-08-13 | 原生进程内引擎（M7）+ 双后端模式改造 | 新增模块边界：`native/` 包（source / executor / engine / lora / seedvr / compares / vram / preview）；更新自检清单与第 3 节目录树；里程碑对应表追加 M7；新增 Gotcha #15（复用 comfy 源码需 ensure_loaded 注入 sys.path）+ #16（comfy_source_dir 相对路径需拼项目根绝对路径）；新增安全测试 `tests/test_native_security.py`；版本号 1.1.0 → 1.2.0 三处同步 | v1.2.0 |
+
+| v1.3 | 2026-08-13 | 修复 ComfyUI /prompt 400 校验失败（seed 超上限 + 空 LoRA 沿用损坏默认值） | 新增 Gotcha #17（seed 超节点上限 / 空 LoRA 沿用损坏默认值）；修复 `workflow.py`：`_resolve_seeds()` 按节点分档钳制 seed（主 2^53 / seedvr2 2^32-1 / vram 2^50-1）+ 对手工输入 min/max 钳制；空 LoRA 名写入空串使 `to_api_format()` 移除该层；`to_api_format()` COMBO 匹配加 basename 兜底；前端 L1/L6 LoRA 默认改「— 禁用 —」；`tests/test_workflow.py` 18 用例全过 | v1.2.0 |
+
+| v1.4 | 2026-08-13 | 修复原生引擎仍连 ComfyUI、LoRA 默认坏值 | 新增 Gotcha #18（backend: native 仍走 ComfyEngine 连 ComfyUI 8188）；修复 `app_server.py` worker 按 `ecfg.backend` 分发引擎（native → NativeEngine，否则 ComfyEngine）；修复 `app_server.py` 原生引擎不传 `on_chunk_done`（NativeEngine 不支持）碰 TypeError；实现 Gotcha #16：`native/engine.py` 相对 `comfy_source_dir` 拼 `cfg.project_root` 为绝对路径；`tests/test_workflow.py` 18 用例 + `tests/test_native_*` 40 用例全过；`NativeEngine.load()` 实测 OK | v1.2.0 |
+
+| v1.5 | 2026-08-13 | 清理根目录遗留 Junction，统一模型摆放，规划彻底脱离 ComfyUI | 新增 Gotcha #19（根目录 text/unet/vae Junction 误导模型摆放）；删除根目录 6 个遗留 Junction；模型摆放统一为 shared→`comfy_models_dir` / portable→`pretrained_models/`；退役 `setup_symlinks.ps1`；`pack_portable.ps1` STEP 3 改从 `comfy_models_dir` 直接拷贝；新增 `docs/COMFYUI-INDEPENDENCE-PLAN.md`（彻底脱离 ComfyUI + 复用源码独立成项目规划） | v1.2.0 |
+
+| v1.6 | 2026-08-13 | 彻底删除 comfy/ HTTP 引擎包，项目完全脱离外部 ComfyUI 进程 | 新增 Gotcha #20（完全脱离 ComfyUI 后遗留 HTTP 引擎引用）；删除 `bin/integrated_app/comfy/`（client/engine/workflow/vram_scheduler/schemas）；`app_server.py` worker 与 `engine_routes.py` 引擎工厂统一走 `NativeEngine`（删除 `/engine/free` 端点）；`config.yaml`/`config_models.py` 只保留 `z_image_turbo_native`（backend: native）；前端移除 ComfyUI 状态/释放显存/backend 过滤/comfy_preview；删除 `test_comfy_vram_scheduler.py`、`test_ws_reconnect.py`，`test_i18n_backend.py` 改引 `native.engine.PHASE_KEY_MAP`，各测试引擎名改 `z_image_turbo_native`；`benchmark.py`/`pack_portable.ps1` 去 8188/auto_spawn 残留；同步第 2.2 节 import 示例、第 3 节目录树、硬约束 #1/#2 为 native 语义 | v1.2.0 |
+
+| v1.7 | 2026-08-14 | 修复 `index.html` 中文 mojibake 乱码 + 彻底清理前端 ComfyUI 残留 | 新增 Gotcha #21（HTML 中文 mojibake + 自动修复脚本二次破坏）；从干净 git 提交 `014edd3` 整文件重建 `static/index.html`（0 乱码）；前端彻底脱离 ComfyUI：移除 `freeVramBtn`/`/engine/free`、ComfyUI 后端状态面板、`CONN: LOCAL:8188`、关于面板「统一驱动 ComfyUI」副标题；引擎引用统一为 `z_image_turbo_native`；顶部图标按钮加文字标签（主题/颜色/字体/关于/设置/模型/语言）；删除会二次破坏编码的 `scripts/fix_encoding_ui.py` | v1.2.1 |
 
 <!-- 🔄 下次更新 AGENTS.md 时，在上面表格末尾追加新一行，不要删除历史记录 -->

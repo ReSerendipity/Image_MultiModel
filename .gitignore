@@ -23,9 +23,11 @@ ENV/
 *.swo
 *~
 .catpaw/
+.trae/
 
 # ── Testing ─────────────────────────────────────────────────
 .pytest_cache/
+.pytest_tmp/
 .coverage
 htmlcov/
 
@@ -84,3 +86,34 @@ docker-compose.override.yml
 
 # 水印签名密钥（仅本机，严禁入库/随包分发）
 .watermark_key
+
+# ── Hypothesis property-based testing ───────────────────────
+.hypothesis/
+
+# ── Jupyter notebooks checkpoints ───────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ── Coverage and profiling (扩展) ────────────────────────────
+.coverage.*
+.coverage.xml
+htmlcov/
+cover/
+coverage/
+*.prof
+prof/*.prof
+
+# ── Benchmark results ────────────────────────────────────────
+perf/results/*.json
+perf/results/*.html
+!perf/results/.gitkeep
+
+# ── Temporary build artifacts ────────────────────────────────
+*.pyc
+__pycache__/
+dist/
+build/
+*.egg-info/
+
+# Cloned learning repos (research reference only, not part of project)
+references/

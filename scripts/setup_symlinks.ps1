@@ -1,98 +1,18 @@
-# setup_symlinks.ps1 — shared 模式 Junction 符号链接维护（PRD §10.4）
-# 用法:
+# setup_symlinks.ps1 — 【已退役】shared 模式 Junction 符号链接维护（PRD §10.4）
+#
+# ⚠️ 2026-08-13 起停用：运行时已不再依赖根目录 Junction。
+#    · shared 模式：resolve_engine_model_paths 直接读 config.yaml → shared.comfy_models_dir（aki 路径）
+#    · portable 模式：模型统一放 pretrained_models/
+#    · 根目录 text/ unet/ vae/ 链接已删除，避免误导模型摆放。
+#    本脚本保留仅作历史参考，不再执行。
+# 用法（已停用，仅提示）:
 #   powershell -ExecutionPolicy Bypass -File scripts\setup_symlinks.ps1
-#   powershell -ExecutionPolicy Bypass -File scripts\setup_symlinks.ps1 -Uninstall
+
 param(
     [switch]$Uninstall
 )
 
-$ErrorActionPreference = "Stop"
-$ProjectRoot = Split-Path -Parent $PSScriptRoot
-$ConfigFile = Join-Path $ProjectRoot "config.yaml"
-
-Write-Host "=== Image MultiModel · Junction 维护脚本 ===" -ForegroundColor Cyan
-
-# 1. 检测模式
-if (-not (Test-Path $ConfigFile)) {
-    Write-Error "config.yaml 不存在: $ConfigFile"
-    exit 1
-}
-$yaml = Get-Content $ConfigFile -Raw
-if ($yaml -notmatch "model_source_mode:\s*""?shared""?") {
-    Write-Warning "config.yaml 不是 shared 模式（应为 models.model_source_mode: shared）。退出。"
-    exit 1
-}
-Write-Host "[1/5] 模式: shared (Junction 共享外部 ComfyUI 模型)" -ForegroundColor Green
-
-# 2. 解析 comfy_models_dir 与 mount_map
-if ($yaml -notmatch "comfy_models_dir:\s*""?(?<dir>[^""\r\n]+)""?") {
-    Write-Error "config.yaml 缺少 shared.comfy_models_dir"
-    exit 1
-}
-$ComfyModels = $Matches["dir"].TrimEnd("\")
-if (-not (Test-Path $ComfyModels)) {
-    Write-Error "ComfyUI models 目录不可读: $ComfyModels"
-    exit 1
-}
-Write-Host "[2/5] ComfyUI models: $ComfyModels" -ForegroundColor Green
-
-# mount_map: 项目子目录 → ComfyUI 子目录
-$MountMap = @{
-    "text"        = "text_encoders"
-    "unet"        = "unet"
-    "vae"         = "vae"
-    "loras"       = "loras"
-    "controlnet"  = "controlnet"
-    "checkpoints" = "checkpoints"
-}
-
-# 3. 建立 / 移除 Junction
-foreach ($key in $MountMap.Keys) {
-    $link = Join-Path $ProjectRoot $key
-    $target = Join-Path $ComfyModels $MountMap[$key]
-
-    if ($Uninstall) {
-        if (Test-Path $link) {
-            $item = Get-Item $link -Force
-            if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) {
-                Remove-Item $link -Force
-                Write-Host "  已移除 Junction: $link" -ForegroundColor Yellow
-            } else {
-                Write-Warning "  跳过（普通目录，非 Junction）: $link"
-            }
-        }
-        continue
-    }
-
-    if (-not (Test-Path $target)) {
-        Write-Warning "  目标不存在，跳过: $target"
-        continue
-    }
-    if (Test-Path $link) {
-        $item = Get-Item $link -Force
-        if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) {
-            Write-Host "  已存在 Junction，跳过: $link" -ForegroundColor DarkGray
-        } else {
-            $backup = "$link`_待删除"
-            Write-Host "  普通目录存在 → 重命名为 $backup" -ForegroundColor Yellow
-            Rename-Item $link $backup
-            New-Item -ItemType Junction -Path $link -Target $target | Out-Null
-            Write-Host "  已创建 Junction: $link → $target" -ForegroundColor Green
-        }
-    } else {
-        New-Item -ItemType Junction -Path $link -Target $target | Out-Null
-        Write-Host "  已创建 Junction: $link → $target" -ForegroundColor Green
-    }
-}
-
-# 4. 校验
-Write-Host "[4/5] 校验链接:" -ForegroundColor Cyan
-foreach ($key in $MountMap.Keys) {
-    $link = Join-Path $ProjectRoot $key
-    if (-not $Uninstall -and (Test-Path $link)) {
-        $n = (Get-ChildItem $link -File -Recurse -ErrorAction SilentlyContinue | Measure-Object).Count
-        Write-Host "  $key : $n 个文件"
-    }
-}
-
-Write-Host "[5/5] 完成。" -ForegroundColor Green
+Write-Host "=== setup_symlinks.ps1 已退役（2026-08-13）===" -ForegroundColor Yellow
+Write-Host "运行时不再使用根目录 Junction。shared 模式直接走 shared.comfy_models_dir。"
+Write-Host "如需在本机重建旧式链接请参考 git 历史，本脚本不再维护。"
+exit 0

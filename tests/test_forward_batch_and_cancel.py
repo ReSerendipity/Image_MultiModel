@@ -62,7 +62,7 @@ def _free_vram_gb() -> float:
 pytestmark = pytest.mark.skipif(not _comfy_online(), reason="ComfyUI 不在线，跳过前向路径集成测试")
 
 
-def _base_payload(engine: str = "flux2_klein_9b_distilled", **overrides) -> dict:
+def _base_payload(engine: str = "z_image_turbo_native", **overrides) -> dict:
     p = {
         "positive_prompt": "一只橘猫坐在窗台上，午后阳光，胶片质感",
         "negative_prompt": "",

@@ -48,31 +48,3 @@ def path_guard(project_root):
         allowed_base_dirs=["outputs/", "data/", "workflows/", "pretrained_models/"],
         project_root=str(project_root),
     )
-
-
-@pytest.fixture
-def flux_workflow(project_root):
-    """FLUX.2 Klein 工作流管理器"""
-    from integrated_app.comfy.workflow import WorkflowManager
-
-    wf_path = project_root / "workflows" / "Flux.2_Klein-9B-Distilled.json"
-    schema_path = project_root / "bin/integrated_app/comfy/schemas/flux2_klein_9b_distilled.yaml"
-    return WorkflowManager(
-        workflow_path=str(wf_path),
-        schema_path=str(schema_path),
-        project_root=str(project_root),
-    )
-
-
-@pytest.fixture
-def z_workflow(project_root):
-    """Z-Image Turbo 工作流管理器"""
-    from integrated_app.comfy.workflow import WorkflowManager
-
-    wf_path = project_root / "workflows" / "Z_image_turbo.json"
-    schema_path = project_root / "bin/integrated_app/comfy/schemas/z_image_turbo.yaml"
-    return WorkflowManager(
-        workflow_path=str(wf_path),
-        schema_path=str(schema_path),
-        project_root=str(project_root),
-    )

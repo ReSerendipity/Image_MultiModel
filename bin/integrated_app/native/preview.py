@@ -1,9 +1,9 @@
 """
 native/preview.py — 采样中实时预览
 
-把解码中间结果转成低分辨率 b64，通过 SSE ``comfy_preview`` 通道推送。格式对齐
-``bin/integrated_app/comfy/engine.py`` 的 b_preview 消息：``{"preview_b64": ...,
-"preview_format": ...}``，以及 ``app_server.py`` 的 ``publish("comfy_preview", ...)``。
+把解码中间结果转成低分辨率 b64，通过 SSE ``preview`` 通道推送。格式对齐
+``app_server.py`` 的 ``publish("preview", ...)``：``{"preview_b64": ...,
+"preview_format": ...}``。
 """
 
 from __future__ import annotations
@@ -64,7 +64,7 @@ def publish_preview(
     fmt: str = DEFAULT_FORMAT,
     task_id: str = "",
 ) -> Awaitable[None] | None:
-    """推送一条 ``comfy_preview`` 事件到 SSE 总线。
+    """推送一条 ``preview`` 事件到 SSE 总线。
 
     Args:
         sse_bus: SSEBus 实例（``get_sse_bus()``），或具有 ``publish(event, data)``
@@ -84,8 +84,8 @@ def publish_preview(
         "format": fmt,
         "width": width,
     }
-    logger.debug("Publishing comfy_preview (task=%s, width=%d)", task_id, width)
-    return sse_bus.publish("comfy_preview", data)
+    logger.debug("Publishing preview (task=%s, width=%d)", task_id, width)
+    return sse_bus.publish("preview", data)
 
 
 # 便捷同步入口：在 worker 线程中把中间结果直接推送（需用户自行桥接到事件循环）

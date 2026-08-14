@@ -24,21 +24,12 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 APP_URL = "http://127.0.0.1:8288"
-COMFY_URL = "http://127.0.0.1:8188"
 SAMPLES = 20  # 采样次数（用于 P95/P99 统计）
 
 
 def _check_app_online() -> bool:
     try:
         with urllib.request.urlopen(f"{APP_URL}/api/health", timeout=5) as r:
-            return r.status == 200
-    except Exception:
-        return False
-
-
-def _check_comfy_online() -> bool:
-    try:
-        with urllib.request.urlopen(f"{COMFY_URL}/system_stats", timeout=3) as r:
             return r.status == 200
     except Exception:
         return False

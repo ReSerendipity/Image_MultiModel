@@ -90,8 +90,7 @@ class EngineConfig(BaseModel):
     name: str
     display_name: str = ""
     display_name_en: str = ""
-    backend: str = "comfyui"
-    comfy_backend_preference: str = "local"
+    backend: str = "native"
     workflow_file: str = ""
     parameter_schema: str = ""
     # ── native 引擎字段（backend == "native" 时使用）──
@@ -116,36 +115,10 @@ class EngineConfig(BaseModel):
 class ModelsConfig(BaseModel):
     """模型源双模式配置"""
     model_source_mode: str = "shared"  # "shared" | "portable"
-    default_engine: str = "flux2_klein_9b_distilled"
+    default_engine: str = "z_image_turbo_native"
     shared: SharedConfig = SharedConfig()
     portable: PortableConfig = PortableConfig()
     engines: dict[str, EngineConfig] = Field(default_factory=dict)
-
-
-# ──────────────────────────────────────────────────────────────
-#  3. ComfyUI 后端
-# ──────────────────────────────────────────────────────────────
-class ComfySpawnConfig(BaseModel):
-    comfy_root: str = ""
-    launch_exe: str = "python"
-    extra_args: list[str] = Field(default_factory=list)
-
-
-class ComfyBackend(BaseModel):
-    name: str
-    display_name: str = ""
-    base_url: str = "http://127.0.0.1:8188"
-    ws_url: str = "ws://127.0.0.1:8188/ws"
-    auth_token: str = ""
-    client_id_prefix: str = "img_multimodel_"
-    health_check_interval_s: int = 30
-    auto_spawn_if_dead: bool = False
-    spawn: ComfySpawnConfig | None = None
-
-
-class ComfyConfig(BaseModel):
-    backends: dict[str, ComfyBackend] = Field(default_factory=dict)
-    load_balance: str = "prefer_local"
 
 
 # ──────────────────────────────────────────────────────────────
@@ -244,7 +217,6 @@ class SSEConfig(BaseModel):
     poll_interval_s: float = 0.5
     heartbeat_interval_s: int = 30
     max_duration_s: int = 3600
-    send_comfy_preview: bool = True
     preview_b64_max_width: int = 256
 
 
@@ -378,7 +350,6 @@ class CacheConfig(BaseModel):
     dir: str = "data/cache"
     max_size_mb: int = 500
     ttl_s: int = 86400
-    comfy_object_info_ttl_s: int = 3600
 
 
 # ──────────────────────────────────────────────────────────────
@@ -418,7 +389,6 @@ class AppConfig(BaseModel):
     version: str = "1.0.0"
     server: ServerConfig = ServerConfig()
     models: ModelsConfig = ModelsConfig()
-    comfy: ComfyConfig = ComfyConfig()
     inference: InferenceConfig = InferenceConfig()
     output: OutputConfig = OutputConfig()
     presets: PresetsConfig = PresetsConfig()
@@ -447,9 +417,6 @@ class AppConfig(BaseModel):
         """序列化回 YAML 可写的字典（脱敏）"""
         d = self.model_dump(exclude={"project_root"})
         # 脱敏：隐藏 auth_token / password
-        for bk, bv in d.get("comfy", {}).get("backends", {}).items():
-            if bv.get("auth_token"):
-                bv["auth_token"] = "***REDACTED***"
         if d.get("security", {}).get("basic_auth", {}).get("password_bcrypt_hash"):
             d["security"]["basic_auth"]["password_bcrypt_hash"] = "***REDACTED***"
         for t in d.get("security", {}).get("api_token", {}).get("tokens", []):

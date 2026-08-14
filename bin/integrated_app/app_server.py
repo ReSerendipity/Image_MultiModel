@@ -23,7 +23,6 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from .checkpoint import TaskCheckpoint
-from .comfy.engine import ComfyEngine
 from .config import get_config, load_config
 from .engine_interface import GenerationConfig
 from .gpu_utils import get_gpu_info
@@ -32,6 +31,7 @@ from .middleware.csrf import CSRFMiddleware
 from .middleware.rate_limit import RateLimitMiddleware
 from .middleware.request_id import RequestIDMiddleware
 from .model_registry import get_model_registry
+from .native.engine import NativeEngine
 from .sse import get_sse_bus
 from .task_queue import Task, TaskQueue
 
@@ -166,9 +166,9 @@ async def lifespan(app: FastAPI):
             "phase": phase,
             **extra,
         })
-        # D4: 采样中实时预览 → SSE comfy_preview 事件
+        # D4: 采样中实时预览 → SSE preview 事件
         if "preview_b64" in extra:
-            await sse_bus.publish("comfy_preview", {
+            await sse_bus.publish("preview", {
                 "task_id": task_id,
                 "b64": extra["preview_b64"],
                 "format": extra.get("preview_format", "jpg"),
@@ -262,7 +262,7 @@ async def lifespan(app: FastAPI):
         logger.info(f"Found {len(pending_checkpoints)} pending checkpoints for recovery")
     app.state.checkpoint_mgr = checkpoint_mgr
 
-    # 启动 TaskQueue Worker（M2：接通 ComfyEngine 真实推理）
+    # 启动 TaskQueue Worker（M2：接通 NativeEngine 原生推理）
     def worker_func(task):
         logger.info(f"Worker processing task: {task.task_id} ({task.engine})")
         started = time.time()
@@ -271,35 +271,17 @@ async def lifespan(app: FastAPI):
             ecfg = cfg.models.engines.get(task.engine)
             if not ecfg:
                 raise RuntimeError(f"Engine '{task.engine}' not found in config")
-            engine = ComfyEngine(
+            # 完全脱离 ComfyUI：统一走原生进程内引擎（backend 固定 native）
+            engine = NativeEngine(
                 name=task.engine,
                 display_name=getattr(ecfg, "display_name", task.engine),
+                display_name_en=getattr(ecfg, "display_name_en", ""),
                 config={
                     "workflow_file": ecfg.workflow_file,
-                    "parameter_schema": ecfg.parameter_schema,
-                    "comfy_backend_preference": getattr(ecfg, "comfy_backend_preference", "local"),
+                    "comfy_source_dir": getattr(ecfg, "comfy_source_dir", ""),
                 },
             )
             gen = GenerationConfig(**task.config)
-
-            # 断点续跑：on_chunk_done 回调
-            checkpoint_every = config.runtime.task_queue.checkpoint_every
-            completed_items: list[dict] = []
-
-            def on_chunk_done(completed: int, total: int):
-                completed_items.append({"completed": completed, "total": total})
-                if checkpoint_mgr.should_checkpoint(completed, checkpoint_every):
-                    try:
-                        checkpoint_mgr.save(
-                            task_id=task.task_id,
-                            engine=task.engine,
-                            total=total,
-                            completed_items=completed_items,
-                            remaining=[{"index": i} for i in range(completed, total)],
-                            config=task.config,
-                        )
-                    except Exception as e:
-                        logger.warning(f"Checkpoint save failed: {e}")
 
             def prog(pct, phase, extra):
                 task.progress = pct
@@ -313,7 +295,8 @@ async def lifespan(app: FastAPI):
                 if task.cancel_requested:
                     await engine.cancel()
                     raise asyncio.CancelledError("cancelled before start")
-                return await engine.infer_txt2img(gen, on_progress=prog, on_chunk_done=on_chunk_done)
+                # 原生引擎单次推理，无 on_chunk_done（批量断点续跑由外层 task_queue 处理）
+                return await engine.infer_txt2img(gen, on_progress=prog)
 
             outputs = asyncio.run(run())
             task.result = outputs or []
