@@ -39,7 +39,7 @@ models:
       backend: native
       workflow_file: workflows/Z_image_turbo.json
       parameter_schema: ''
-      comfy_source_dir: references/ComfyUI
+      comfy_source_dir: comfy_kernel
       custom_nodes_dir: ''
       seedvr2_source_dir: ''
       text_encoder:

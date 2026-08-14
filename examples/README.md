@@ -14,7 +14,7 @@
    默认地址：`http://127.0.0.1:8288`
 
 2. **确认原生引擎已就绪**（生成功能需要）：
-   - 平台统一走进程内 `NativeEngine`（复用 `references/ComfyUI` 源码），无需外部 ComfyUI 进程
+   - 平台统一走进程内 `NativeEngine`（复用 `comfy_kernel` 源码），无需外部 ComfyUI 进程
 
 3. **Python 依赖**：
    ```bash

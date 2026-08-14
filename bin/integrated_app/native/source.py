@@ -1,9 +1,9 @@
 """
 native/source.py — Comfy 源码复用装载
 
-把 `references/ComfyUI`（包含 `comfy/`、`comfy_extras/`、`comfy_execution/`、
-`nodes.py` 等兄弟顶层包）整体加入 ``sys.path``，确保 ``import comfy`` 命中本地
-复用源码，而不是其它环境中安装的 ComfyUI 包。
+把项目内 `comfy_kernel`（独立推理内核，包含 `comfy/`、`comfy_extras/`、
+`comfy_execution/`、`nodes.py` 等顶层包）整体加入 ``sys.path``，确保 ``import comfy``
+命中本仓库内核源码，而不是其它环境中安装的 ComfyUI 包。
 
 幂等：多次调用 ``ensure_loaded()`` 只装载一次。
 """
@@ -18,14 +18,14 @@ logger = logging.getLogger(__name__)
 
 # 项目根目录：native/ -> integrated_app/ -> bin/ -> 项目根
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
-_DEFAULT_COMFY_ROOT = _PROJECT_ROOT / "references" / "ComfyUI"
+_DEFAULT_COMFY_ROOT = _PROJECT_ROOT / "comfy_kernel"
 
 _loaded = False
 _comfy_root: Path | None = None
 
 
 def _default_comfy_root() -> Path:
-    """默认 Comfy 源码目录（项目内 references/ComfyUI）。"""
+    """默认 Comfy 内核源码目录（项目内 comfy_kernel/）。"""
     return _DEFAULT_COMFY_ROOT
 
 
@@ -44,7 +44,7 @@ def ensure_loaded(
 
     Args:
         comfy_root: Comfy 核心源码所在目录（含 ``comfy/`` 包）。为 None 时
-            默认使用项目内 ``references/ComfyUI``。
+            默认使用项目内 ``comfy_kernel``。
         custom_nodes_dir: 自定义节点源码目录（Phase 1 可传 None，仅装载核心）。
 
     Returns:
@@ -61,10 +61,10 @@ def ensure_loaded(
     if not (root / "comfy").is_dir():
         raise RuntimeError(
             f"Comfy source dir invalid: '{root}' (missing 'comfy/' package). "
-            "Expected the directory containing the comfy/ package (references/ComfyUI)."
+            "Expected the directory containing the comfy/ package (comfy_kernel)."
         )
 
-    # 整个 references/ComfyUI 加入 sys.path[0]，命中 comfy/comfy_extras/comfy_execution/nodes.py
+    # 整个 comfy_kernel 加入 sys.path[0]，命中 comfy/comfy_extras/comfy_execution/nodes.py
     _insert_path(root)
 
     # 自定义节点目录（可选，Phase 3 再全量扫描）

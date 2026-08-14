@@ -55,8 +55,8 @@ if (-not $ComfyDir) {
 }
 Write-Host "        ⚠ 请确认 pretrained_models/seedvr2 含 ema_vae_fp16 + seedvr2_ema_3b_fp16（便携包必带）" -ForegroundColor Yellow
 
-# STEP 4: 内嵌 Python 与 ComfyUI 便携版（人工）
-Write-Host "[STEP 4] 人工步骤：内嵌 WinPython / ComfyUI_portable 目录（参考 PRD §10.5 STEP 4）" -ForegroundColor Yellow
+# STEP 4: 内嵌 Python 与 vendored 推理内核（comfy_kernel/）
+Write-Host "[STEP 4] 人工步骤：内嵌 WinPython / comfy_kernel 推理内核（参考 PRD §10.5 STEP 4）" -ForegroundColor Yellow
 
 # STEP 5: 清理开发期残留
 Write-Host "[STEP 5] 清理开发残留（cache/uploads/logs/Junction/字节码）" -ForegroundColor Cyan

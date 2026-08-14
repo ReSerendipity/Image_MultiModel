@@ -30,7 +30,7 @@
 
 | 特性 | 说明 |
 |---|---|
-| **原生进程内引擎** | 复用项目内 `references/ComfyUI` 源码 + aki-v3 自定义节点，`sys.path` 注入后在同一进程内完成 加载→编码→采样→解码，**完全脱离外部 ComfyUI 进程** |
+| **原生进程内引擎** | 复用项目内 `comfy_kernel` 源码 + aki-v3 自定义节点，`sys.path` 注入后在同一进程内完成 加载→编码→采样→解码，**完全脱离外部 ComfyUI 进程** |
 | **Z-Image Turbo 工作流** | 内置 Z Image Turbo（阿里通义）高速文生图工作流，支持六层 LoRA 叠加、SeedVR2 超分、Eses 双图对比、显存预留 |
 | **显存预检** | 推理前自动估算 VRAM 需求，推荐精度（FP8/FP16）与 batch chunk 大小 |
 | **批量任务队列** | 异步任务队列 + SSE 实时推送，支持批量生成、任务取消、断点恢复 |
@@ -49,7 +49,7 @@
 | **操作系统** | Windows 10/11（推荐） / Linux |
 | **GPU** | NVIDIA CUDA GPU（推荐 8GB+ VRAM） |
 | **Python** | **两种方式均可**：<br>• **推荐**：系统 Python 3.10+（3.12 最佳），需勾选 "Add Python to PATH"<br>• **备选**：内置 WinPython（`WPy64-312101/`），完全隔离无需系统 Python |
-| **推理引擎** | 进程内原生引擎（复用项目内 `references/ComfyUI` 源码），**无需外部 ComfyUI 进程** |
+| **推理引擎** | 进程内原生引擎（复用项目内 `comfy_kernel` 源码），**无需外部 ComfyUI 进程** |
 
 ---
 
@@ -72,7 +72,7 @@
    ```
 7. 浏览器自动打开 Web UI（默认地址 `http://127.0.0.1:8288`）
 
-> 💡 **优势**：进程内原生引擎复用项目内 `references/ComfyUI` 源码，完全脱离外部 ComfyUI 进程，模型随 `pretrained_models/` 内置，可作便携包独立运行。
+> 💡 **优势**：进程内原生引擎复用项目内 `comfy_kernel` 源码，完全脱离外部 ComfyUI 进程，模型随 `pretrained_models/` 内置，可作便携包独立运行。
 
 > 📌 **默认端口**：`8288`（可在 `config.yaml` → `server.port` 修改）。
 
@@ -125,7 +125,7 @@ docker run --gpus all -p 8080:8080 \
 
 自 v1.2.0 起，平台**完全脱离外部 ComfyUI 进程**，统一走进程内原生引擎 `NativeEngine`：
 
-- **不重新实现模型网络**：复用 `references/ComfyUI/`（内含 `comfy/`、`comfy_extras/`、`comfy_execution/` 等顶层包）与 aki-v3 自定义节点源码。
+- **不重新实现模型网络**：复用 `comfy_kernel/`（内含 `comfy/`、`comfy_extras/`、`comfy_execution/` 等顶层包）与 aki-v3 自定义节点源码。
 - **`sys.path` 注入**：通过 `native/source.ensure_loaded()` 把该目录注入 `sys.path[0]`，在同一进程内调用 `comfy.sd` / `comfy.samplers` 完成推理。
 - **统一引擎 key**：`config.yaml → models.engines.z_image_turbo_native`（`backend: native`）。
 
@@ -144,7 +144,7 @@ Image_MultiModel/
 │   └── integrated_app/          # 主应用核心
 │       ├── app_server.py        # FastAPI 应用 + 生命周期管理
 │       ├── native/              # 原生进程内引擎（唯一引擎）
-│       │   ├── source.py        # 复用 references/ComfyUI 源码（sys.path 注入）
+│       │   ├── source.py        # 复用 comfy_kernel 源码（sys.path 注入）
 │       │   ├── executor.py      # 复用 comfy.sd / comfy.samplers 推理流程
 │       │   ├── engine.py        # NativeEngine（ImageEngine 实现）
 │       │   ├── lora.py / seedvr.py / compares.py / vram.py / preview.py
@@ -157,7 +157,7 @@ Image_MultiModel/
 │       ├── history_db.py        # SQLite 历史记录
 │       └── task_queue.py        # 异步任务队列（SSE 推送）
 ├── workflows/                   # 工作流 JSON
-├── references/ComfyUI           # 复用的 ComfyUI 源码（推理底层）
+├── comfy_kernel           # 复用的 ComfyUI 源码（推理底层）
 ├── pretrained_models/           # 模型检查点存放（portable 模式）
 ├── data/                        # 运行时数据（预设 / 上传 / 缓存）
 ├── outputs/                     # 生成结果输出

@@ -33,7 +33,7 @@ AI Agent 打开本文件后的 **第一件事** 是执行下面的「🧪 自进
 > **Image MultiModel**：Z-Image Turbo 图像生成平台 — 基于 ComfyUI 工作流引擎，驱动唯一引擎 Z-Image Turbo 的统一 Web UI。  
 > 核心特色：**单一 Z-Image Turbo 引擎**（`z_image_turbo_native`，进程内原生推理）+ VRAM 预检 + 批量任务队列 + SSE 实时进度 + DCT 频域水印溯源 + 安全加固体系 + 5 语言国际化  
 > 开源协议：**Apache-2.0**  
-> 技术栈：**Python 3.10+（推荐 3.12） + FastAPI + Uvicorn + Pydantic v2 + PyYAML + aiohttp + websockets + aiofiles + SQLite（WAL + FTS5） + 原生引擎（复用 references/ComfyUI 源码）**  
+> 技术栈：**Python 3.10+（推荐 3.12） + FastAPI + Uvicorn + Pydantic v2 + PyYAML + aiohttp + websockets + aiofiles + SQLite（WAL + FTS5） + 原生引擎（复用 comfy_kernel 源码）**  
 > 代码入口：`bin/clean_launch.py`（推荐，含配置预热 + 数据目录创建 + 健康检查）  
 > 默认端口：**`http://127.0.0.1:8288`**（禁止 0.0.0.0 监听，见第 14 节陷阱）  
 > 模型来源：portable（`pretrained_models/`，无外部链接，便携独立运行）  
@@ -110,7 +110,7 @@ Image_MultiModel/
 │   │   ├── task_queue.py        ← 异步单 Worker 串行任务队列（批量 / 取消 / 断点恢复 checkpoint）
 │   │   ├── watermark.py         ← DCT 频域数字水印嵌入 / 提取 / 验证（product_id + task_id + timestamp）
 │   │   ├── native/              ← 原生进程内引擎（唯一引擎，backend: native，🚫 复用 comfy 源码需先 ensure_loaded）
-│   │   │   ├── source.py        ← 把 references/ComfyUI + aki-v3 自定义节点注入 sys.path（幂等）
+│   │   │   ├── source.py        ← 把 comfy_kernel + aki-v3 自定义节点注入 sys.path（幂等）
 │   │   │   ├── executor.py      ← 复用 comfy.sd / comfy.samplers 推理（加载→编码→采样→解码）
 │   │   │   ├── engine.py        ← NativeEngine（ImageEngine 实现，输出落盘过 PathGuard）
 │   │   │   ├── lora.py / seedvr.py / compares.py / vram.py / preview.py ← Phase 3 能力
@@ -172,7 +172,7 @@ Image_MultiModel/
 
 ### 🔴 5 条硬约束（违反一条直接导致生产事故）
 1. **`routes/` 目录永远不写业务逻辑**：路由只能做：参数校验（Pydantic Model）+ 调 `model_manager` / `task_queue` / `history_db` / `*_service` + 返回响应。**路由文件里不允许出现 `torch.*` / `numpy.*` / 任何推理相关代码**，推理必须通过 `engine_interface` 或 `model_manager`。
-2. **`native/` 是唯一引擎实现**：项目已完全脱离外部 ComfyUI 进程，推理统一走进程内 `NativeEngine`（复用本地 `references/ComfyUI` 源码，使用前必须先 `source.ensure_loaded()` 注入 sys.path）。`native/` 不做业务编排、不写 DB、不写业务日志（只抛异常给上层）。
+2. **`native/` 是唯一引擎实现**：项目已完全脱离外部 ComfyUI 进程，推理统一走进程内 `NativeEngine`（复用本地 `comfy_kernel` 源码，使用前必须先 `source.ensure_loaded()` 注入 sys.path）。`native/` 不做业务编排、不写 DB、不写业务日志（只抛异常给上层）。
 3. **`static/` 前端代码绝对不包含 Python 逻辑，后端代码绝对不包含前端逻辑**：前后端通过 REST API + SSE 解耦。FastAPI 只负责静态文件托管，不允许在 Python 里拼 HTML / JS / CSS 字符串。
 4. **所有推理任务单 Worker 串行执行**（`task_queue.py`，信号量=1）。严禁路由层直接并发 `await engine.infer_txt2img()`——哪怕 GPU 空闲也不行。Z-Image Turbo 9B + 大 batch 并发 GPU VRAM 直接爆 OOM。
 5. **所有文件路径操作必须过 PathGuard**：任何用户输入参与路径拼接（读取 outputs、保存 presets、读取上传图片）→ 必须 `PathGuard.resolve(base_dir, user_input)`，**禁止 `os.path.join(base, user_input)` 的组合**。
@@ -628,8 +628,8 @@ pre-commit run -a
 | 12 | **新路由文件必须在 routes/__init__.py 手动注册** | 新增 `routes/report_routes.py` 写了一堆路由，启动后 Swagger 里没有，curl 全 404 | ~~Image_MultiModel 的 routes/__init__.py 是 **手动维护** 的列表~~ **已修正**：app_server.py 的 `_auto_discover_routers()` 使用 `pkgutil.iter_modules` 自动发现 routes/ 下所有模块。新建 `xxx_routes.py` 后只需：① 文件内定义 `router = APIRouter(...)`（变量名必须叫 router）② 自动注册，无需修改 `routes/__init__.py` | 2026-08-02 |
 | 13 | **CLIP 模型不能在模块 import 时加载** | 在 `content_filter.py` 中全局实例化 `content_filter = ContentSafetyFilter()` 时在 `__init__` 中调用 `clip.load()` | import 模块时卡住 5-10 秒下载 CLIP 模型，且如果 clip 包未安装则 import 直接报错导致整个应用无法启动 | CLIP 模型必须 **懒加载**：`__init__` 只设标志位 `_loaded = False`，首次调用 `check_image()` 时才 `_ensure_loaded()` 加载。如果 clip 包未安装，返回降级结果（`is_safe=True` + `details.degraded=True`），不阻止应用启动 | 2026-08-13 |
 | 14 | **MiDaS / OpenPose 模型需联网下载，不能在 import 时加载** | `preprocessors/midas.py` 和 `openpose.py` 在模块级别实例化模型 | 离线环境（`HF_HUB_OFFLINE=1`）下 `torch.hub.load()` 报错，导致 import 失败 | 所有重型模型预处理器必须懒加载：`_ensure_loaded()` 方法首次调用时才下载/加载模型，失败时设置 `_load_error` 并返回 False。`is_available()` 只检查依赖包是否可导入，不检查模型是否已下载 | 2026-08-13 |
-| 15 | **复用 comfy 源码必须先 source.ensure_loaded() 注入 sys.path** | 原生引擎（`backend: native`）在 `native/executor.py` / `native/engine.py` 里 `import comfy.sd` / `comfy.samplers` | `ModuleNotFoundError: No module named 'comfy'` 或命中了外部安装的 ComfyUI 包（版本不符导致 API 对不上） | 任何 `import comfy.*` 之前先调 `source.ensure_loaded(comfy_root=...)`（幂等，把 `references/ComfyUI` 注入 `sys.path[0]`），保证命中本地复用源码而非外部包 | 2026-08-13 |
-| 16 | **comfy_source_dir 相对路径需拼项目根绝对路径** | `config.yaml → models.engines.*.comfy_source_dir` 写相对路径（如 `references/ComfyUI`），`native/engine.load()` 直接把它当绝对路径传给 `source.ensure_loaded()` | `RuntimeError: Comfy source dir invalid ... (missing 'comfy/' package)`，因为相对路径基于进程 cwd 解析成了错误位置 | 解析 `comfy_source_dir` 时若为相对路径，先 `Path(project_root) / comfy_source_dir` 拼成绝对路径再装载；`source._default_comfy_root()` 已内置 `{项目根}/references/ComfyUI` 兜底 | 2026-08-13 |
+| 15 | **复用 comfy 源码必须先 source.ensure_loaded() 注入 sys.path** | 原生引擎（`backend: native`）在 `native/executor.py` / `native/engine.py` 里 `import comfy.sd` / `comfy.samplers` | `ModuleNotFoundError: No module named 'comfy'` 或命中了外部安装的 ComfyUI 包（版本不符导致 API 对不上） | 任何 `import comfy.*` 之前先调 `source.ensure_loaded(comfy_root=...)`（幂等，把 `comfy_kernel` 注入 `sys.path[0]`），保证命中本地复用源码而非外部包 | 2026-08-13 |
+| 16 | **comfy_source_dir 相对路径需拼项目根绝对路径** | `config.yaml → models.engines.*.comfy_source_dir` 写相对路径（如 `comfy_kernel`），`native/engine.load()` 直接把它当绝对路径传给 `source.ensure_loaded()` | `RuntimeError: Comfy source dir invalid ... (missing 'comfy/' package)`，因为相对路径基于进程 cwd 解析成了错误位置 | 解析 `comfy_source_dir` 时若为相对路径，先 `Path(project_root) / comfy_source_dir` 拼成绝对路径再装载；`source._default_comfy_root()` 已内置 `{项目根}/comfy_kernel` 兜底 | 2026-08-13 |
 | 17 | **seed 超节点上限 / 空 LoRA 沿用损坏默认值** | `workflow.py _resolve_seeds()` 用 `random.randint(0, 2**53-1)` 生成三个 seed，但 ReservedVRAMSetter 上限 2^50、SeedVR2VideoUpscaler 上限 2^32；`_patch_widgets()` 对空 LoRA 名 `continue` 沿用工作流里损坏的默认 `.safetensors` | ComfyUI `/prompt` 返回 400 `prompt_outputs_failed_validation`：`Value xxx bigger than max of ...: seed`（节点 78/80）+ `lora_name: '.safetensors' not in (list of length 64)` | ① `_resolve_seeds()` 按节点分档：主 seed→2^53、seedvr2→2^32-1、vram→2^50-1，且对手工输入也 `min/max` 钳制；② 空 LoRA 名写入空串而非 `continue`，让 `to_api_format()` 移除该层；③ `to_api_format()` COMBO 匹配加 basename 兜底 | 2026-08-13 |
 | 18 | **backend: native 仍走 ComfyEngine 连 ComfyUI 8188** | 选原生引擎（`z_image_turbo_native`，`backend: native`）生成，但 `app_server.py` worker 硬编码 `engine = ComfyEngine(...)` 不按 backend 分发 | `ConnectionError: Cannot connect to ComfyUI at http://127.0.0.1:8188 ... 远程计算机拒绝网络连接`，即使不依赖外部 ComfyUI 仍报错 | worker 里按 `getattr(ecfg, "backend", "comfyui")` 分发：`native` → `NativeEngine(name, display_name, display_name_en, config={workflow_file, comfy_source_dir})`；否则才建 `ComfyEngine` | 2026-08-13 |
 | 19 | **根目录 text/unet/vae Junction 误导模型摆放** | 项目根曾建 `text/`、`unet/`、`vae/` 指向 aki 的 Junction（`setup_symlinks.ps1` / 手工），但运行时 `resolve_engine_model_paths` 从不读它们（shared 用 `comfy_models_dir`，portable 用 `pretrained_models/`） | 项目根看起来"模型在这"实际指向外部，独立运行时放错位置、误导认知 | 根目录不再允许模型链接；模型只走两处：shared→`models.shared.comfy_models_dir`，portable→`pretrained_models/`。已删除 6 个遗留 Junction，退役 `setup_symlinks.ps1`，`pack_portable.ps1` STEP 3 改从 `comfy_models_dir` 直接拷贝 | 2026-08-13 |

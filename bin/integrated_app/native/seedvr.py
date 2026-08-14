@@ -34,10 +34,12 @@ VALID_COLOR_CORRECTION = ("lab", "wavelet", "wavelet_adaptive", "hsv", "adain", 
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 # 默认自定义节点源码根 & models 目录（项目内自包含，不硬编码本机 aki 路径）。
-#   - 源码根：项目内 references/（与 references/ComfyUI 同位，Vendor 进项目）
+#   - 源码根：项目内 comfy_kernel/custom_nodes/（与推理内核同仓 Vendor）
 #   - 模型目录：pretrained_models/seedvr2/（portable 自包含，符合模型摆放约定）
 # 运行时可通过参数 / config 显式覆盖；未 Vendor/未复制时，调用方会得到清晰的缺文件错误。
-_DEFAULT_SEEDVR2_SRC = _PROJECT_ROOT / "references" / "ComfyUI-SeedVR2_VideoUpscaler"
+_DEFAULT_SEEDVR2_SRC = (
+    Path(__file__).resolve().parent / "comfy_kernel" / "custom_nodes" / "ComfyUI-SeedVR2_VideoUpscaler"
+)
 _DEFAULT_MODELS_DIR = _PROJECT_ROOT / "pretrained_models" / SEEDVR2_FOLDER
 
 

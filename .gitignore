@@ -117,3 +117,6 @@ build/
 
 # Cloned learning repos (research reference only, not part of project)
 references/
+
+# Vendored Comfy inference kernel (独立内核项目源码，维持为其独立 git 仓库，不并入本仓库)
+comfy_kernel/

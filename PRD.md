@@ -87,7 +87,7 @@
 
 | 特性 | Seedvr2 | TTS_MultiModel | **Image MultiModel (本项目)** |
 |------|---------|---------------|-------------------------------|
-| **推理后端** | 自定义 PyTorch 管线 (DiT + VAE) | 自定义 PyTorch 管线 (VoxCPM2 / IndexTTS2) | **进程内原生引擎（复用 references/ComfyUI 源码）** |
+| **推理后端** | 自定义 PyTorch 管线 (DiT + VAE) | 自定义 PyTorch 管线 (VoxCPM2 / IndexTTS2) | **进程内原生引擎（复用 comfy_kernel 源码）** |
 | **引擎粒度** | 单引擎 × 多尺寸 (3B/7B) | 多引擎 × 单尺寸 | 单一 Z-Image Turbo 引擎 |
 | **参数模式** | 配置字典 + 表单字段 | 生成器进度 yield + 表单 | **工作流 JSON + 参数映射 Schema（严格对齐 nodes/widgets_values）** |
 | **GPU 占用** | 独占，Block Swap 换入换出 | 热待机 (双引擎共存) | **进程内原生引擎，单 Worker 串行队列** |
@@ -139,7 +139,7 @@ Image MultiModel
 - 单引擎队列长度检测
 
 #### FR-2.2.3 引擎加载（进程内原生）
-- 引擎复用本机 `references/ComfyUI` 源码，通过 `source.ensure_loaded()` 注入 `sys.path`
+- 引擎复用本机 `comfy_kernel` 源码，通过 `source.ensure_loaded()` 注入 `sys.path`
 - 启动参数可配置：`unet` / `text_encoder` / `vae` / `default_precision`
 - 应用退出时优雅释放 GPU 显存
 
@@ -156,7 +156,7 @@ models:
     z_image_turbo_native:
       name: "z_image_turbo_native"
       display_name: "Z-Image Turbo"
-      backend: "native"                       # 进程内原生引擎（复用 references/ComfyUI 源码）
+      backend: "native"                       # 进程内原生引擎（复用 comfy_kernel 源码）
       workflow_file: "workflows/Z_image_turbo.json"
       parameter_schema: "schemas/z_image_turbo_native.yaml"
       vram_gb: 10.0
@@ -414,7 +414,7 @@ models:
 
 #### FR-2.11.2 模型设置 Tab
 - 引擎管理：启用 / 禁用（隐藏不常用引擎）、覆盖显存估算值、覆盖默认参数（默认 cfg/steps/width/height 全局预设）
-- 原生引擎管理：加载 / 卸载 / 连接测试（复用 references/ComfyUI 源码）
+- 原生引擎管理：加载 / 卸载 / 连接测试（复用 comfy_kernel 源码）
 - 资源扫描：手动触发 text_encoders / unet / vae 目录扫描（用于模型存在性红/绿灯指示）
 
 ---
@@ -513,7 +513,7 @@ models:
 
 ## 4. ComfyUI 模型集成方案
 
-> 这是本产品与参考项目**最大的架构差异点**：两参考项目均直接内部加载 PyTorch 模型；本项目进程内复用 `references/ComfyUI` 源码，由单一进程内原生引擎（NativeEngine）直接调用 `comfy.sd` / `comfy.samplers` 完成推理，无外部 ComfyUI 后端进程 / HTTP+WebSocket 代理。
+> 这是本产品与参考项目**最大的架构差异点**：两参考项目均直接内部加载 PyTorch 模型；本项目进程内复用 `comfy_kernel` 源码，由单一进程内原生引擎（NativeEngine）直接调用 `comfy.sd` / `comfy.samplers` 完成推理，无外部 ComfyUI 后端进程 / HTTP+WebSocket 代理。
 
 ### 4.1 集成层级总览
 
@@ -532,7 +532,7 @@ models:
 │  │  │ ParameterSchemaValidator               │   │ │
 │  │  │ ProgressMapper (Comfy节点→整体%)       │   │ │
 │  └──┴────────────────────────────────────────┴───┘ │
-│        进程内直接调用（复用 references/ComfyUI）│
+│        进程内直接调用（复用 comfy_kernel）│
 └───────────────┬────────────────────────────────────┘
                 ▼ 进程内（无外部进程 / 无 HTTP+WS）
         ┌──────────────────────┐
@@ -903,7 +903,7 @@ parameter_map:
 ### 4.5 单引擎策略
 
 - **默认（推荐）**: 单一进程内原生引擎，`max_workers=1`，任务队列严格串行（与参考项目一致，防 OOM）
-- 引擎选择：`config.yaml → models.engines` 仅声明 `z_image_turbo_native`，进程内复用 references/ComfyUI 源码，无外部 ComfyUI 后端进程 / 多后端负载均衡
+- 引擎选择：`config.yaml → models.engines` 仅声明 `z_image_turbo_native`，进程内复用 comfy_kernel 源码，无外部 ComfyUI 后端进程 / 多后端负载均衡
 
 ---
 
@@ -928,7 +928,7 @@ parameter_map:
 │  └───────────────┘  └───────────┘  └─────────────────────┘  │
 ├──────────────────────────────────────────────────────────────┤
 │  适配层 (Adapter)                                            │
-│  NativeEngine (Protocol Impl，进程内复用 references/ComfyUI)  │
+│  NativeEngine (Protocol Impl，进程内复用 comfy_kernel)  │
 ├──────────────────────────────────────────────────────────────┤
 │  基础设施层 (Infrastructure)                                 │
 │  ┌──────────┐  ┌─────────┐  ┌──────────┐  ┌───────────────┐ │
@@ -940,7 +940,7 @@ parameter_map:
 │  └──────────┘  └──────────────────────────────────────────┘  │
 ├──────────────────────────────────────────────────────────────┤
 │  外部依赖                                                    │
-│  references/ComfyUI 源码（进程内）/ NVIDIA CUDA / 模型文件(.safetensors)  │
+│  comfy_kernel 源码（进程内）/ NVIDIA CUDA / 模型文件(.safetensors)  │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -972,7 +972,7 @@ Image_MultiModel/
 │       ├── auth.py                           # API Token 中间件
 │       ├── watermark.py                      # 数字水印
 │       ├── native/                           # ★ 进程内原生引擎层 ★
-│       │   ├── source.py                     # 复用 references/ComfyUI 源码（sys.path 注入）
+│       │   ├── source.py                     # 复用 comfy_kernel 源码（sys.path 注入）
 │       │   ├── engine.py                     # NativeEngine (ImageEngine impl)
 │       │   ├── workflow.py                   # WorkflowManager (Patch + Schema)
 │       │   └── schemas/                      # 参数映射 YAML 集合
@@ -1069,7 +1069,7 @@ Image_MultiModel/
     │     不足：告警 → 询问是否继续（仍可能 OOM）
     │
     ├─► 4. 进程内原生引擎初始化：
-    │     复用 references/ComfyUI 源码，准备加载模型权重
+    │     复用 comfy_kernel 源码，准备加载模型权重
     │
     ├─► 5. yield 进度：
     │     ("正在初始化原生引擎…", 10%)
@@ -1427,7 +1427,7 @@ config.yaml → models.model_source_mode = "shared" | "portable"
 ├─ STEP 2：切换 config.yaml
 │    models.model_source_mode:  "shared"  →  "portable"
 │    server.host: 保持 127.0.0.1 即可（禁止改成 0.0.0.0 发外网）
-│    原生引擎固定复用 references/ComfyUI 源码，无需外部后端配置
+│    原生引擎固定复用 comfy_kernel 源码，无需外部后端配置
 │    environment.HF_HUB_OFFLINE: 保持 "1"（断网不报错）
 │
 ├─ STEP 3：复制模型进 pretrained_models/（按子目录）
@@ -1440,7 +1440,7 @@ config.yaml → models.model_source_mode = "shared" | "portable"
 │
 ├─ STEP 4：内嵌 Python 环境（WinPython）与原生引擎源码
 │    ├── python-3.12.embed/    或 WinPython 整个目录（约 1.8 GB）
-│    ├── references/ComfyUI/   （原生引擎复用源码，不包含 models）
+│    ├── comfy_kernel/   （原生引擎复用源码，不包含 models）
 │    └── requirements-lock.txt  →  pip install --require-hashes  确保依赖哈希一致
 │
 ├─ STEP 5：清理开发期残留
@@ -1533,7 +1533,7 @@ M0 ──────────► M1 ──────────► M2 ─
 - **验收点**：浏览器打开首页看到 Seedvr2 风格空壳；`config.yaml` 解析不报错
 
 #### M1 - 原生引擎适配层 + Workflow Patcher（覆盖 26 节点 + mode 切换/link 重连/batch 拆分） (Week 3-5)
-- `native/source.py`：把 `references/ComfyUI` + aki-v3 自定义节点源码注入 `sys.path`（幂等）
+- `native/source.py`：把 `comfy_kernel` + aki-v3 自定义节点源码注入 `sys.path`（幂等）
 - `native/workflow.py`：**严格按 2.4.4 节点映射表 + 4.3 Schema YAML** 实现 Workflow Patcher（必做 6 步）
   1. 深拷贝 workflow.json 副本（不污染原文件）
   2. **mode 切换**（6 LoRA 4→0、SeedVR2 3 节点 on→0/off→4、Eses 77、VRAM 78）

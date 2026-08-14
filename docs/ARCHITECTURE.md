@@ -55,14 +55,14 @@
 │  Native Engine 抽象层 (native/)   ← 单一进程内原生引擎          │
 │  ImageEngine Protocol: is_ready / load / unload / infer / cancel│
 │  ├─ engine.py         NativeEngine（ImageEngine 实现）           │
-│  ├─ source.py         复用 references/ComfyUI 源码（sys.path）   │
+│  ├─ source.py         复用 comfy_kernel 源码（sys.path）   │
 │  ├─ executor.py       复用 comfy.sd / comfy.samplers 推理        │
 │  └─ lora/seedvr/compares/vram/preview.py                        │
 └──────────────────────────┬──────────────────────────────────────┘
                            │ 直接调用（进程内）
 ┌──────────────────────────▼─────────────────────────────────────┐
 │  本地 Comfy 源码（进程内 GPU 推理）                              │
-│  references/ComfyUI + aki-v3 自定义节点源码                     │
+│  comfy_kernel + aki-v3 自定义节点源码                     │
 └─────────────────────────────────────────────────────────────────┘
                            │ CUDA
 ┌──────────────────────────▼──────────────────────────────────────┐
@@ -166,13 +166,13 @@ POST /api/generate/batch
 
 ## 原生进程内引擎（单一引擎）
 
-平台统一通过进程内原生引擎 `NativeEngine` 完成推理，完全脱离外部 ComfyUI 进程。`NativeEngine` 复用本地 `references/ComfyUI` 源码；`routes/engine_routes.py` 的 `/api/engine/load` 与 `/api/engine/unload` 统一加载/卸载 `NativeEngine`，不再有 `comfyui` HTTP 后端 / `ComfyEngine` 之分，也不再按 `backend` 字段分发。
+平台统一通过进程内原生引擎 `NativeEngine` 完成推理，完全脱离外部 ComfyUI 进程。`NativeEngine` 复用本地 `comfy_kernel` 源码；`routes/engine_routes.py` 的 `/api/engine/load` 与 `/api/engine/unload` 统一加载/卸载 `NativeEngine`，不再有 `comfyui` HTTP 后端 / `ComfyEngine` 之分，也不再按 `backend` 字段分发。
 
 ### native/ 包模块职责
 
 | 模块 | 职责 |
 |------|------|
-| `native/source.py` | **Comfy 源码装载**：把 `references/ComfyUI`（含 `comfy/`、`comfy_extras/`、`comfy_execution/`、`nodes.py` 等兄弟顶层包）整体注入 `sys.path[0]`，保证 `import comfy` 命中本地复用源码而非外部安装的 ComfyUI 包；`ensure_loaded()` 幂等，仅装载一次 |
+| `native/source.py` | **Comfy 源码装载**：把 `comfy_kernel`（含 `comfy/`、`comfy_extras/`、`comfy_execution/`、`nodes.py` 等兄弟顶层包）整体注入 `sys.path[0]`，保证 `import comfy` 命中本地复用源码而非外部安装的 ComfyUI 包；`ensure_loaded()` 幂等，仅装载一次 |
 | `native/executor.py` | **推理执行器**：复用 `comfy.sd`（`load_diffusion_model` / `load_clip` / `VAE`）、`comfy.samplers`（`calculate_sigmas` / `sampler_object` / `sample`）完成 加载→CLIP 编码→采样→VAE 解码 全链路；同步阻塞，供 async 层包在 executor 线程 |
 | `native/engine.py` | **NativeEngine**：实现 `ImageEngine` Protocol（`is_ready / load / unload / infer_txt2img / cancel`）；`load()` 解析模型路径 + 调用 `source.ensure_loaded()`，`infer_txt2img()` 在线程池运行 `executor.txt2img`，结果经 `_save_outputs()` 落盘 + DCT 水印 + 缩略图 |
 | `native/lora.py` / `seedvr.py` / `compares.py` / `vram.py` / `preview.py` | 原生引擎的 LoRA / SeedVR2 超分 / 双图对比 / 显存预留 / 实时预览等能力（Phase 3） |
@@ -182,7 +182,7 @@ POST /api/generate/batch
 ```
 native/source.py
   ensure_loaded(comfy_root=None)
-    ├─ comfy_root 默认 = <项目根>/references/ComfyUI
+    ├─ comfy_root 默认 = <项目根>/comfy_kernel
     ├─ 校验 dir/comfy 存在
     ├─ sys.path.insert(0, comfy_root)          # 命中 comfy/comfy_extras/... 顶层包
     ├─ [可选] custom_nodes_dir 注入 custom_nodes/
@@ -222,7 +222,7 @@ executor.txt2img(config, model_paths, on_progress, cancel_flag)
 | **配置** | `config.py` / `config_models.py` | YAML 加载 + Pydantic 校验 + 双模式路径解析 | 无 |
 | **引擎接口** | `engine_interface.py` | ImageEngine Protocol + Registry + GenerationConfig (22项) | config |
 | **原生引擎（进程内）** | `native/engine.py` | NativeEngine 实现，进程内复用 Comfy 源码推理 | native/source, native/executor |
-| **Comfy 源码装载** | `native/source.py` | 把 `references/ComfyUI` + aki-v3 自定义节点注入 sys.path | — |
+| **Comfy 源码装载** | `native/source.py` | 把 `comfy_kernel` + aki-v3 自定义节点注入 sys.path | — |
 | **原生执行器** | `native/executor.py` | 复用 comfy.sd / comfy.samplers 完成出图链路 | source, torch |
 | **任务队列** | `task_queue.py` | 异步单Worker串行 + 取消回调 + 超时 + 恢复 | engine_interface |
 | **历史数据库** | `history_db.py` | SQLite WAL+FTS5 + tasks/outputs/presets + 崩溃恢复 | config |

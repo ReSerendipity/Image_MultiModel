@@ -73,7 +73,7 @@ Image_MultiModel/
 │       ├── security/                # PathGuard（附录 D1）/ integrity / watermark
 │       ├── middleware/              # CSRF（C1）/ RateLimit / RequestID / API Auth
 │       ├── native/
-│       │   ├── source.py            # 把 references/ComfyUI 源码注入 sys.path（幂等）
+│       │   ├── source.py            # 把 comfy_kernel 源码注入 sys.path（幂等）
 │       │   ├── engine.py            # NativeEngine（ImageEngine impl，仅 infer_txt2img）
 │       │   ├── executor.py          # 复用 comfy.sd / comfy.samplers 推理
 │       │   └── schemas/             # z_image_turbo_native.yaml
@@ -159,7 +159,7 @@ Image_MultiModel/
 
 ### 阶段 0 · 环境与决策确认（0.5 天）
 - 确认 Seedvr2 / TTS_MultiModel 本地仓库可读（附录复用依据）
-- 确认本机 `references/ComfyUI` 源码可复用；确认唯一工作流 JSON 与 Schema 就位
+- 确认本机 `comfy_kernel` 源码可复用；确认唯一工作流 JSON 与 Schema 就位
 - 将 `generate.html` 复制为 `bin/integrated_app/static/index.html`（唯一前端入口）
 - **验收**：原型在浏览器直接可开（现状已满足），后续所有改动基于此副本
 
@@ -171,7 +171,7 @@ Image_MultiModel/
 - **验收**：浏览器打开即应用；改设置→写盘重启生效；SSE 连接建立；路径解析器双模式单测绿
 
 ### M1 · 原生引擎适配层 + Workflow Patcher（3 周）
-- native/source.py（复用 references/ComfyUI 源码）、native/engine.py（NativeEngine 实现 ImageEngine）
+- native/source.py（复用 comfy_kernel 源码）、native/engine.py（NativeEngine 实现 ImageEngine）
 - native/workflow.py Patcher 6 步 + Schema YAML（PRD M1）
 - 前端：生成按钮接 `POST /api/generate` + SSE 进度 + 队列球联动（GUIDE 7）
 - **验收**（PRD M1）：Mock batch=9999 拆分 625 次正确；LoRA/SeedVR2/Eses/VRAM 开关组合 patch 快照 100% 正确；单测覆盖 ≥70%
@@ -202,7 +202,7 @@ Image_MultiModel/
 ### M7 · 原生进程内引擎（已完成，v1.2.0）
 - **目标**：无需外部 ComfyUI 进程即可在应用进程内出图，复用本机 Comfy 源码，不重新实现模型网络。
 - `bin/integrated_app/native/` 包落地：
-  - `source.py`：把 `references/ComfyUI` + aki-v3 自定义节点注入 `sys.path`（幂等）
+  - `source.py`：把 `comfy_kernel` + aki-v3 自定义节点注入 `sys.path`（幂等）
   - `executor.py`：复用 `comfy.sd` / `comfy.samplers` 完成 加载→CLIP编码→采样→VAE解码
   - `engine.py`：`NativeEngine` 实现 `ImageEngine` Protocol，输出经 `PathGuard` 校验落盘 + DCT 水印 + 缩略图
   - `lora.py` / `seedvr.py` / `compares.py` / `vram.py` / `preview.py`：Phase 3 能力扩展
