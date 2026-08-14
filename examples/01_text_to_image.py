@@ -10,11 +10,11 @@
 需要修改:
     - SERVER_URL: 如果 Image MultiModel 运行在其他地址
     - prompt: 你想生成的图片描述
-    - engine_name: 使用哪个引擎 (flux2_klein_9b_distilled / z_image_turbo)
+    - engine_name: 使用哪个引擎 (z_image_turbo_native)
 
 前置条件:
     1. Image MultiModel 已启动 (python bin/clean_launch.py)
-    2. ComfyUI 后端已启动且引擎已加载
+    2. 原生引擎已就绪（z_image_turbo_native）
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ payload = {
     "height": 1024,
     "seed": -1,            # -1 = 随机
     "batch_size": 1,
-    "engine_name": "flux2_klein_9b_distilled",
+    "engine_name": "z_image_turbo_native",
     # 以下为可选高级参数，使用默认值即可
     "seedvr2_enable": True,
     "seedvr2_resolution": 2048,

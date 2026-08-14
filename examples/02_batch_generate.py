@@ -14,7 +14,7 @@
 
 前置条件:
     1. Image MultiModel 已启动
-    2. ComfyUI 后端已启动且引擎已加载
+    2. 原生引擎已就绪（z_image_turbo_native）
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ base_config = {
     "height": 1024,
     "seed": -1,
     "batch_size": 1,
-    "engine_name": "z_image_turbo",  # Turbo 引擎更快，适合批量
+    "engine_name": "z_image_turbo_native",  # Turbo 引擎更快，适合批量
     "seedvr2_enable": False,         # 批量时关闭超分以加速
     "eses_enable": False,
     "vram_enable": True,

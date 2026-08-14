@@ -79,7 +79,7 @@ textarea{width:100%;height:110px;font-family:inherit;font-size:12.5px;padding:9p
   <div class="logo"><span class="figma-logo"><span class="fl-1"></span><span class="fl-2"></span><span class="fl-3"></span></span><span class="logo-text">Image MultiModel <i>/ txt2img 工作台</i></span></div>
   <div class="topbar-right">
     <button class="icon-btn" type="button">◐</button>
-    <select style="width:160px"><option>FLUX.2 Klein-9B Distilled</option></select>
+    <select style="width:160px"><option>Z-Image Turbo</option></select>
     <button class="share-btn" type="button">分享</button>
     <span class="avatar"></span>
   </div>
@@ -111,7 +111,7 @@ textarea{width:100%;height:110px;font-family:inherit;font-size:12.5px;padding:9p
 <footer class="statusbar">
   <span class="dot green"></span>CONN: LOCAL:8188 · 12MS
   <span>QUEUE 1·0</span>
-  <div class="sb-right"><span>GPU 16.2/24GB</span><span>ENGINE: FLUX.2 KLEIN</span><span class="zoom">− 100% ＋</span></div>
+  <div class="sb-right"><span>GPU 16.2/24GB</span><span>ENGINE: Z-IMAGE TURBO</span><span class="zoom">− 100% ＋</span></div>
 </footer>
 
 <script>
@@ -123,7 +123,7 @@ var steps=[
  {t:'增强（超分 / 对比 / 显存）',d:'步骤 3 / 4',h:'LoRA 6 层 · SeedVR2 · Eses · ReservedVRAM',
   b:'<div class="fgrid"><div class="fgroup"><label>LoRA 叠加（6 层串联）</label><input value=" 1.0 · 0.7 · 0.5 · …"></div><div class="fgroup"><label>SeedVR2 超分</label><input value="on · 2048 · lab"></div><div class="fgroup"><label>Eses 双图对比</label><input value="on · horizontal"></div><div class="fgroup"><label>ReservedVRAM</label><input value="on · 0.6GB · auto"></div></div>'},
  {t:'确认生成',d:'步骤 4 / 4',h:'核对摘要后点击生成',
-  b:'<div class="summary"><div class="kv"><span>引擎 / 预设</span><b>FLUX.2 Klein · 默认预设</b></div><div class="kv"><span>Prompt</span><b>一位亚洲女性肖像…（28 字符）</b></div><div class="kv"><span>分辨率</span><b>1024 × 1024 · 8 steps · cfg 1.0</b></div><div class="kv"><span>增强</span><b>SeedVR2 2048 + Eses h + VRAM 0.6</b></div><div class="kv"><span>预计输出</span><b>3 张（original / upscaled / compare）</b></div></div><div class="preview-box">PREVIEW · 生成前预览</div>'}
+  b:'<div class="summary"><div class="kv"><span>引擎 / 预设</span><b>Z-Image Turbo · 默认预设</b></div><div class="kv"><span>Prompt</span><b>一位亚洲女性肖像…（28 字符）</b></div><div class="kv"><span>分辨率</span><b>1024 × 1024 · 8 steps · cfg 1.0</b></div><div class="kv"><span>增强</span><b>SeedVR2 2048 + Eses h + VRAM 0.6</b></div><div class="kv"><span>预计输出</span><b>3 张（original / upscaled / compare）</b></div></div><div class="preview-box">PREVIEW · 生成前预览</div>'}
 ];
 var cur=0;
 var stepNo=document.getElementById('stepNo'),stepTitle=document.getElementById('stepTitle'),stepDesc=document.getElementById('stepDesc'),stepBody=document.getElementById('stepBody'),navHint=document.getElementById('navHint');

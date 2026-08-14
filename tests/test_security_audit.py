@@ -156,7 +156,7 @@ class TestCheckpoint:
         mgr = TaskCheckpoint(checkpoint_dir=str(tmp_path))
         mgr.save(
             task_id="test-001",
-            engine="flux2_klein_9b_distilled",
+            engine="z_image_turbo_native",
             total=500,
             completed_items=[{"prompt": "p1", "seed": 42}],
             remaining=[{"prompt": "p2", "seed": 99}],

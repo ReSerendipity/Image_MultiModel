@@ -32,7 +32,7 @@
 
 ### 1.1 产品定位
 
-**Image MultiModel** 是一款基于 **ComfyUI 生态** 的多模型图片生成平台，通过统一的 Web 用户界面 (WebUI) 集成和管理多个异构的 AI 生图模型。用户无需在不同的 ComfyUI 工作流、配置文件、命令行之间切换，即可在一个统一界面中完成：
+**Image MultiModel** 是一款基于 **ComfyUI 生态** 的 **Z-Image Turbo 图像生成平台**，通过统一的 Web 用户界面 (WebUI) 驱动唯一引擎 Z-Image Turbo 完成文生图。用户无需在复杂的 ComfyUI 工作流、配置文件、命令行之间切换，即可在一个统一界面中完成：
 
 - 模型选择与加载
 - 参数调节与预设管理
@@ -51,22 +51,22 @@
 > 1. ✅ 工作流 JSON 中**存在对应类型节点**（无论 `mode=0` 启用还是 `mode=4` bypassed）→ 必须实现（`mode=4` 的节点实现时改为 `mode=0` 启用）
 > 2. ❌ 工作流 JSON 中**完全无对应类型节点** → 一律不实现，不做 M3 规划占位
 >
-> 按此规则对 2 个工作流的逐项判定结果（详见 2.4.4 节点映射总表）：
+> 按此规则对该工作流的逐项判定结果（详见 2.4.4 节点映射总表）：
 > - ✅ **必做 4 类新功能**：LoRA 叠加、SeedVR2 超分、Eses 双图对比、ReservedVRAM 显存预留
 > - ❌ **明确不做**：图生图 img2img（无 LoadImage/VAEEncodeForInpaint 节点）、ControlNet（无 ApplyControlNet + 预处理节点）、普通 ImageScaleToTotalPixels 缩放预览（mode=4 + 非 SeedVR2 路径）
 
 ### 1.6 功能边界判定总表（v1.3 起生效）
 
-| 功能类别 | 对应节点类型（搜索 JSON 关键词） | FLUX.2 Klein | Z-Image-Turbo | 判定 |
-|---------|------------------------------|:------------:|:-------------:|:----:|
-| txt2img 文生图 | CLIPTextEncode + EmptyLatentImage + Sampler | ✅ | ✅ | **必做** |
-| **LoRA 叠加（最多 6 层）** | LoraLoaderModelOnly（6 个串联） | ✅（id=16~21，mode=4 → 改 0） | ✅（id=16~21，mode=4 → 改 0） | **必做** |
-| **SeedVR2 超分** | SeedVR2LoadVAEModel + SeedVR2LoadDiTModel + SeedVR2VideoUpscaler（3 节点，mode=0 连线完整） | ✅（id=61/62/63） | ✅（id=79/80/81） | **必做** |
-| **Eses 双图并排对比** | EsesImageCompare（compare_axis=horizontal，输出对比图） | ✅（id=59） | ✅（id=77） | **必做**（UI 可选开启/关闭） |
-| **ReservedVRAMSetter 显存预留** | ReservedVRAMSetter（reserved + mode + seed(randomize)） | ✅（id=60） | ✅（id=78） | **必做**（UI 可选开启/关闭 + 参数高级设置） |
-| 普通缩放预览 | ImageScaleToTotalPixels + PreviewImage | ❌（mode=4 且连线空） | ❌（mode=4 且连线空） | **不做**（SeedVR2 是启用的超分路径，覆盖此需求） |
-| 图生图 img2img / Inpaint | LoadImage + VAEEncodeForInpaint + SetLatentNoiseMask + denoise < 1 | ❌（完全无） | ❌（完全无，KSampler denoise=1 恒为 txt2img） | **不做**（且不规划 M3） |
-| ControlNet 条件控制 | ApplyControlNet / ControlNetLoader / AIO Preprocessors | ❌（完全无） | ❌（完全无） | **不做**（且不规划 M3） |
+| 功能类别 | 对应节点类型（搜索 JSON 关键词） | Z-Image Turbo | 判定 |
+|---------|------------------------------|:------------:|:----:|
+| txt2img 文生图 | CLIPTextEncode + EmptyLatentImage + Sampler | ✅ | **必做** |
+| **LoRA 叠加（最多 6 层）** | LoraLoaderModelOnly（6 个串联） | ✅（id=16~21，mode=4 → 改 0） | **必做** |
+| **SeedVR2 超分** | SeedVR2LoadVAEModel + SeedVR2LoadDiTModel + SeedVR2VideoUpscaler（3 节点，mode=0 连线完整） | ✅（id=79/80/81） | **必做** |
+| **Eses 双图并排对比** | EsesImageCompare（compare_axis=horizontal，输出对比图） | ✅（id=77） | **必做**（UI 可选开启/关闭） |
+| **ReservedVRAMSetter 显存预留** | ReservedVRAMSetter（reserved + mode + seed(randomize)） | ✅（id=78） | **必做**（UI 可选开启/关闭 + 参数高级设置） |
+| 普通缩放预览 | ImageScaleToTotalPixels + PreviewImage | ❌（mode=4 且连线空） | **不做**（SeedVR2 是启用的超分路径，覆盖此需求） |
+| 图生图 img2img / Inpaint | LoadImage + VAEEncodeForInpaint + SetLatentNoiseMask + denoise < 1 | ❌（完全无，KSampler denoise=1 恒为 txt2img） | **不做**（且不规划 M3） |
+| ControlNet 条件控制 | ApplyControlNet / ControlNetLoader / AIO Preprocessors | ❌（完全无） | **不做**（且不规划 M3） |
 
 ### 1.2 设计哲学（源自参考项目）
 
@@ -75,7 +75,7 @@
 | 维度 | 参考来源 | 具体做法 |
 |------|---------|---------|
 | **Web 技术栈** | 两项目一致 | FastAPI + Jinja2 + HTMX，零前端构建工具链 |
-| **多引擎抽象层** | TTS_MultiModel | `EngineRegistry` + Protocol 鸭子类型，声明式引擎注册 |
+| **引擎抽象层** | TTS_MultiModel | `EngineRegistry` + Protocol 鸭子类型，声明式引擎注册 |
 | **模型生命周期管理** | Seedvr2 + TTS | `ModelManager` + 单例 `ModelRegistry`，观察者 + SSE 桥接 |
 | **任务队列** | Seedvr2 | 单 Worker 串行队列，任务级取消回调，worker 异常自动重启 |
 | **中间件体系** | TTS_MultiModel | CSRF / RateLimit / RequestID / API Auth / 错误处理 |
@@ -87,17 +87,17 @@
 
 | 特性 | Seedvr2 | TTS_MultiModel | **Image MultiModel (本项目)** |
 |------|---------|---------------|-------------------------------|
-| **推理后端** | 自定义 PyTorch 管线 (DiT + VAE) | 自定义 PyTorch 管线 (VoxCPM2 / IndexTTS2) | **ComfyUI (HTTP + WebSocket)** |
-| **引擎粒度** | 单引擎 × 多尺寸 (3B/7B) | 多引擎 × 单尺寸 | 多引擎 × 多工作流（首版 2 个：FLUX.2 Klein-9B / Z-Image-Turbo） |
-| **参数模式** | 配置字典 + 表单字段 | 生成器进度 yield + 表单 | **ComfyUI 工作流 JSON + 参数映射 Schema（严格对齐 nodes/widgets_values）** |
-| **GPU 占用** | 独占，Block Swap 换入换出 | 热待机 (双引擎共存) | **按 ComfyUI 后端策略，队列隔离** |
+| **推理后端** | 自定义 PyTorch 管线 (DiT + VAE) | 自定义 PyTorch 管线 (VoxCPM2 / IndexTTS2) | **进程内原生引擎（复用 references/ComfyUI 源码）** |
+| **引擎粒度** | 单引擎 × 多尺寸 (3B/7B) | 多引擎 × 单尺寸 | 单一 Z-Image Turbo 引擎 |
+| **参数模式** | 配置字典 + 表单字段 | 生成器进度 yield + 表单 | **工作流 JSON + 参数映射 Schema（严格对齐 nodes/widgets_values）** |
+| **GPU 占用** | 独占，Block Swap 换入换出 | 热待机 (双引擎共存) | **进程内原生引擎，单 Worker 串行队列** |
 | **资源文件** | 模型 .safetensors | 模型 + Persona .pt/.wav | **工作流 .json + text_encoder + UNet + VAE + LoRA（最多 6 层串联） + SeedVR2 DiT/VAE 超分模型** |
 
 ### 1.4 目标用户画像
 
 1. **独立创作者 / 设计师**: 需要快速产出高质量图像，希望屏蔽 ComfyUI 的节点复杂度
-2. **AI 内容工作室**: 管理多个生图模型，批量出图，需要素材库与版本管理
-3. **技术研究者**: 希望对比不同模型效果，保留完整参数可复现链路
+2. **AI 内容工作室**: 批量出图，需要素材库与版本管理
+3. **技术研究者**: 希望复现与对比不同参数效果，保留完整参数可复现链路
 
 ### 1.5 非目标 (Non-Goals)
 
@@ -114,7 +114,7 @@
 
 ```
 Image MultiModel
-├── 2.2 ComfyUI 后端连接管理
+├── 2.2 原生引擎连接管理
 ├── 2.3 引擎(模型)注册与管理
 ├── 2.4 文生图 (txt2img) 推理工作台（含 LoRA / SeedVR2 超分 / Eses 对比 / ReservedVRAM 显存预留 4 大子卡）
 ├── 2.5 预设与参数管理
@@ -126,57 +126,43 @@ Image MultiModel
 └── 2.11 设置与偏好（5 种语言 i18n）
 ```
 
-### 2.2 ComfyUI 后端连接管理
+### 2.2 引擎连接管理
 
-#### FR-2.2.1 多后端注册
-- 支持注册多个 ComfyUI 后端实例（本地 / 局域网 / 远程）
-- 每个后端记录：`name` / `base_url` / `ws_url` / `auth_token` / `client_id`
-- 连接测试 API：调用 ComfyUI `/system_stats` 验证可达性与版本兼容
-- 默认后端：本地 `http://127.0.0.1:8188`（可一键启动嵌入式 ComfyUI 进程）
+#### FR-2.2.1 引擎注册
+- 项目仅保留唯一引擎 `z_image_turbo_native`，`backend: native`，引擎元数据在 `config.yaml → models.engines` 中声明
+- 引擎注册信息：`name` / `display_name` / `workflow_file` / `parameter_schema`
+- 启动时由 `ModelRegistry` 自动扫描 config.yaml 注册
 
-#### FR-2.2.2 后端健康检测与故障转移
-- 后台每 30s 心跳轮询所有注册后端
-- 后端离线标记，任务提交时自动跳过离线后端
-- 单后端支持队列长度检测，负载均衡策略（可选：轮询 / 最少连接）
+#### FR-2.2.2 引擎健康检测
+- 后台每 30s 心跳轮询引擎状态
+- 引擎离线标记，任务提交时自动跳过离线引擎
+- 单引擎队列长度检测
 
-#### FR-2.2.3 嵌入式 ComfyUI 进程管理 (可选)
-- 支持通过配置路径自动启动本地 ComfyUI 进程
-- 启动参数可配置：`--listen` / `--port` / `--lowvram` / `--cuda-device`
-- 应用退出时优雅终止子进程
+#### FR-2.2.3 引擎加载（进程内原生）
+- 引擎复用本机 `references/ComfyUI` 源码，通过 `source.ensure_loaded()` 注入 `sys.path`
+- 启动参数可配置：`unet` / `text_encoder` / `vae` / `default_precision`
+- 应用退出时优雅释放 GPU 显存
 
 ### 2.3 引擎(模型)注册与管理
 
 参照 [TTS_MultiModel engine_interface.py](file:///C:/Users/Doro/TTS_MultiModel/bin/integrated_app/engine_interface.py) 的注册机制。
 
 #### FR-2.3.1 声明式引擎注册 (config.yaml)
-在 `config.yaml → models.engines` 中声明每个生图引擎（以下示例即当前项目实际落地的 2 个引擎，ID 名与 config.yaml 完全一致）：
+在 `config.yaml → models.engines` 中声明生图引擎（以下示例即当前项目实际落地的唯一引擎 `z_image_turbo_native`，ID 名与 config.yaml 完全一致）：
 
 ```yaml
 models:
   engines:
-    flux2_klein_9b_distilled:
-      name: "flux2_klein_9b_distilled"
-      display_name: "FLUX.2 Klein-9B Distilled"
-      backend: "comfyui"
-      comfy_backend_preference: "local"
-      workflow_file: "workflows/Flux.2_Klein-9B-Distilled.json"
-      parameter_schema: "schemas/flux2_klein_9b_distilled.yaml"
-      vram_gb: 12.0
-      ram_gb: 24.0
-      default_precision: "fp8mixed"
-      supported_features: ["txt2img", "lora_stack_6", "seedvr2_upscale_2x", "eses_compare", "reserved_vram"]
-      image_formats: ["png"]
-      license: "FLUX.2 Non-Commercial"
-    z_image_turbo:
-      name: "z_image_turbo"
-      display_name: "Z-Image-Turbo"
-      backend: "comfyui"
-      comfy_backend_preference: "local"
+    z_image_turbo_native:
+      name: "z_image_turbo_native"
+      display_name: "Z-Image Turbo"
+      backend: "native"                       # 进程内原生引擎（复用 references/ComfyUI 源码）
       workflow_file: "workflows/Z_image_turbo.json"
-      parameter_schema: "schemas/z_image_turbo.yaml"
+      parameter_schema: "schemas/z_image_turbo_native.yaml"
       vram_gb: 10.0
       ram_gb: 20.0
-      default_precision: "bf16"
+      default_precision: "fp8"
+      model_source_mode: "portable"
       supported_features: ["txt2img", "lora_stack_6", "seedvr2_upscale_2x", "eses_compare", "reserved_vram"]
       image_formats: ["png"]
       license: "Z-Image Turbo"
@@ -195,8 +181,7 @@ models:
 
 ### 2.4 文生图 (txt2img) 推理工作台（含 4 大扩展：LoRA 叠加 / SeedVR2 超分 / Eses 双图对比 / ReservedVRAM 显存预留）
 
-> **功能严格对齐工作流节点存在性（v1.3 边界规则）**。两个工作流来源：
-> - [Flux.2_Klein-9B-Distilled.json](file:///C:/Users/Doro/Image_MultiModel/workflows/Flux.2_Klein-9B-Distilled.json)
+> **功能严格对齐工作流节点存在性（v1.3 边界规则）**。唯一工作流来源：
 > - [Z_image_turbo.json](file:///C:/Users/Doro/Image_MultiModel/workflows/Z_image_turbo.json)
 >
 > 工作流的子图 (Subgraph) 暴露 inputs=6 项（正/负 Prompt + cfg + steps + width + height），但子图**内部节点**还提供了更多可 Patch 的功能（子图未暴露的 widgets_values 字段，如 seed、batch_size、LoRA 6 层、SeedVR2、Eses、ReservedVRAM），因此完整 UI 参数共 **22 项**，按 6 组手风琴卡片组织。
@@ -205,30 +190,30 @@ models:
 
 #### FR-2.4.1 Prompt 输入区
 - 正向 Prompt 多行文本框（`positive_prompt`）：支持 5 种语言文本直接输入（简中 / 繁中 / 英 / 日 / 韩），无需翻译前置处理
-- 负向 Prompt 多行文本框（`negative_prompt`）：FLUX.2 / Z-Turbo 都支持，默认可为空
+- 负向 Prompt 多行文本框（`negative_prompt`）：Z-Image Turbo 支持，默认可为空
 - 行号显示 + 字符计数（用于提示截断风险；实际文本编码由 ComfyUI CLIP 节点处理）
 
 #### FR-2.4.2 参数面板（手风琴分组 6 组：基础参数 / LoRA 叠加 / SeedVR2 超分 / 对比与显存设置 / 输出设置）
 
-| 分组 | 参数键 | 控件类型 | 默认值 (Flux.2 Klein) | 取值范围 / 约束 | 对应 ComfyUI 节点 |
+| 分组 | 参数键 | 控件类型 | 默认值 (Z-Image Turbo) | 取值范围 / 约束 | 对应 ComfyUI 节点 |
 |------|--------|---------|----------------------|----------------|-------------------|
 | **① 基础参数** | `positive_prompt` | textarea | "" | 任意语言文本 | 子图 inputs → CLIPTextEncode `id=4/6` widgets_values[0] |
 | ① 基础参数 | `negative_prompt` | textarea | "" | 文本 | 子图 inputs → CLIPTextEncode `id=15/5` widgets_values[0] |
-| ① 基础参数 | `cfg` | 浮点数字框 | **1.0**（FLUX/Z 蒸馏官方推荐） | [1.0, 20.0]，步长 0.1 | 子图 inputs → CFGGuider / KSampler cfg |
+| ① 基础参数 | `cfg` | 浮点数字框 | **1.0**（Z-Image Turbo 蒸馏官方推荐） | [1.0, 20.0]，步长 0.1 | 子图 inputs → CFGGuider / KSampler cfg |
 | ① 基础参数 | `steps` | 整数框 | **8** | [1, 50] | 子图 inputs → Flux2Scheduler / KSampler steps |
 | ① 基础参数 | `width` | 整数框 ±16 步进 | 1024 | 必须 16 倍数；[256, 2048] | 子图 inputs → EmptyLatentImage id=10/4 width |
 | ① 基础参数 | `height` | 整数框 ±16 步进 | 1024 | 同上 | 子图 inputs → EmptyLatentImage id=10/4 height |
 | ① 基础参数 | `seed` | 整数框 + 🎲随机 + ♻️复用 | **-1**（= 随机生成） | -1 或 [0, 2^53-1] | RandomNoise `id=6` noise_seed + randomize_control（二字段联合） / KSampler seed |
 | ① 基础参数 | **`batch_size`** | 整数框 ±1/±10/±100 步进 | 1 | **[1, 9999]**（用户要求）；内部 chunk≤16 | EmptyLatentImage id=10/4 widgets_values[2] batch_size |
-| **② LoRA 叠加（6 条串联，最多 6 层权重叠加）** | `lora_1_name` | 下拉（LoRA 文件列表） | `.safetensors`（Klein 默认） | `pretrained_models/loras/` 目录扫描 | LoraLoaderModelOnly `id=16` w_values[0]（同时将 node.mode 4→0） |
+| **② LoRA 叠加（6 条串联，最多 6 层权重叠加）** | `lora_1_name` | 下拉（LoRA 文件列表） | `.safetensors`（默认） | `pretrained_models/loras/` 目录扫描 | LoraLoaderModelOnly `id=16` w_values[0]（同时将 node.mode 4→0） |
 | ② LoRA 叠加 | `lora_1_strength` | 浮点滑块 | 1.0 | [-2.0, +2.0]，步长 0.05 | LoraLoaderModelOnly `id=16` w_values[1] strength_model |
-| ② LoRA 叠加 | `lora_2_name` | 下拉 | `Kook_Flux_klein_亚洲人像.safetensors` | 同目录 | LoraLoaderModelOnly `id=17` w_values[0] |
+| ② LoRA 叠加 | `lora_2_name` | 下拉 | `人像风格LoRA.safetensors` | 同目录 | LoraLoaderModelOnly `id=17` w_values[0] |
 | ② LoRA 叠加 | `lora_2_strength` | 浮点滑块 | 0.7 | [-2, +2] | LoraLoaderModelOnly `id=17` w_values[1] |
-| ② LoRA 叠加 | `lora_3_name` | 下拉 | `Kook_Flux_klein_亚洲人像.safetensors` | 同上 | LoraLoaderModelOnly `id=18` w_values[0] |
+| ② LoRA 叠加 | `lora_3_name` | 下拉 | `人像风格LoRA.safetensors` | 同上 | LoraLoaderModelOnly `id=18` w_values[0] |
 | ② LoRA 叠加 | `lora_3_strength` | 浮点滑块 | 0.5 | [-2, +2] | LoraLoaderModelOnly `id=18` w_values[1] |
-| ② LoRA 叠加 | `lora_4_name` | 下拉 | `Kook_Flux_klein_亚洲人像.safetensors` | 同上 | LoraLoaderModelOnly `id=19` w_values[0] |
+| ② LoRA 叠加 | `lora_4_name` | 下拉 | `人像风格LoRA.safetensors` | 同上 | LoraLoaderModelOnly `id=19` w_values[0] |
 | ② LoRA 叠加 | `lora_4_strength` | 浮点滑块 | 0.4 | [-2, +2] | LoraLoaderModelOnly `id=19` w_values[1] |
-| ② LoRA 叠加 | `lora_5_name` | 下拉 | `Kook_Flux_klein_亚洲人像.safetensors` | 同上 | LoraLoaderModelOnly `id=20` w_values[0] |
+| ② LoRA 叠加 | `lora_5_name` | 下拉 | `人像风格LoRA.safetensors` | 同上 | LoraLoaderModelOnly `id=20` w_values[0] |
 | ② LoRA 叠加 | `lora_5_strength` | 浮点滑块 | 0.3 | [-2, +2] | LoraLoaderModelOnly `id=20` w_values[1] |
 | ② LoRA 叠加 | `lora_6_name` | 下拉 | `.safetensors` | 同上 | LoraLoaderModelOnly `id=21` w_values[0] |
 | ② LoRA 叠加 | `lora_6_strength` | 浮点滑块 | 0.2 | [-2, +2] | LoraLoaderModelOnly `id=21` w_values[1] |
@@ -245,19 +230,19 @@ models:
 | **⑤ 输出设置** | `output_format` | 下拉（禁用） | **png**（固定不可切换） | 仅 png | SaveImage 扩展名 |
 | ⑤ 输出设置 | `filename_prefix` | 文本框模板 | `{engine}` | {date}/{engine}/{seed}/{task_id}，≤ 80 字符 | SaveImage id=53/71 filename_prefix |
 
-> **关于采样器 sampler / scheduler**：Flux.2 Klein-9B `KSamplerSelect id=8` 默认 `dpmpp_3m_sde_gpu` + `Flux2Scheduler id=9`；Z-Image-Turbo `ModelSamplingAuraFlow id=8`（shift=3）+ KSampler（`dpmpp_3m_sde_gpu` + `sgm_uniform`）。两者组合已为官方推荐最优，**不在 UI 暴露切换项**。
+> **关于采样器 sampler / scheduler**：Z-Image Turbo 使用 `ModelSamplingAuraFlow id=8`（shift=3）+ KSampler（`dpmpp_3m_sde_gpu` + `sgm_uniform`）。该组合为官方推荐最优，**不在 UI 暴露切换项**。
 
 #### FR-2.4.3 参数校验规则（对齐工作流 widgets_values 结构）
 - `width / height`：非 16 的倍数 → 自动四舍五入到最近的 16 倍数，并提示"已自动调整为 W×H"
 - `steps < 1`：clamp 至 1；`steps > 50`：弹窗二次确认"已超过推荐值，可能导致画质异常"
-- `cfg`：FLUX.2 与 Z-Turbo 蒸馏模型官方推荐为 1.0；<1 或 >10 时黄色警告
+- `cfg`：Z-Image Turbo 蒸馏模型官方推荐为 1.0；<1 或 >10 时黄色警告
 - **batch_size**：用户要求上限 9999；代码内部按 `chunk = min(current, 16)` 拆分；UI 显示"预计生成 N = Prompt 数 × batch_size × Grid"，≥500 黄 ⚠、≥5000 红 ⚠ 需二次确认；batch>500 自动启用断点续跑（每 100 张落盘 checkpoint）
 - `seed = -1`：每次推理前调用 `random.randint(0, 2^53-1)` 生成实际 seed 并**同时回填 LoRA（若与 seed 相关）+ SeedVR2 upscale_seed + VRAM reserve_seed**（各自独立，不共用）
 - **LoRA 权重校验**：单个 lora_i_strength 超 ±1.5 黄色警告；若 lora_i_name 选"— 禁用 —"，则该条 LoraLoaderModelOnly 改 mode=4 跳过，下一条节点的 MODEL in/out 链路自动重连（跳过本层）
-- **SeedVR2 upscale_resolution**：若 `width * batch_size` 内存估算 > ComfyUI 后端可用显存，自动将 batch_size chunk 从 16 降到 8/4/2，并提示
+- **SeedVR2 upscale_resolution**：若 `width * batch_size` 内存估算 > 原生引擎可用显存，自动将 batch_size chunk 从 16 降到 8/4/2，并提示
 
 #### FR-2.4.4 参数 → 工作流 JSON Widget Patch 总表（严格对齐 nodes[].widgets_values 下标）
-**FLUX.2 Klein-9B（Flux.2_Klein-9B-Distilled.json）所有必做参数对应节点一览：**
+**Z-Image Turbo（Z_image_turbo.json）所有必做参数对应节点一览：**
 
 | 参数键 | 节点类型 | 节点 ID | patch 字段 / widgets_values 下标 | 备注 |
 |-------|---------|:------:|----------------------------------|------|
@@ -287,7 +272,7 @@ models:
 | vram_reserve_seed | ReservedVRAMSetter | 60 | `widgets_values[2]` + `widgets_values[3]`= "randomize"/"fixed" | 独立 seed |
 | filename_prefix | SaveImage | 53 | `widgets_values[0]` | |
 
-> **Z-Image-Turbo 对应节点 ID 差异对照（Z_image_turbo.json）**：CLIPTextEncode（正=6 / 负=5），KSampler 本体 id=7（含 steps/cfg/seed/denoise），EmptySD3LatentImage id=4，**LoRA 6 条相同 id=16~21**，SeedVR2 三节点（LoadVAE=79 / VideoUpscaler=80 / LoadDiT=81），EsesImageCompare=77，ReservedVRAMSetter=78，SaveImage=71。其他参数/注入方式与上表完全一致，Schema YAML 仅换节点 ID 即可。
+> **Z-Image Turbo 对应节点 ID 一览（Z_image_turbo.json）**：CLIPTextEncode（正=6 / 负=5），KSampler 本体 id=7（含 steps/cfg/seed/denoise），EmptySD3LatentImage id=4，**LoRA 6 条 id=16~21**，SeedVR2 三节点（LoadVAE=79 / VideoUpscaler=80 / LoadDiT=81），EsesImageCompare=77，ReservedVRAMSetter=78，SaveImage=71。参数/注入方式与上表完全一致，Schema YAML 仅换节点 ID 即可。
 
 #### FR-2.4.5 必做链路的输出文件规则（2 图 / 对比图 共存策略）
 1. **双图输出 = 原直通图 + SeedVR2 超分图**（两条链路同时存在）→ `outputs/{engine}/{date}/{task_id}_original.png` 与 `{task_id}_upscaled.png` 分别保存
@@ -314,23 +299,23 @@ models:
 
 ### 2.6 LoRA 资源管理（必做，工作流已含 6 条 LoraLoaderModelOnly 串联链路）
 
-> **必做理由（v1.3 边界规则）**：两个工作流均包含 6 个 `LoraLoaderModelOnly` 串联节点（FLUX.2 Klein id=16~21、Z-Turbo id=16~21），尽管默认 `mode=4 bypassed`，但按用户规则「节点存在即必做」→ 实现时根据 UI 选择切换 mode=0 启用。LoRA 链路完整对接 UNETLoader → CFGGuider。
+> **必做理由（v1.3 边界规则）**：工作流包含 6 个 `LoraLoaderModelOnly` 串联节点（Z-Image Turbo id=16~21），尽管默认 `mode=4 bypassed`，但按用户规则「节点存在即必做」→ 实现时根据 UI 选择切换 mode=0 启用。LoRA 链路完整对接 UNETLoader → CFGGuider。
 
 #### FR-2.6.1 LoRA 目录扫描与元数据
 - 扫描路径：`pretrained_models/loras/`（与 shared/portable 双模式路径解耦，调用 `resolve_model_path('loras/xxx.safetensors')`）
 - 元数据：自动读取 `.safetensors` 元数据 header 中的 `ss_tag_frequency`（触发词）、`ss_base_model_version`（适配基础模型）
-- 下拉列表排序：默认按 LoRA 文件名 + 所在引擎（FLUX vs Z-Turbo）过滤（基础模型不匹配显示 ⚠ 灰显）
-- 支持子目录：`loras/Klein/`、`loras/Z_image/` 递归扫描
+- 下拉列表排序：默认按 LoRA 文件名 + 所在引擎（Z-Image Turbo）过滤（基础模型不匹配显示 ⚠ 灰显）
+- 支持子目录：`loras/Z_image/` 递归扫描
 
 #### FR-2.6.2 LoRA 6 层叠加 UI（与 2.4.2 参数表联动）
 - 每行一个 LoRA：下拉选 `_disabled`（禁用）或具体 LoRA 文件 + 权重滑块（-2.0 ~ +2.0）
 - 行顺序 = 工作流 id=16→17→18→19→20→21 的串联顺序（UNETLoader → id=16 → id=17 → ... → id=21 → CFGGuider），不得乱序（乱序 = 叠加效果不一致）
-- 默认值 **严格按工作流 JSON widgets_values 初始化**（FLUX.2 Klein：id=16 `` 1.0、id=17 `Kook_亚洲人像` 0.7、id=18 同 0.5、id=19 同 0.4、id=20 同 0.3、id=21 `` 0.2）
+- 默认值 **严格按工作流 JSON widgets_values 初始化**（Z-Image Turbo：id=16 `` 1.0、id=17 `Kook_亚洲人像` 0.7、id=18 同 0.5、id=19 同 0.4、id=20 同 0.3、id=21 `` 0.2）
 - 若某层 LoRA 文件不在磁盘（用户没把对应 LoRA 拷到 pretrained_models/loras）→ 下拉自动选 `_disabled` + 黄色提示"工作流默认 LoRA 未找到：xxx.safetensors，已跳过本层"
 - 预设保存/加载：LoRA 6 层完整写入预设；批量 Grid Search 支持 lora_i_strength 做维度（生成 lora_strength × cfg × steps 的笛卡尔积）
 
 #### FR-2.6.3 VAE / UNet / CLIP 说明（已内置，UI 不暴露）
-- **VAE / UNet / CLIP**：每个引擎在工作流 JSON 内部 `UNETLoader id=69/1`、`CLIPLoader id=2/2`、`VAELoader id=3/3` 节点已绑定专属模型文件（FLUX.2 用 `DarkBeast-Klein9b + qwen_3_8b + flux2-vae`；Z-Turbo 用 `z_image_turbo_bf16 + qwen_3_4b + ae`），UI 中**不提供切换**（切换会导致节点型 LoRA 权重矩阵不兼容）。
+- **VAE / UNet / CLIP**：引擎在工作流 JSON 内部 `UNETLoader id=69/1`、`CLIPLoader id=2/2`、`VAELoader id=3/3` 节点已绑定专属模型文件（Z-Image Turbo 用 `z_image_turbo_bf16 + qwen_3_4b + ae`），UI 中**不提供切换**（切换会导致节点型 LoRA 权重矩阵不兼容）。
 
 ### 2.7 批量推理（批次 1 ~ 9999）
 
@@ -408,7 +393,7 @@ models:
 - 系统内存使用率
 - 磁盘剩余空间（outputs / uploads 所在卷）
 - 已注册引擎列表与加载状态
-- 已连接 ComfyUI 后端列表与健康指示灯
+- 原生引擎加载状态与健康指示灯
 - 应用运行时长 + 累计完成任务数
 
 ### 2.11 设置与偏好
@@ -429,7 +414,7 @@ models:
 
 #### FR-2.11.2 模型设置 Tab
 - 引擎管理：启用 / 禁用（隐藏不常用引擎）、覆盖显存估算值、覆盖默认参数（默认 cfg/steps/width/height 全局预设）
-- ComfyUI 后端管理：新增 / 编辑 / 删除、连接测试
+- 原生引擎管理：加载 / 卸载 / 连接测试（复用 references/ComfyUI 源码）
 - 资源扫描：手动触发 text_encoders / unet / vae 目录扫描（用于模型存在性红/绿灯指示）
 
 ---
@@ -504,7 +489,7 @@ models:
 |---------|------|------------|
 | 正整数 (width/height) | 数字输入 + 步进按钮 ±16 + 快捷预设 512/768/1024/1536 | ±16 |
 | 正整数 (steps/batch_size) | 数字输入 + 步进按钮（steps ±1，batch_size ±1 / ±10 / ±100 三档快捷） | steps: [1,50]; **batch_size: [1,9999]** |
-| 浮点 (cfg) | 数字输入（无滑块：FLUX/Z-Turbo 推荐 cfg=1，范围窄不需要滑块）| 步长 0.1，范围 [1.0, 20.0] |
+| 浮点 (cfg) | 数字输入（无滑块：Z-Image Turbo 推荐 cfg=1，范围窄不需要滑块）| 步长 0.1，范围 [1.0, 20.0] |
 | seed | 数字输入 + 「🎲随机」按钮 + 「♻️复用上一个」 | seed=-1 表示随机，每次显示实际落到的值 |
 | 枚举（引擎 / 语言 / 主题）| 下拉选择（`<select>`） | 引擎最多 10 项；语言固定 5 项（简/繁中/英/日/韩） |
 | prompt 文本 | 多行 textarea，固定高度 160px，支持「清空」「复制」快捷按钮 | |
@@ -528,7 +513,7 @@ models:
 
 ## 4. ComfyUI 模型集成方案
 
-> 这是本产品与参考项目**最大的架构差异点**：两参考项目均直接内部加载 PyTorch 模型；本项目通过 HTTP + WebSocket 代理到一个或多个外部 ComfyUI 后端进程。
+> 这是本产品与参考项目**最大的架构差异点**：两参考项目均直接内部加载 PyTorch 模型；本项目进程内复用 `references/ComfyUI` 源码，由单一进程内原生引擎（NativeEngine）直接调用 `comfy.sd` / `comfy.samplers` 完成推理，无外部 ComfyUI 后端进程 / HTTP+WebSocket 代理。
 
 ### 4.1 集成层级总览
 
@@ -541,26 +526,23 @@ models:
 │  └──────┬───────┘  └──────┬───────┘  └────┬─────┘ │
 │         │                 │                │        │
 │  ┌──────▼─────────────────▼────────────────▼─────┐ │
-│  │          ComfyUI Engine 适配层 (Adapter)        │ │
+│  │          原生引擎适配层 (Native Adapter)        │ │
 │  │  ┌────────────────────────────────────────┐   │ │
 │  │  │ WorkflowManager (JSON Patch + 参数注入) │   │ │
 │  │  │ ParameterSchemaValidator               │   │ │
 │  │  │ ProgressMapper (Comfy节点→整体%)       │   │ │
 │  └──┴────────────────────────────────────────┴───┘ │
-│                    │ HTTP / WS                       │
-└────────────────────┼────────────────────────────────┘
-                     ▼
-           ┌──────────────────┐
-           │  ComfyUI Backend │  (本地 or 远程)
-           │  - prompt API    │
-           │  - ws progress   │
-           │  - /object_info  │
-           │  - /view         │
-           │  - /upload/image │
-           └──────────────────┘
+│        进程内直接调用（复用 references/ComfyUI）│
+└───────────────┬────────────────────────────────────┘
+                ▼ 进程内（无外部进程 / 无 HTTP+WS）
+        ┌──────────────────────┐
+        │  NativeEngine (进程内) │
+        │  - comfy.sd / samplers│
+        │  - 采样 / VAE 解码     │
+        └──────────────────────┘
 ```
 
-### 4.2 ComfyUI Engine 抽象协议 (Protocol)
+### 4.2 原生引擎抽象协议 (Protocol)
 
 在 `bin/integrated_app/engine_interface.py` 中定义：
 
@@ -571,7 +553,7 @@ class ImageEngine(Protocol):
 
     def is_ready(self) -> bool: ...
     def load(self, config: EngineLoadConfig) -> Generator[tuple[str, float|None], None, None]:
-        """生成器产出 (status_text, progress_pct)，同步模型到 ComfyUI 后端。"""
+        """生成器产出 (status_text, progress_pct)，同步模型到原生引擎。"""
         ...
     def unload(self) -> None: ...
 
@@ -591,7 +573,7 @@ class ImageEngine(Protocol):
     #     ...
 
     def cancel(self) -> None:
-        """取消当前正在进行的推理（通过 ComfyUI /interrupt）。"""
+        """取消当前正在进行的推理（调用原生引擎中断采样）。"""
         ...
 ```
 
@@ -603,13 +585,13 @@ class ImageEngine(Protocol):
 每个引擎配套一个 Schema 文件，声明参数如何注入 ComfyUI 工作流 JSON 的指定节点。
 **重要**：Schema 的节点 ID、字段顺序必须与 `workflows/*.json` 的 `nodes[].widgets_values` 数组完全对应（工作流中 seed/upscale_seed/vram_seed 往往是 widgets_values 第一个字段 + 第二个 `randomize` control 字段，必须按实际结构写）。对 `mode=4 bypassed` 的节点，Patcher 必须在提交前将 nodes[].mode 改成 0。
 
-以下为 FLUX.2 Klein-9B 的**完整**模板示例（与 2.4.4 节点映射表严格对齐，含所有必做节点）：
+以下为 Z-Image Turbo 的**完整**模板示例（与 2.4.4 节点映射表严格对齐，含所有必做节点）：
 
 ```yaml
-# schemas/flux2_klein_9b_distilled.yaml
+# schemas/z_image_turbo_native.yaml
 workflow_version: "1.0"
-workflow_ref: "workflows/Flux.2_Klein-9B-Distilled.json"
-engine_name: "flux2_klein_9b_distilled"
+workflow_ref: "workflows/Z_image_turbo.json"
+engine_name: "z_image_turbo_native"
 
 required_nodes:
   # ===== 基础 8 大 txt2img =====
@@ -733,7 +715,7 @@ parameter_map:
     disable_mode_override: 4           # 若 UI 选 _disabled，则 nodes[id=16].mode 保持 4
     type: COMBO_LORA
     dir: "pretrained_models/loras"
-    default: "FLUX.2-klein\\FLux_Klein_9B\\.safetensors"
+    default: "Z-image_turbo-bf16\\.safetensors"
     default_missing_strategy: _disabled_and_warn
   lora_1_strength:
     node_id: 16
@@ -749,7 +731,7 @@ parameter_map:
     disable_mode_override: 4
     type: COMBO_LORA
     dir: "pretrained_models/loras"
-    default: "FLUX.2-klein\\Kook_Flux_klein_亚洲人像\\Kook_Flux_klein_亚洲人像.safetensors"
+    default: "人像风格LoRA.safetensors"
   lora_2_strength:
     node_id: 17
     widgets_index: 1
@@ -761,7 +743,7 @@ parameter_map:
     widgets_index: 0
     mode_override: 0
     type: COMBO_LORA
-    default: "FLUX.2-klein\\Kook_Flux_klein_亚洲人像\\Kook_Flux_klein_亚洲人像.safetensors"
+    default: "人像风格LoRA.safetensors"
   lora_3_strength:
     node_id: 18
     widgets_index: 1
@@ -772,7 +754,7 @@ parameter_map:
     widgets_index: 0
     mode_override: 0
     type: COMBO_LORA
-    default: "FLUX.2-klein\\Kook_Flux_klein_亚洲人像\\Kook_Flux_klein_亚洲人像.safetensors"
+    default: "人像风格LoRA.safetensors"
   lora_4_strength:
     node_id: 19
     widgets_index: 1
@@ -783,7 +765,7 @@ parameter_map:
     widgets_index: 0
     mode_override: 0
     type: COMBO_LORA
-    default: "FLUX.2-klein\\Kook_Flux_klein_亚洲人像\\Kook_Flux_klein_亚洲人像.safetensors"
+    default: "人像风格LoRA.safetensors"
   lora_5_strength:
     node_id: 20
     widgets_index: 1
@@ -794,7 +776,7 @@ parameter_map:
     widgets_index: 0
     mode_override: 0
     type: COMBO_LORA
-    default: "FLUX.2-klein\\FLux_Klein_9B\\.safetensors"
+    default: "Z-image_turbo-bf16\\.safetensors"
   lora_6_strength:
     node_id: 21
     widgets_index: 1
@@ -907,21 +889,21 @@ parameter_map:
 
 > **不做**（对应节点完全不存在于工作流 JSON，1.6 边界表已写明）：图生图 LoadImage / VAEEncodeForInpaint，ControlNet Loader + ApplyControlNet + 预处理链路，普通 lanczos 缩放 ImageScaleToTotalPixels 预览。
 
-### 4.4 任务提交流程 (ComfyUI)
+### 4.4 任务提交流程 (原生引擎)
 
-1. `POST /prompt` 提交 patched workflow → 获取 `prompt_id`
-2. 建立 WebSocket 连接（复用全局连接池）监听：
+1. `NativeEngine.infer_txt2img()` 提交 patched workflow（进程内执行，复用 `comfy.sd` / `comfy.samplers`）
+2. 监听采样回调（进程内，无 WebSocket / 无外部后端）：
    - `execution_start` / `execution_cached` / `executing` (节点级进度)
-   - `executed` (含 output 图文件名)
+   - `executed` (含 output 图)
    - `execution_error` (错误)
 3. 进度：已执行节点数 / 总节点数 = 百分比（缓存节点跳过计入已完成）
-4. 完成：调用 `GET /view?filename=xxx&subfolder=xxx&type=output` 下载图像
+4. 完成：VAE 解码得到输出图像
 5. 落盘到 `outputs/{engine_name}/{date}/{task_id}_{idx}.{ext}`
 
-### 4.5 多后端策略
+### 4.5 单引擎策略
 
-- **默认（推荐）**: 单本地后端，`max_workers=1`，任务队列严格串行（与参考项目一致，防 OOM）
-- **高级（可选）**: 多后端，每个后端独立 worker，任务提交轮询分发；后端之间模型不共享，需要用户自行同步模型目录或确保两侧路径一致
+- **默认（推荐）**: 单一进程内原生引擎，`max_workers=1`，任务队列严格串行（与参考项目一致，防 OOM）
+- 引擎选择：`config.yaml → models.engines` 仅声明 `z_image_turbo_native`，进程内复用 references/ComfyUI 源码，无外部 ComfyUI 后端进程 / 多后端负载均衡
 
 ---
 
@@ -946,7 +928,7 @@ parameter_map:
 │  └───────────────┘  └───────────┘  └─────────────────────┘  │
 ├──────────────────────────────────────────────────────────────┤
 │  适配层 (Adapter)                                            │
-│  ComfyClient (HTTP + WS Pool) + ComfyEngine (Protocol Impl)  │
+│  NativeEngine (Protocol Impl，进程内复用 references/ComfyUI)  │
 ├──────────────────────────────────────────────────────────────┤
 │  基础设施层 (Infrastructure)                                 │
 │  ┌──────────┐  ┌─────────┐  ┌──────────┐  ┌───────────────┐ │
@@ -958,7 +940,7 @@ parameter_map:
 │  └──────────┘  └──────────────────────────────────────────┘  │
 ├──────────────────────────────────────────────────────────────┤
 │  外部依赖                                                    │
-│  ComfyUI Instance(s) / NVIDIA CUDA / 模型文件(.safetensors)  │
+│  references/ComfyUI 源码（进程内）/ NVIDIA CUDA / 模型文件(.safetensors)  │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -989,9 +971,9 @@ Image_MultiModel/
 │       ├── gpu_backend.py / gpu_utils.py     # GPU 检测/显存
 │       ├── auth.py                           # API Token 中间件
 │       ├── watermark.py                      # 数字水印
-│       ├── comfy/                            # ★ ComfyUI 适配层 ★
-│       │   ├── client.py                     # HTTP + WS 连接池
-│       │   ├── engine.py                     # ComfyEngine (ImageEngine impl)
+│       ├── native/                           # ★ 进程内原生引擎层 ★
+│       │   ├── source.py                     # 复用 references/ComfyUI 源码（sys.path 注入）
+│       │   ├── engine.py                     # NativeEngine (ImageEngine impl)
 │       │   ├── workflow.py                   # WorkflowManager (Patch + Schema)
 │       │   └── schemas/                      # 参数映射 YAML 集合
 │       ├── workflows/                        # ComfyUI 工作流 JSON (bin 内)
@@ -1000,7 +982,7 @@ Image_MultiModel/
 │       ├── routes/                           # 自动发现
 │       │   ├── pages.py / tabs.py
 │       │   ├── generate/{txt2img,batch}.py        # M0 仅 txt2img（img2img.py M3 再创建）
-│       │   ├── model.py / comfy.py
+│       │   ├── model.py
 │       │   ├── assets.py / presets.py / history.py
 │       │   └── system/{health,gpu,metrics,settings,sse}.py
 │       ├── services/task_state.py + task_events.py
@@ -1019,33 +1001,29 @@ Image_MultiModel/
 │ ═══════════ 模型双模式（项目根下的 4 类目录，核心设计）═══════════
 │
 ├── text/                                      # 【MODE=shared】Junction → ComfyUI\models\text_encoders
-│   ├── FLUX.2-klein-9b\                       #   （Windows Junction，开发阶段省空间）
-│   └── Z_image(turbo)\                        #   （MODE=portable 时本目录不使用，代码读 pretrained_models/）
+│   └── Z-image_turbo-bf16\                       #   （MODE=portable 时本目录不使用，代码读 pretrained_models/）
 ├── unet/                                      # 【MODE=shared】Junction → ComfyUI\models\unet
-│   ├── FLUX.2-klein-9b-fp8\                   #   （全小写，禁止大写 UNet 混用，跨平台一致）
-│   └── Z-image_turbo-bf16\
+│   └── Z-image_turbo-bf16\                       #   （全小写，禁止大写 UNet 混用，跨平台一致）
 ├── vae/                                       # 【MODE=shared】Junction → ComfyUI\models\vae
-│   ├── FLUX.1-dev(Z-image(turbo))\
-│   └── FLUX.2-klein-9b\
+│   └── Z-image_turbo-bf16\
 ├── pretrained_models/                         # 【MODE=portable】便携模式内置真实模型（结构 1:1 镜像 ComfyUI）
 │   ├── README.txt                             #   切换说明 & 拷贝 checklist
 │   ├── text_encoders/                         #   ← qwen_3_Xb_fp8mixed.safetensors
-│   ├── unet/                                  #   ← flux/.../z_image UNet 权重
-│   ├── vae/                                   #   ← ae.safetensors / flux2-vae.safetensors
-│   ├── loras/                                 #   ← LoRA 权重（最多 6 层叠加；含 FLUX.2-klein 和 Z-image 默认子目录）
+│   ├── unet/                                  #   ← z_image UNet 权重（FP8）
+│   ├── vae/                                   #   ← ae.safetensors
+│   ├── loras/                                 #   ← LoRA 权重（最多 6 层叠加；含 Z-image_turbo-bf16 默认子目录）
 │   ├── seedvr2/                               #   ← ★ SeedVR2 超分模型：ema_vae_fp16.safetensors + seedvr2_ema_3b_fp16.safetensors（★ 2 个必带，便携包不能漏）
 │   ├── controlnet/                            #   ← N/A — 明确不做（工作流无 ApplyControlNet 节点），空目录保留以兼容 resolve_model_path()
-│   └── checkpoints/                           #   ← N/A — 明确不做（2 引擎均用 UNETLoader 而非 CheckpointLoaderSimple），空目录保留
+│   └── checkpoints/                           #   ← N/A — 明确不做（引擎用 UNETLoader 而非 CheckpointLoaderSimple），空目录保留
 │ ════════════════════════════════════════════════════════════
 │
 ├── data/
 │   ├── history.db
 │   ├── uploads/                               # N/A — 明确不做（工作流无 img2img/ControlNet 参考图上传节点），空目录保留
-│   ├── cache/                                 # ComfyUI object_info 缓存 & 缩略图缓存
+│   ├── cache/                                 # 工作流 schema 与参数缓存（进程内原生引擎使用）
 │   └── presets/                               # 预设 JSON 存储
 ├── outputs/                                   # 按 {engine}/{date} 组织输出图
 ├── workflows/                                 # 根级工作流备份（用户侧可拖拽放入）
-│   ├── Flux.2_Klein-9B-Distilled.json         # 【已存在】当前 FLUX.2 Klein 工作流
 │   └── Z_image_turbo.json                     # 【已存在】当前 Z-Image Turbo 工作流
 ├── logs/app.log
 ├── config.yaml                                # ★【已存在】完整双模式产品级配置（13 大模块）
@@ -1074,7 +1052,7 @@ Image_MultiModel/
 ### 6.1 引擎加载流程
 
 ```
-用户点击「加载 FLUX.1 Dev」
+用户点击「加载引擎」
     │
     ▼
 [ModelManager.load_engine(engine_name)]
@@ -1090,11 +1068,11 @@ Image_MultiModel/
     │     registry.vram_requirement × 1.5 → 与 gpu_utils.get_free_vram() 比较
     │     不足：告警 → 询问是否继续（仍可能 OOM）
     │
-    ├─► 4. 选择 ComfyUI 后端：
-    │     按 preference → 轮询健康 → 锁定一个 backend
+    ├─► 4. 进程内原生引擎初始化：
+    │     复用 references/ComfyUI 源码，准备加载模型权重
     │
     ├─► 5. yield 进度：
-    │     ("正在连接 ComfyUI…", 10%)
+    │     ("正在初始化原生引擎…", 10%)
     │     ("正在校验模型文件…", 30%)
     │     ("准备就绪", 100%)
     │
@@ -1131,17 +1109,16 @@ Image_MultiModel/
     │       Step 3：Patch 22 参数 widgets_values（含 3 个独立 INT_SEED_RANDOMIZE + width/height 双节点同步）
     │       【N/A 明确不做：ControlNet / img2img 节点（工作流完全无对应类型节点）】
     │
-    ├─► b. ComfyClient.upload_assets()
-    │       【N/A：工作流无图生图参考图 / ControlNet 参考图 → 本步骤空操作跳过】
+    ├─► b. 【N/A：工作流无外部参考图上传 → 本步骤空操作跳过】
     │
-    ├─► c. ComfyClient.submit_prompt(patched_workflow, client_id, batch_chunk_id)
-    │       获取 prompt_id
+    ├─► c. NativeEngine.execute_inference(patched_workflow, batch_chunk_id)
+    │       执行进程内推理
     │
-    ├─► d. ComfyClient.listen_ws(prompt_id)
+    ├─► d. NativeEngine.listen_progress(callback)
     │       节点级进度回调 → 映射 % → on_progress({pct, phase, preview?})
-    │         └─► event_bus → SSE task_status + comfy_preview
+    │         └─► event_bus → SSE task_status + preview
     │
-    ├─► e. ComfyClient.download_outputs() → outputs/engine/date/xxx.png
+    ├─► e. NativeEngine.get_output_images() → outputs/engine/date/xxx.png
     │
     ├─► f. watermark.embed() 数字水印嵌入
     │
@@ -1212,10 +1189,10 @@ SQLite history.db
 |------|--------|---------|
 | 任务提交 → 首个进度事件 (TTFP) | ≤ 3s | 后端空闲，已加载模型 |
 | 任务完成 → 前端显示结果 | ≤ 完成后 500ms | 单张 ≤ 4MB PNG |
-| 任务取消 → GPU 释放 | ≤ 5s | 调用 ComfyUI `/interrupt` 后 |
+| 任务取消 → GPU 释放 | ≤ 5s | 原生引擎采样中断后 |
 | 批量任务：队列调度开销 | ≤ 50ms / 任务 | 不含实际推理时间 |
 
-> 注：**推理本身的速度取决于 ComfyUI 后端、模型、GPU 型号**，不在本产品控制范围内。本产品只度量 I/O + 编排层面的"附加延迟"。
+> 注：**推理本身的速度取决于原生引擎（复用 ComfyUI 源码）、模型、GPU 型号**，不在本产品控制范围内。本产品只度量 I/O + 编排层面的"附加延迟"。
 
 ### 7.3 Web 交互性能
 
@@ -1294,7 +1271,7 @@ SQLite history.db
   img-src 'self' data: blob:;
   connect-src 'self' ws://127.0.0.1:* ws://localhost:*;
   ```
-- `connect-src` 额外允许 WS 连接本地 ComfyUI 后端不同端口
+- `connect-src` 仅需允许本地回环 WS（无外部后端）
 
 ---
 
@@ -1312,7 +1289,7 @@ SQLite history.db
 
 | 后端 | 支持级别 | 最低 VRAM |
 |------|---------|----------|
-| NVIDIA CUDA (RTX 30xx+) | **Tier 1** | 8 GB (FP8 FLUX) / 16 GB (FP16 FLUX) |
+| NVIDIA CUDA (RTX 30xx+) | **Tier 1** | 8 GB (FP8 Z-Image Turbo) / 16 GB (FP16 Z-Image Turbo) |
 | NVIDIA CUDA (RTX 20xx) | **Tier 2** | 需 `--lowvram` 选项 |
 | AMD ROCm | **Tier 3** | 依赖 ComfyUI ROCm 分支 |
 | CPU (无 GPU) | 不推荐 | 仅用于调试界面，不用于实际推理 |
@@ -1329,13 +1306,13 @@ SQLite history.db
   jinja2>=3.1
   aiofiles>=23.2
   aiosqlite>=0.20
-  httpx>=0.27       # ComfyClient HTTP
-  websockets>=12    # ComfyClient WS
+  httpx>=0.27
+  websockets>=12
   pillow>=10.0      # 缩略图/水印
   numpy>=1.26
   ```
 
-### 9.4 ComfyUI 后端兼容性
+### 9.4 原生引擎（ComfyUI 源码）兼容性
 
 | ComfyUI 版本 | 兼容性 |
 |-------------|--------|
@@ -1353,7 +1330,7 @@ SQLite history.db
 
 > 要求支持：HTMX 1.9+ / WebSocket / CSS Variables / CSS `clamp()` / `content-visibility`
 
-### 9.6 多引擎 Schema 向后兼容
+### 9.6 Schema 向后兼容
 
 - 工作流 JSON 和参数 Schema 使用 SemVer：`workflow_version` 字段
 - Patcher 遇到未知字段按默认值处理并告警，不崩溃
@@ -1375,7 +1352,7 @@ SQLite history.db
 | 模型存储位置 | 外部 ComfyUI `C:\Users\...\ComfyUI\models` | 项目内 `pretrained_models/` |
 | 项目根 `text/` `unet/` `vae/` | Windows **Junction 符号链接** → 指向 ComfyUI 对应目录 | 不使用（代码直接从 `pretrained_models/` 读） |
 | 切换方式 | `model_source_mode: "shared"` | `model_source_mode: "portable"` |
-| 硬盘占用 | 零冗余（共享 ComfyUI，约省 57~66 GB） | 全量拷贝（66 GB+，取决于引擎数量） |
+| 硬盘占用 | 零冗余（共享 ComfyUI，约省 57~66 GB） | 全量拷贝（Z-Image Turbo 所需模型） |
 | 启动速度 | 稍快（模型已预热，若 ComfyUI 常开） | 略慢（首次从内置目录扫描） |
 | 新增模型 | ComfyUI 那侧加了，本项目自动看见 | 需把新模型拷进 `pretrained_models/` |
 | 可移植性 | ❌ 不可（依赖外部路径） | ✅ 完全可移植，整个目录压缩后可发任何机器 |
@@ -1450,25 +1427,24 @@ config.yaml → models.model_source_mode = "shared" | "portable"
 ├─ STEP 2：切换 config.yaml
 │    models.model_source_mode:  "shared"  →  "portable"
 │    server.host: 保持 127.0.0.1 即可（禁止改成 0.0.0.0 发外网）
-│    comfy.backends.local.auto_spawn_if_dead:  →  true
-│    comfy.backends.local.spawn.comfy_root:     →  ".\\ComfyUI_portable\\"（内嵌版路径）
+│    原生引擎固定复用 references/ComfyUI 源码，无需外部后端配置
 │    environment.HF_HUB_OFFLINE: 保持 "1"（断网不报错）
 │
 ├─ STEP 3：复制模型进 pretrained_models/（按子目录）
-│    Copied 66.11 GB (2 engines)
-│    ├── text_encoders/    (13.32 GB = 8.07 + 5.25)
-│    ├── unet/             (52.17 GB = 34.97 + 17.20)
-│    ├── vae/              ( 0.62 GB = 0.31 + 0.31)
+│    Copied 66.11 GB (1 engine)
+│    ├── text_encoders/    (Z-Image: qwen_3_4b_fp8_mixed)
+│    ├── unet/             (Z-Image: zimageTurboNSFW FP8)
+│    ├── vae/              (FLUX AE: ae.safetensors)
 │    ├── loras/            (可选，用户常用 LoRA 集)
-│    └── checkpoints/      (可选，若含 SDXL 等)
+│    └── seedvr2/          (SeedVR2 超分模型：ema_vae_fp16 + ema_3b)
 │
-├─ STEP 4：内嵌 Python 环境（WinPython）与 ComfyUI 便携版
+├─ STEP 4：内嵌 Python 环境（WinPython）与原生引擎源码
 │    ├── python-3.12.embed/    或 WinPython 整个目录（约 1.8 GB）
-│    ├── ComfyUI_portable/     （精简：仅 main + 依赖，不包含 models，已由上步覆盖）
+│    ├── references/ComfyUI/   （原生引擎复用源码，不包含 models）
 │    └── requirements-lock.txt  →  pip install --require-hashes  确保依赖哈希一致
 │
 ├─ STEP 5：清理开发期残留
-│    $ del /s /q data\cache\*          （删除 ComfyUI object_info 缓存）
+│    $ del /s /q data\cache\*          （删除工作流 object_info 缓存）
 │    $ del /s /q data\uploads\*        （删除开发期上传的 img2img 参考图）
 │    $ del /s /q logs\*                （删除开发日志，避免泄漏本机路径）
 │    $ del /q  text\  unet\  vae\      （删除 Junction 外壳；portable 模式不用它们）
@@ -1483,8 +1459,8 @@ config.yaml → models.model_source_mode = "shared" | "portable"
 └─ STEP 7：在「干净新机器」上做冒烟验收
      1. 解压到非中文路径 (例 D:\Image_MultiModel\)
      2. 双击 start.bat → 应在 15s 内弹出浏览器并显示首页
-     3. 引擎列表应显示 2 个引擎（FLUX.2 Klein / Z-Turbo），状态灯「未加载」
-     4. 点「加载 FLUX.2」→ 30s 内 model_status:loaded
+     3. 引擎列表应显示唯一引擎（Z-Image Turbo），状态灯「未加载」
+     4. 点「加载 Z-Image Turbo」→ 30s 内 model_status:loaded
      5. 输入 prompt 生成 1 张 → 完整 PNG 输出 + 历史入库
      6. 关闭 → 进程全部退出无残留
      7. 以上全部通过 → 标记 Portable Build = QA Pass
@@ -1512,7 +1488,7 @@ services:
     restart: unless-stopped
 ```
 
-- Docker 镜像中**推荐用 volume 单独挂载模型目录**，这样模型更新时不用重打 66 GB 的镜像。
+- Docker 镜像中**推荐用 volume 单独挂载模型目录**，这样模型更新时不用重打镜像。
 - 镜像基础层 `pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime`（与两参考项目保持一致）。
 
 ### 10.7 FR 条目（验收依据）
@@ -1547,28 +1523,28 @@ M0 ──────────► M1 ──────────► M2 ─
 
 #### M0 - 项目骨架 + 双模式配置落地 (Week 1-2) ✅ 当前已完成部分
 - 参考项目结构复刻：`bin/integrated_app/` 各模块空壳
-- **`config.yaml` 13 大模块落地**（含 `models.model_source_mode` + 2 个引擎声明 + ComfyUI 后端 + 水印 + server + i18n）
+- **`config.yaml` 13 大模块落地**（含 `models.model_source_mode` + 唯一引擎声明 + 原生引擎 + 水印 + server + i18n）
 - `pretrained_models/` 7 个子目录（text_encoders/unet/vae/loras/...） + README.txt 共享/便携切换说明
-- `workflows/` 收纳两个 JSON（Flux.2 Klein / Z-Turbo）
+- `workflows/` 收纳唯一的工作流 JSON（Z-Image Turbo）
 - 路由自动发现 + SSE 事件总线 + SQLite 初始化
 - `pyproject.toml` / `requirements.txt` / `ruff + mypy + pytest`
 - 启动脚本 `start.bat` / `install.bat` / WinPython 集成
 - 测试：`conftest.py` + 健康检查 API 绿
 - **验收点**：浏览器打开首页看到 Seedvr2 风格空壳；`config.yaml` 解析不报错
 
-#### M1 - ComfyUI 后端适配层 + Workflow Patcher（覆盖 26 节点 + mode 切换/link 重连/batch 拆分） (Week 3-5)
-- `comfy/client.py`：HTTP (`/prompt`/`/view`/`/object_info`/`/interrupt`/`/upload/image`) + WS 进度监听连接池
-- `comfy/workflow.py`：**严格按 2.4.4 节点映射表 + 4.3 Schema YAML** 实现 Workflow Patcher（必做 6 步）
+#### M1 - 原生引擎适配层 + Workflow Patcher（覆盖 26 节点 + mode 切换/link 重连/batch 拆分） (Week 3-5)
+- `native/source.py`：把 `references/ComfyUI` + aki-v3 自定义节点源码注入 `sys.path`（幂等）
+- `native/workflow.py`：**严格按 2.4.4 节点映射表 + 4.3 Schema YAML** 实现 Workflow Patcher（必做 6 步）
   1. 深拷贝 workflow.json 副本（不污染原文件）
-  2. **mode 切换**（6 LoRA 4→0、SeedVR2 3 节点 on→0/off→4、Eses 59、VRAM 60）
+  2. **mode 切换**（6 LoRA 4→0、SeedVR2 3 节点 on→0/off→4、Eses 77、VRAM 78）
   3. **link 重连**（关闭 SeedVR2/Eses/VRAM 时，改写 `links[]` 数组改接 VAEDecode 直通）
   4. **widgets_values 精确 patch**：22 参数 + 3 个独立 INT_SEED_RANDOMIZE（推理/超分/显存各一）+ width/height 双节点同步
   5. **seed 随机化：** -1 替换为真实值并分别写入 3 个 seed 字段
   6. **batch chunk 拆分**：`internal_chunk_size=16`，开 SeedVR2 自动降至 4
-- `comfy/engine.py`：ComfyEngine 实现 `ImageEngine` 协议 `infer_txt2img()` 单方法（不做 infer_img2img，1.6 已明确不做）
-- 单后端连接管理 + 健康心跳（30s）
-- **集成测试**：Mock ComfyServer 验证 26 节点 patch + mode 切换 + link 重连 + chunk=16 拆分 + batch=9999 拆分 625 次 + LoRA 6 层权重注入 + SeedVR2 resolution 2048 注入 + ReservedVRAM 0.6GB 注入
-- **验收点**：单元测试覆盖率 ≥ 70%；Mock 后端可完整跑通 batch_size=9999 拆分→合并→历史入库；LoRA 6 层 + SeedVR2 + Eses + VRAM 4 大开关 on/off 组合 Patcher 输出 JSON 结构 100% 正确（通过 snapshot 比对）
+- `native/engine.py`：NativeEngine 实现 `ImageEngine` 协议 `infer_txt2img()` 单方法（不做 infer_img2img，1.6 已明确不做），复用 `comfy.sd` / `comfy.samplers` 完成 加载→CLIP编码→采样→VAE解码
+- 单引擎生命周期管理 + 健康心跳（30s）
+- **集成测试**：Mock 验证 26 节点 patch + mode 切换 + link 重连 + chunk=16 拆分 + batch=9999 拆分 625 次 + LoRA 6 层权重注入 + SeedVR2 resolution 2048 注入 + ReservedVRAM 0.6GB 注入
+- **验收点**：单元测试覆盖率 ≥ 70%；Mock 可完整跑通 batch_size=9999 拆分→合并→历史入库；LoRA 6 层 + SeedVR2 + Eses + VRAM 4 大开关 on/off 组合 Patcher 输出 JSON 结构 100% 正确（通过 snapshot 比对）
 
 #### M2 - 引擎注册 + 文生图工作台全功能 (Week 6-9) ⭐ M2 目标 = 全部必做功能交付
 - `engine_interface.py` ImageEngine Protocol + `InMemoryEngineRegistry`
@@ -1576,15 +1552,15 @@ M0 ──────────► M1 ──────────► M2 ─
 - `task_queue.py` 单 Worker 串行 + 取消回调（9999 批次中取消也能立即停止当前 chunk）
 - **生图工作台页面**：单 Tab txt2img，参数卡片 **6 组手风琴式（基础 8 / LoRA 6 / SeedVR2 / 对比+显存 / 输出）**，严格对齐 2.4.2 表
   - 8 大基础：正/负 Prompt + cfg=1.0/steps=8/width=1024/height=1024/seed=-1/**batch_size=1~9999**
-  - LoRA 6 层：下拉（_disabled + pretrained_models/loras 目录递归） + 权重滑块 -2.0~+2.0；默认值严格与 JSON widgets_values 一致（FLUX  1.0 / 亚洲人像 0.7/0.5/0.4/0.3 /  0.2）；缺失文件自动 _disabled + 黄提示
+  - LoRA 6 层：下拉（_disabled + pretrained_models/loras 目录递归） + 权重滑块 -2.0~+2.0；默认值严格与 JSON widgets_values 一致（Z-Image Turbo 1.0 / 亚洲人像 0.7/0.5/0.4/0.3 /  0.2）；缺失文件自动 _disabled + 黄提示
   - SeedVR2 超分：开关 on/off + 分辨率 1024/1536/**2048**/3072/4096 + 色彩校正 lab + 独立 upscale_seed
   - 对比 + 显存：enable_eses_compare on/off + axis horizontal + enable_vram_reserve on/off + 0.6GB + mode=auto + 独立 vram_seed
   - batch_size UI：±1/±10/±100 步进；> 500 黄 ⚠、> 5000 红 ⚠ + 二次确认；进度条：chunk 进度 % + 超大批次底部「已生成 X/9999」
 - **i18n 5 种语言（简中/繁中/英/日/韩）**：每个 locale YAML ≥ 200+ 翻译键 100% 非空覆盖
   - 测试：`test_i18n_coverage.py` 校验 LoRA 子卡 12 参数 + SeedVR2 4 参数 + Eses + VRAM 共 26 新参数名/说明/错误提示 5 语全覆盖
 - 预设保存 / 加载 / 导入 / 导出 JSON（**包含 LoRA 6 层 + SeedVR2 + Eses + VRAM 全部 22 参数，不含 seed**）
-- **验收点**：对接真实本地 ComfyUI 后端
-  1. FLUX.2 Klein + Z-Turbo 各文生图 1 张（全开 SeedVR2 + Eses + VRAM）= 出 original + upscaled + compare 3 张 PNG ✓
+- **验收点**：对接真实原生引擎
+  1. Z-Image Turbo 文生图 1 张（全开 SeedVR2 + Eses + VRAM）= 出 original + upscaled + compare 3 张 PNG ✓
   2. LoRA 全开（6 层）vs 全关（_disabled）：LoRA 全开明显风格变化；参数完整写入 generation_config ✓
   3. SeedVR2 off→on：off 仅出 original；on 出 upscaled 2048×2048，无明显伪影，≤ 10s/张 ✓
   4. Eses off→on：off 不出 compare；on 出 compare 左右横排拼接 ✓
@@ -1594,7 +1570,7 @@ M0 ──────────► M1 ──────────► M2 ─
   8. 取消响应 < 5s ✓
 
 #### M3 - 未来工作流扩展（暂不规划，等用户提供新的含 img2img/ControlNet 节点的工作流再补充）(Week 10-11)
-> **M3 规划留空**：当前 2 个工作流 JSON 中不存在图生图 (LoadImage/VAEEncodeForInpaint) + ControlNet (ApplyControlNet/Preprocessors) 节点，按 v1.3 边界规则**明确不做**。仅保留 M3 时间窗口给用户未来新增工作流节点时的实现位置。
+> **M3 规划留空**：当前工作流 JSON 中不存在图生图 (LoadImage/VAEEncodeForInpaint) + ControlNet (ApplyControlNet/Preprocessors) 节点，按 v1.3 边界规则**明确不做**。仅保留 M3 时间窗口给用户未来新增工作流节点时的实现位置。
 - **验收点**：当用户提供含 img2img/ControlNet 节点的新工作流 JSON 时，按 v1.3 判定规则重新规划 M3 条目。
 
 #### M4 - 批量推理 + 历史记录 + 素材库 (Week 12-13)
@@ -1631,7 +1607,7 @@ M0 ──────────► M1 ──────────► M2 ─
 **每个「FR-x.x.x」需求项必须同时满足：**
 1. 存在至少 1 个单元测试 / 集成测试覆盖正向路径
 2. 存在至少 1 个 Playwright E2E 用例验证端到端交互
-3. 错误路径（参数非法 / 后端断开 / OOM）：返回结构化错误 JSON，前端展示用户友好消息，应用不崩溃
+3. 错误路径（参数非法 / 引擎加载失败 / OOM）：返回结构化错误 JSON，前端展示用户友好消息，应用不崩溃
 
 > 实现参考（F1）：pytest + Playwright 双轨测试体系 1:1 迁移 Seedvr2 `tests/`：
 > - **pytest（逻辑层）**：`test_model_manager_switch_with_rollback()`（A3）、`test_task_queue_on_cancel_kills_comfy_thread()`（B1）、`test_path_guard_14_attacks()`（D1）、`test_config_models_roundtrip()`、`test_csrf_signed()`、`test_integrity_selfcheck()`
@@ -1639,29 +1615,29 @@ M0 ──────────► M1 ──────────► M2 ─
 
 ### 12.2 集成验收 (Integration Acceptance)
 
-使用真实硬件 + 真实 ComfyUI 执行如下场景矩阵（**I-1~I-19 中除标注「明确不做（1.6 边界规则）」外，全部为 M0~M2 必过**）：
+使用真实硬件 + 原生引擎执行如下场景矩阵（**I-1~I-19 中除标注「明确不做（1.6 边界规则）」外，全部为 M0~M2 必过**）：
 
 | # | 场景 | 预期结果 |
 |---|------|---------|
 | I-1 | 首次启动 → 自动打开浏览器首页 | ≤ 15s 内渲染完成 |
 | I-2 | 注册 + 连接本地 ComfyUI | 健康灯绿色，`/system_stats` 正常返回 |
-| I-3 | 加载 2 个真实引擎（FLUX.2 Klein-9B → Z-Turbo）| FLUX.2 ≤ 30s，Z-Turbo ≤ 20s 加载完成；两次 SSE model_status:loaded 均推送 |
-| I-4 | 2 个引擎各 txt2img 生成 1 张（默认全开：SeedVR2 2048 + Eses compare + VRAM 0.6GB + LoRA 6 层默认权重）| 输出 3 份 PNG：original (1024×1024) + upscaled (2048×2048) + compare (拼接横排 4096×2048)；history generation_config 22 参数与提交完全一致；同一 seed 重绘像素级一致（hash 同） |
+| I-3 | 加载真实引擎（Z-Image Turbo）| Z-Image Turbo ≤ 30s 加载完成；SSE model_status:loaded 均推送 |
+| I-4 | 引擎 txt2img 生成 1 张（默认全开：SeedVR2 2048 + Eses compare + VRAM 0.6GB + LoRA 6 层默认权重）| 输出 3 份 PNG：original (1024×1024) + upscaled (2048×2048) + compare (拼接横排 4096×2048)；history generation_config 22 参数与提交完全一致；同一 seed 重绘像素级一致（hash 同） |
 | **I-5** | **超大批次：batch_size=9999**，单条 Prompt，SeedVR2=on | chunk=4 × 2499 次提交 100% 成功；输出 9999 张 original + 9999 张 upscaled + 9999 张 compare（共 29997 张）全部可读；中途点击「取消」< 5s 停止当前 chunk；断点续跑 100% 补齐剩余；seed 无重复 |
-| **I-6** | **LoRA 6 层叠加**：FLUX.2 Klein，加载工作流默认 LoRA 6 层（ 1.0 / 亚洲人像 0.7/0.5/0.4/0.3 /  0.2）vs LoRA 6 层全选 `_disabled` | 生成对比两张（同一 seed=12345）：LoRA 开 6 层 = 亚洲人像风格明显 +  效果叠加；LoRA 全关 = 基础模型风格；两种结果 22 参数分别写入 generation_config；LoRA 缺失某文件 → 自动 _disabled + 黄提示 UI 正常显示 |
+| **I-6** | **LoRA 6 层叠加**：Z-Image Turbo，加载工作流默认 LoRA 6 层（ 1.0 / 亚洲人像 0.7/0.5/0.4/0.3 /  0.2）vs LoRA 6 层全选 `_disabled` | 生成对比两张（同一 seed=12345）：LoRA 开 6 层 = 亚洲人像风格明显 +  效果叠加；LoRA 全关 = 基础模型风格；两种结果 22 参数分别写入 generation_config；LoRA 缺失某文件 → 自动 _disabled + 黄提示 UI 正常显示 |
 | **I-7** | **SeedVR2 超分**：关闭（仅 original）→ 1024 → 开启（2048）→ 开启（4096） | off → 仅出 original（1024×1024，无 upscaled）；on@2048 → upscaled 严格 2048×2048，无黑边/伪影，单张 ≤ 10s；on@4096 → upscaled 严格 4096×4096； upscale_seed 相同 → 两张 4096 超分细节 hash 一致（可复现）|
 | **I-8** | **EsesImageCompare 双图对比**：off → on（horizontal）→ on（vertical/slider） | off → SaveImage 仅保存 SeedVR2 输出单图（无 compare 文件）；on horizontal → compare.png 宽=2×宽（左右横排）；on vertical → 高=2×高（上下竖排）；on slider → slider_pos=0.5 JSON 字段写入 compare_axis |
-| **I-9** | **ReservedVRAMSetter 显存预留**：off → on@0.6GB → on@2.0GB | off → GPU 预留前后 < 100MB 差别；on@0.6GB → ComfyUI 侧显存监控 + 预留值差值 ≤ 10%；vram_reserve_seed=固定值时，不同推理种子下 ReservedVRAMSetter 内部分配逻辑固定；Patcher 关闭 VRAM 时 link 由 VAEDecode id=12 → outputNode slot 1 直通 |
+| **I-9** | **ReservedVRAMSetter 显存预留**：off → on@0.6GB → on@2.0GB | off → GPU 预留前后 < 100MB 差别；on@0.6GB → 原生引擎侧显存监控 + 预留值差值 ≤ 10%；vram_reserve_seed=固定值时，不同推理种子下 ReservedVRAMSetter 内部分配逻辑固定；Patcher 关闭 VRAM 时 link 由 VAEDecode id=12 → outputNode slot 1 直通 |
 | **I-10** | **5 语言切换全覆盖（简中→繁中→英→日→韩→简中）**| 无样式崩坏；所有字符串翻译覆盖（测试脚本 200+ key 100% 非空）；LoRA 子卡 12 参数 + SeedVR2 4 参数 + Eses + VRAM 新参数提示 5 语全部正确；超大批次红/黄警告文案 5 语均与 UI 实际阈值对齐 |
 | I-11 | 批量 txt2img：20 条 Prompt CSV + batch_size=5，总计 100 张（SeedVR2=on）| 300 份 PNG 全部成功或单独失败不阻塞；失败 1 条可一键重试仅该条（不含未失败项）；「预计生成数=300」与实际数一致 |
-| I-12 | 生成中（FLUX.2，steps=8，batch_size=32 + SeedVR2 on，执行到第 4 chunk）点击「取消」| ComfyUI 5s 内 `/interrupt` 成功；SeedVR2 显存 ≤ 3s 内释放回基线 < 6GB；任务 status=cancelled |
+| I-12 | 生成中（Z-Image Turbo，steps=8，batch_size=32 + SeedVR2 on，执行到第 4 chunk）点击「取消」| 原生引擎 5s 内中断成功；SeedVR2 显存 ≤ 3s 内释放回基线 < 6GB；任务 status=cancelled |
 | I-13 | 历史详情页点击「重绘此图」（原记录 seed=12345 + LoRA 6 层全默认 + SeedVR2=2048 + Eses on + VRAM=0.6）| 新任务 22 参数与原记录字节级一致；original hash 同；upscaled hash 同；compare hash 同（像素级一致）|
 | I-14 | 预设导出为 JSON → 删除该预设 → 重新导入 JSON | 所有字段完整还原（cfg/steps/width/height/batch_size/LoRA 6 层×2/SeedVR2 4 项/Eses 2 项/VRAM 4 项/引擎名/正负 Prompt；不含 seed） |
-| I-15 | 切换引擎（FLUX.2 Klein → Z-Turbo → FLUX.2 Klein），来回两次 + 每次切换各生成 1 张 | 两次切换无显存泄漏（GPU 差值 < 1GB）；LoRA 下拉自动切换引擎对应子目录（Klein/Z-Turbo）；第三次引擎 SSE model_status:loaded；回滚机制：手动移走 Z-Turbo bf16 模型 → 切换失败自动回滚 FLUX.2 + 红 UI 错误提示不崩溃 |
+| I-15 | 引擎加载 → 卸载 → 重新加载，来回两次 + 每次切换各生成 1 张 | 两次切换无显存泄漏（GPU 差值 < 1GB）；LoRA 下拉自动切换引擎对应子目录（Z-image）；第三次引擎 SSE model_status:loaded；回滚机制：手动移走 bf16 模型 → 加载失败自动回滚 + 红 UI 错误提示不崩溃 |
 | I-16 | 深色主题 ↔ 浅色主题切换 | 无样式崩坏；CSS 变量全部正确应用；WCAG AA 对比度通过 |
 | I-17 | 重启应用（重启前有 1 条进行中 SeedVR2 任务 + 3 条 pending 队列含 2 条 LoRA）| 进行中任务标记 interrupted_at_reboot；pending 3 条入队；22 参数 + 原始 seed 100% 不丢失；generation_config 无字段截断 |
 | I-18 | 水印验证脚本：100 张随机输出（每个 original / upscaled / compare 分别 33~34 张）| 300 张 100% 能提取正确的 product_id；compare 拼接图的 2 个水印（左/右或上/下）均能提取且一一对应 |
-| **I-19** | **便携模式离线验收**：改 `model_source_mode=portable`，移除 text/unet/vae Junction，模拟拔掉 LoRA + SeedVR2 超分模型源盘（确保 pretrained_models/loras + text_encoders + unet + vae + SeedVR2 模型全在内部），重新启动 + FLUX.2 + Z-Turbo 各生成 1 张（全开 SeedVR2 + Eses + VRAM + LoRA 默认 6 层）| 从启动到出图全程不报 FileNotFound；所有路径均从 `pretrained_models/` 读取；3 份 PNG 正常输出；LoRA 默认 6 层全部命中（不触发 _disabled 黄提示）；SeedVR2 加载成功；generation_config.path_mode 标记 portable |
+| **I-19** | **便携模式离线验收**：改 `model_source_mode=portable`，移除 text/unet/vae Junction，模拟拔掉 LoRA + SeedVR2 超分模型源盘（确保 pretrained_models/loras + text_encoders + unet + vae + SeedVR2 模型全在内部），重新启动 + Z-Image Turbo 生成 1 张（全开 SeedVR2 + Eses + VRAM + LoRA 默认 6 层）| 从启动到出图全程不报 FileNotFound；所有路径均从 `pretrained_models/` 读取；3 份 PNG 正常输出；LoRA 默认 6 层全部命中（不触发 _disabled 黄提示）；SeedVR2 加载成功；generation_config.path_mode 标记 portable |
 
 | ════════ 下列场景为 N/A（明确不做，工作流 JSON 完全无对应节点，1.6 边界判定表已写明） ════════ |
 | N/A-1 | 图生图 img2img / Inpaint：参考图上传 + denoise 0.5 | 不做（无 LoadImage / VAEEncodeForInpaint / SetLatentNoiseMask 节点）|
@@ -1688,7 +1664,7 @@ M0 ──────────► M1 ──────────► M2 ─
 - Windows 11 + Chrome 125 + RTX 4090 (24GB) 环境：I-1 ~ I-15 全绿
 - Windows 10 + Edge 124 + RTX 3090 (24GB) 环境：I-1 ~ I-15 全绿
 - Ubuntu 24.04 Docker 部署 + RTX 4090：I-1 ~ I-10 通过（含 batch=9999）
-- 最低显存 RTX 3060 (12GB) + FP8 FLUX：I-3 / I-4 通过（自动 FP8 回退）
+- 最低显存 RTX 3060 (12GB) + FP8 Z-Image Turbo：I-3 / I-4 通过（自动 FP8 回退）
 - 5 种语言浏览器环境（系统语言为繁中/日/韩时首次启动自动匹配）：UI 默认语言正确
 
 ### 12.6 可维护性验收 (Maintainability)
@@ -1704,9 +1680,9 @@ M0 ──────────► M1 ──────────► M2 ─
 
 | 本项目模块 | 复用来源 | 复用比例 | 修改说明 |
 |-----------|---------|---------|---------|
-| `app_server.py` | Seedvr2 + TTS | 80% | 增加 comfy_backend_manager 初始化 |
-| `model_registry.py` | Seedvr2 | 95% | 字段扩展：comfy_backend_id |
-| `model_manager.py` | Seedvr2 | 60% | load/unload 改为 ComfyEngine 语义 |
+| `app_server.py` | Seedvr2 + TTS | 80% | 增加原生引擎初始化 |
+| `model_registry.py` | Seedvr2 | 95% | 单引擎原生设计，无后端 ID 字段扩展
+| `model_manager.py` | Seedvr2 | 60% | load/unload 改为 NativeEngine 语义 |
 | `task_queue.py` | Seedvr2 | 95% | 几乎不变 |
 | `history_db.py` | Seedvr2 | 80% | 表结构扩展 outputs/presets |
 | `middleware/*` | TTS + Seedvr2 | 90% | 合并 RequestID / RateLimit / CSRF |
@@ -1717,12 +1693,12 @@ M0 ──────────► M1 ──────────► M2 ─
 | `gpu_backend.py` / `gpu_utils.py` | TTS | 85% | 去除 MPS 专用分支（图像依赖 CUDA 更强） |
 | `config.py` | Seedvr2 | 70% | Pydantic 模型扩展 models.engines |
 | **`config_models.py`（新增）** | TTS engines 注册语义 + 自建双模式 | 20% 复用 / 80% 新增 | 新增 `resolve_model_path()`：MODE=shared/portable 统一路径解析层；EngineConfigPydantic 模型；allowed_base_dirs 联合校验 |
-| **`config.yaml`（骨架已落地）** | 两项目结构合并 | 字段级 60% 复用 | 新增 13 大模块：双模式切换段 `models.shared / models.portable`、ComfyUI 后端管理 `comfy.*`、图像推理参数 `inference.*`、水印、模型命名规范 |
+| **`config.yaml`（骨架已落地）** | 两项目结构合并 | 字段级 60% 复用 | 新增 13 大模块：双模式切换段 `models.shared / models.portable`、原生引擎配置、图像推理参数 `inference.*`、水印、模型命名规范 |
 | **`scripts/setup_symlinks.ps1`（新增）** | 本项目独创 | 0% | Junction 创建/重建/移除 + 模式检测 + 备份重命名询问 |
 | **`scripts/pack_portable.ps1`（新增）** | 本项目独创 | 0% | 一键切换模式 + 复制模型 + 清理开发残留 + 7z 打包 + SHA256 |
 | **`scripts/verify_watermark.py`（新增）** | TTS watermark.py 逆向 | 40% 复用 | DCT 频域水印提取 + 控制台报告溯源 ID |
 
-> 预计整体代码复用率：**原 70% → 调整为 ≈ 62%**（新增 ~38%：双模式路径解析层、Junction/打包运维脚本、ComfyUI 适配层、图像生图业务）。
+> 预计整体代码复用率：**原 70% → 调整为 ≈ 62%**（新增 ~38%：双模式路径解析层、Junction/打包运维脚本、原生引擎适配层、图像生图业务）。
 
 ---
 
@@ -1738,17 +1714,17 @@ M0 ──────────► M1 ──────────► M2 ─
 - [config.yaml](file:///C:/Users/Doro/Seedvr2/config.yaml) - 配置字段模板
 - [base.html](file:///C:/Users/Doro/Seedvr2/bin/integrated_app/templates/base.html) - 主题防闪烁 + i18n 注入
 
-**TTS_MultiModel 多引擎参考**：
-- [README.md](file:///C:/Users/Doro/TTS_MultiModel/README.md) - 多引擎产品形态
+**TTS_MultiModel 参考**：
+- [README.md](file:///C:/Users/Doro/TTS_MultiModel/README.md) - 声明式引擎抽象与产品形态
 - [engine_interface.py](file:///C:/Users/Doro/TTS_MultiModel/bin/integrated_app/engine_interface.py) - Protocol + InMemoryEngineRegistry + 懒导入
 - [model_manager.py](file:///C:/Users/Doro/TTS_MultiModel/bin/integrated_app/model_manager.py) - PreloadService / PersonaWarmupService / 热待机判断
 - [config.yaml](file:///C:/Users/Doro/TTS_MultiModel/config.yaml) - 声明式 engines 配置范式
 - [app_server.py](file:///C:/Users/Doro/TTS_MultiModel/bin/integrated_app/app_server.py) - 中间件顺序 / 路由自动发现
 
 **本项目（Image_MultiModel）已落地文件**：
-- [config.yaml](file:///C:/Users/Doro/Image_MultiModel/config.yaml) - 13 大模块双模式产品级配置（models.model_source_mode / comfy.backends / inference / watermark 等）
+- [config.yaml](file:///C:/Users/Doro/Image_MultiModel/config.yaml) - 13 大模块双模式产品级配置（models.model_source_mode / inference / watermark 等）
 - [PRD.md](file:///C:/Users/Doro/Image_MultiModel/PRD.md) - 本文档，v1.1 新增部署模式章节
-- 工作流 JSON：[Flux.2_Klein-9B-Distilled.json](file:///C:/Users/Doro/Image_MultiModel/workflows/Flux.2_Klein-9B-Distilled.json) / [Z_image_turbo.json](file:///C:/Users/Doro/Image_MultiModel/workflows/Z_image_turbo.json)
+- 工作流 JSON：[Z_image_turbo.json](file:///C:/Users/Doro/Image_MultiModel/workflows/Z_image_turbo.json)
 - [pretrained_models/README.txt](file:///C:/Users/Doro/Image_MultiModel/pretrained_models/README.txt) - portable 模式切换说明与拷贝 Checklist
 
 ---
@@ -1766,9 +1742,9 @@ M0 ──────────► M1 ──────────► M2 ─
 
 | 编号 | 借鉴点 | 来源文件与行号 | 迁移等级 | 为何适合本项目 | 本项目迁移要点 | 12.2 编号 |
 |------|--------|--------------|:--------:|--------------|--------------|:---------:|
-| **A1** | 基于 `Protocol` 的引擎抽象层 + `InMemoryEngineRegistry` 声明式注册 + 懒导入 | TTS：`engine_interface.py#L34-L200` | ⭐ 一级 | 当前 §4.2 仅写了 ImageEngine 伪代码，缺少声明式协议定义 + 引擎注册表运行时动态发现；懒导入可避免启动时加载 ComfyUI 客户端 heavy 依赖，冷启动提速 30%+ | 1) 新建 `bin/integrated_app/engine_interface.py`；2) `@runtime_checkable class ImageEngine(Protocol)` 声明 4 方法：`is_ready()`、`load(EngineLoadConfig)→Generator[tuple[str,float\|None]]`、`unload()`、`async infer_txt2img(...)→ImageInferenceResult`、`cancel()`；3) `InMemoryEngineRegistry` 实现：`register(engine_id, factory_fn, lazy=True)`、`get(engine_id)→ImageEngine`、`list_available()→list[EngineMeta]`；4) engines 模块 `__init__.py` 中用懒导入装饰器注册 `flux2_klein_9b_distilled`、`z_image_turbo`；5) 单元测试 `test_engine_registry_ext.py` 用例：协议鸭子类型 `isinstance(obj, ImageEngine)` 通过。 | I-3 |
+| **A1** | 基于 `Protocol` 的引擎抽象层 + `InMemoryEngineRegistry` 声明式注册 + 懒导入 | TTS：`engine_interface.py#L34-L200` | ⭐ 一级 | 当前 §4.2 仅写了 ImageEngine 伪代码，缺少声明式协议定义 + 引擎注册表运行时动态发现；懒导入可避免启动时加载原生引擎（复用 ComfyUI 源码）heavy 依赖，冷启动提速 30%+ | 1) 新建 `bin/integrated_app/engine_interface.py`；2) `@runtime_checkable class ImageEngine(Protocol)` 声明 4 方法：`is_ready()`、`load(EngineLoadConfig)→Generator[tuple[str,float\|None]]`、`unload()`、`async infer_txt2img(...)→ImageInferenceResult`、`cancel()`；3) `InMemoryEngineRegistry` 实现：`register(engine_id, factory_fn, lazy=True)`、`get(engine_id)→ImageEngine`、`list_available()→list[EngineMeta]`；4) engines 模块 `__init__.py` 中用懒导入装饰器注册 `z_image_turbo_native`；5) 单元测试 `test_engine_registry_ext.py` 用例：协议鸭子类型 `isinstance(obj, ImageEngine)` 通过。 | I-3 |
 | **A2** | 观察者模式桥接 `ModelRegistry → SSE`（状态变更解耦广播） | Seedvr2：`app_server.py#L62-L73` | ⭐ 一级 | 当前 §6.1 仅写了「触发观察者 → SSE 推送 model_status」一行，但未说明具体桥接机制如何避免循环 import；直接 copy 可确保 ModelRegistry（核心层）不依赖 SSE（表现层）。 | 1) 在 `model_registry.py` 中实现 `add_listener(callback_fn: Callable[[str,dict],None])`、`remove_listener(...)`、`_notify_listeners(event_name, payload)`；2) 在 FastAPI lifespan 中注册 `model_registry.add_listener(_bridge_model_status_to_sse)`；3) 触发事件：`model_loading`、`model_loaded`、`model_unloaded`、`model_switch_started`、`model_switch_rolled_back`。 | I-3 / I-15 |
-| **A3** | `ModelManager.switch_engine()` 三阶段安全切换 + 异常自动回滚 | Seedvr2：`model_manager.py#L58-L150` | ⭐ 一级 | 桌面端用户切换引擎频率高（FLUX.2 ↔ Z-Turbo）；若切换失败（模型文件缺失 / CUDA OOM）无回滚保护，会导致服务 degraded 无法再生成 | 1) 三阶段：① `old = self.engine` 保存引用 ② `try: unload(old); load(new);` ③ **失败捕获**：`except (ModelLoadError, InsufficientVRAMError, FileNotFoundError)` → `unload(new) + load(old)` 回滚；2) 每步调 `registry.update_status(...)` 触发 A2 SSE；3) pytest `test_model_manager_switch_with_rollback()`：成功 → 失败回滚 → 成功 3 次切换。 | I-15 |
+| **A3** | `ModelManager.switch_engine()` 三阶段安全切换 + 异常自动回滚 | Seedvr2：`model_manager.py#L58-L150` | ⭐ 一级 | 桌面端用户切换引擎频率高（卸载/重载 Z-Image Turbo）；若切换失败（模型文件缺失 / CUDA OOM）无回滚保护，会导致服务 degraded 无法再生成 | 1) 三阶段：① `old = self.engine` 保存引用 ② `try: unload(old); load(new);` ③ **失败捕获**：`except (ModelLoadError, InsufficientVRAMError, FileNotFoundError)` → `unload(new) + load(old)` 回滚；2) 每步调 `registry.update_status(...)` 触发 A2 SSE；3) pytest `test_model_manager_switch_with_rollback()`：成功 → 失败回滚 → 成功 3 次切换。 | I-15 |
 
 ---
 
@@ -1776,8 +1752,8 @@ M0 ──────────► M1 ──────────► M2 ─
 
 | 编号 | 借鉴点 | 来源文件与行号 | 迁移等级 | 为何适合本项目 | 本项目迁移要点 | 12.2 编号 |
 |------|--------|--------------|:--------:|--------------|--------------|:---------:|
-| **B1** | 单 Worker 任务队列 + `on_cancel` 取消回调（解决 `asyncio.to_thread` 同步推理无法被 Python 取消的硬伤） | Seedvr2：`task_queue.py#L12-L150`（`CancelCallback` #L29、`submit` #L96、`request_cancel` #L125） | ⭐ 一级 | **本项目 batch 9999 + SeedVR2 超分单次时长可达数小时**；若取消只能 kill 进程，GPU 资源锁死桌面卡死；ComfyUI HTTP wait_for_cancel 仅取消协程不取消 ComfyUI 侧真推理 → 必须注入 `on_cancel=bridge.request_cancel()` 调 `/interrupt + DELETE /queue/<id>` | 1) 新建 `bin/integrated_app/task_queue.py` **完整 copy Seedvr2 ~150 行**（三常量 + TaskQueue 类）；2) `submit` 保留 `on_cancel: CancelCallback \| None = None` 参数；3) `ComfyUIAdapter.cancel(self)` 实现：① 设置内部 `threading.Event.cancel_flag` → ② HTTP `POST /interrupt` → ③ `DELETE /queue/{pending_prompt_id}` 清理未启动条目；4) pytest `test_task_queue_on_cancel_kills_comfy_thread()`：模拟 60s 推理，2s 取消 → **断言 ≤ 5s GPU 显存回基线（<6GB 空闲）**。 | I-5 / I-11 / I-12 |
-| **B2** | Worker 异常自动重启（最多 3 次）+ 有界队列防 OOM | Seedvr2：`task_queue.py#L32-L82` | ⭐ 一级 | ComfyUI Python 客户端偶发 `CUDA illegal memory access` 会把 worker 打死不重启；同时 batch 9999 用户重复点提交 20 次会爆内存 | 1) 三常量 **原样抄**：`DEFAULT_QUEUE_MAXSIZE=100`、`DEFAULT_TASK_TIMEOUT_SECONDS=3600`、`MAX_WORKER_RESTARTS=3`；2) `_worker_guarded()` 中超过重启阈值 → `logger.critical + stop()`；3) Queue Full 立即 HTTP 429 "队列已满，请稍后"。 | I-5 / §8.3 |
+| **B1** | 单 Worker 任务队列 + `on_cancel` 取消回调（解决 `asyncio.to_thread` 同步推理无法被 Python 取消的硬伤） | Seedvr2：`task_queue.py#L12-L150`（`CancelCallback` #L29、`submit` #L96、`request_cancel` #L125） | ⭐ 一级 | **本项目 batch 9999 + SeedVR2 超分单次时长可达数小时**；若取消只能 kill 进程，GPU 资源锁死桌面卡死；原生引擎为进程内同步采样，无法被 Python 协程直接取消 → 必须注入 `on_cancel=bridge.request_cancel()` 调 `NativeEngine.cancel()`（设置采样取消标志） | 1) 新建 `bin/integrated_app/task_queue.py` **完整 copy Seedvr2 ~150 行**（三常量 + TaskQueue 类）；2) `submit` 保留 `on_cancel: CancelCallback \| None = None` 参数；3) `NativeEngine.cancel(self)` 实现：① 设置内部 `threading.Event.cancel_flag` → ② 中断当前进程内采样 → ③ 释放 GPU / 清理未启动 chunk；4) pytest `test_task_queue_on_cancel_kills_comfy_thread()`：模拟 60s 推理，2s 取消 → **断言 ≤ 5s GPU 显存回基线（<6GB 空闲）**。 | I-5 / I-11 / I-12 |
+| **B2** | Worker 异常自动重启（最多 3 次）+ 有界队列防 OOM | Seedvr2：`task_queue.py#L32-L82` | ⭐ 一级 | 原生引擎（复用 ComfyUI 源码）偶发 `CUDA illegal memory access` 会把 worker 打死不重启；同时 batch 9999 用户重复点提交 20 次会爆内存 | 1) 三常量 **原样抄**：`DEFAULT_QUEUE_MAXSIZE=100`、`DEFAULT_TASK_TIMEOUT_SECONDS=3600`、`MAX_WORKER_RESTARTS=3`；2) `_worker_guarded()` 中超过重启阈值 → `logger.critical + stop()`；3) Queue Full 立即 HTTP 429 "队列已满，请稍后"。 | I-5 / §8.3 |
 | **B3** | `HistoryDB` SQLite（WAL + FTS5）+ 崩溃恢复两阶段（先 `cleanup_stale_tasks` 再 `recover_tasks`） | Seedvr2：`history_db.py#L65-L137` + `app_server.py#L165-L178` | ⭐⭐ 二级（结构 copy，字段改成本项目 Image 语义） | §2.7.2 仅写了"超大批次 checkpoint 续跑"，未写**全局崩溃恢复**：重启时 processing 状态卡死任务必须先标 interrupted_at_reboot 再决定是否续跑；否则历史表会出现"processing 永远进行中"脏数据 | 1) `TaskRecord` 新增 `interrupted_at_reboot: bool = False`；2) `initialize()` 执行：① `PRAGMA journal_mode=WAL` ② `PRAGMA synchronous=NORMAL` ③ `PRAGMA busy_timeout=30000` ④ CREATE TABLE + FTS5 trigger；3) lifespan 启动：先 `UPDATE status='cancelled' WHERE status IN ('processing','pending') AND updated_at < NOW()-1h`（清理卡死）→ 再若 `auto_recover=true` 从 interrupted_at_reboot 记录按 generation_config 恢复 task，seed 不变保证可复现。 | I-5 / I-17 |
 | **B4** | GPU 显存预检 ×1.5 峰值系数 + FP16→FP8 自动回退 + chunk 智能推荐 | Seedvr2：`model_manager.py#L141` `get_recommended_precision()` + `gpu_utils.check_vram_available(est * 1.5)` | ⭐⭐ 二级（估算公式适配 5 大开关组合：LoRA/SeedVR2/Eses/VRAM/batch） | batch 9999 + SeedVR2 显存峰值是估算的 1.2~1.8×；无预检会中途 OOM，前期进度全损。config.yaml 已有 `vram_multisample_rule=1.5` 但未落地 | 1) 新增 `estimate_generation_vram(engine_id, w, h, chunk, lora_cnt, seedvr2_on, vram_reserve_gb)→(required_gb, available_gb, recommended_chunk, recommended_precision)`；2) 公式：`base = engine.vram_gb + (w*h*3*4/1e9)*chunk*1.1 + lora_cnt*0.15 + (seedvr2_on? max(w,h)/1024*6.0 : 0) + vram_reserve_gb`；`required = base * 1.5`；3) 不足时先试 precision=fp8（×0.6）仍不足 → 推荐 `chunk = chunk // 2` 递归；4) UI 提交前预检弹窗："预估 XGB > 可用 YGB，建议 chunk=Z / FP8 精度 / 关 SeedVR2" + 3 按钮（强制继续 / 自动调整 / 取消）。 | I-4 / I-7 / I-5 |
 

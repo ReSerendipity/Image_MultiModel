@@ -83,7 +83,7 @@ class TestModelRegistryBridge:
         registry = ModelRegistry()
         mock_config = MagicMock()
         mock_config.models.engines = {
-            "flux2_klein_9b_distilled": MagicMock(
+            "z_image_turbo_native": MagicMock(
                 display_name="FLUX",
                 display_name_en="FLUX",
                 model_dump=MagicMock(return_value={}),
@@ -94,12 +94,12 @@ class TestModelRegistryBridge:
                 model_dump=MagicMock(return_value={}),
             ),
         }
-        mock_config.models.default_engine = "flux2_klein_9b_distilled"
+        mock_config.models.default_engine = "z_image_turbo_native"
 
         registry.init_from_config(mock_config)
 
         assert registry._initialized is True
-        assert registry.get_active_engine_name() == "flux2_klein_9b_distilled"
+        assert registry.get_active_engine_name() == "z_image_turbo_native"
 
     def test_init_idempotent(self):
         """重复初始化 → 跳过"""

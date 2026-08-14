@@ -30,13 +30,13 @@ AI Agent 打开本文件后的 **第一件事** 是执行下面的「🧪 自进
 
 ## 1. 项目概览
 
-> **Image MultiModel**：多模型 AI 图像生成平台 — 基于 ComfyUI 工作流引擎，支持 Flux.2 Klein-9B Distilled、Z Image Turbo 等多模型工作流的统一 Web UI。  
-> 核心特色：**双工作流引擎热插拔**（Flux.2 高保真 / Z Image Turbo 高速低显存）+ ComfyUI Client/Engine/Workflow 三层抽象 + VRAM 预检 + 批量任务队列 + SSE 实时进度 + DCT 频域水印溯源 + 安全加固体系 + 5 语言国际化  
+> **Image MultiModel**：Z-Image Turbo 图像生成平台 — 基于 ComfyUI 工作流引擎，驱动唯一引擎 Z-Image Turbo 的统一 Web UI。  
+> 核心特色：**单一 Z-Image Turbo 引擎**（`z_image_turbo_native`，进程内原生推理）+ VRAM 预检 + 批量任务队列 + SSE 实时进度 + DCT 频域水印溯源 + 安全加固体系 + 5 语言国际化  
 > 开源协议：**Apache-2.0**  
-> 技术栈：**Python 3.10+（推荐 3.12） + FastAPI + Uvicorn + Pydantic v2 + PyYAML + aiohttp + websockets + aiofiles + SQLite（WAL + FTS5） + ComfyUI（后端推理引擎）**  
+> 技术栈：**Python 3.10+（推荐 3.12） + FastAPI + Uvicorn + Pydantic v2 + PyYAML + aiohttp + websockets + aiofiles + SQLite（WAL + FTS5） + 原生引擎（复用 references/ComfyUI 源码）**  
 > 代码入口：`bin/clean_launch.py`（推荐，含配置预热 + 数据目录创建 + 健康检查）  
 > 默认端口：**`http://127.0.0.1:8288`**（禁止 0.0.0.0 监听，见第 14 节陷阱）  
-> ComfyUI 默认端口：**`8188`**（由 `config.yaml → models.shared.comfy_models_dir` 关联）  
+> 模型来源：portable（`pretrained_models/`，无外部链接，便携独立运行）  
 > 依赖管理：`requirements.txt`（生产）+ `requirements-lock.txt`（锁定）+ `pyproject.toml`（工具配置）
 
 ---
@@ -137,7 +137,6 @@ Image_MultiModel/
 │   ├── install.bat / start.bat  ← Windows 一键（自动检测 WinPython / 系统 Python）
 │   └── clean_launch.py          ← 被 start.bat 调用的入口（不要直接从根目录调这个）
 ├── workflows/                   ← ComfyUI 工作流 JSON（每引擎一份，可导入导出）
-│   ├── Flux.2_Klein-9B-Distilled.json
 │   └── Z_image_turbo.json
 ├── pretrained_models/           ← portable 模式唯一模型目录（独立运行时模型放这里；shared 模式直接走 shared.comfy_models_dir，不再用根目录链接）
 ├── tests/                       ← 测试体系（详见第 4 节）
@@ -175,7 +174,7 @@ Image_MultiModel/
 1. **`routes/` 目录永远不写业务逻辑**：路由只能做：参数校验（Pydantic Model）+ 调 `model_manager` / `task_queue` / `history_db` / `*_service` + 返回响应。**路由文件里不允许出现 `torch.*` / `numpy.*` / 任何推理相关代码**，推理必须通过 `engine_interface` 或 `model_manager`。
 2. **`native/` 是唯一引擎实现**：项目已完全脱离外部 ComfyUI 进程，推理统一走进程内 `NativeEngine`（复用本地 `references/ComfyUI` 源码，使用前必须先 `source.ensure_loaded()` 注入 sys.path）。`native/` 不做业务编排、不写 DB、不写业务日志（只抛异常给上层）。
 3. **`static/` 前端代码绝对不包含 Python 逻辑，后端代码绝对不包含前端逻辑**：前后端通过 REST API + SSE 解耦。FastAPI 只负责静态文件托管，不允许在 Python 里拼 HTML / JS / CSS 字符串。
-4. **所有推理任务单 Worker 串行执行**（`task_queue.py`，信号量=1）。严禁路由层直接并发 `await engine.infer_txt2img()`——哪怕 GPU 空闲也不行。Flux.2 9B + 大 batch 并发 GPU VRAM 直接爆 OOM。
+4. **所有推理任务单 Worker 串行执行**（`task_queue.py`，信号量=1）。严禁路由层直接并发 `await engine.infer_txt2img()`——哪怕 GPU 空闲也不行。Z-Image Turbo 9B + 大 batch 并发 GPU VRAM 直接爆 OOM。
 5. **所有文件路径操作必须过 PathGuard**：任何用户输入参与路径拼接（读取 outputs、保存 presets、读取上传图片）→ 必须 `PathGuard.resolve(base_dir, user_input)`，**禁止 `os.path.join(base, user_input)` 的组合**。
 
 ---
@@ -186,7 +185,7 @@ Image_MultiModel/
 | 层级 | 测试类型 | 框架 | 标记 | 目录 | 说明 |
 |:----:|---------|------|------|------|------|
 | L1 | 单元测试 | pytest | 默认 | `tests/test_*.py` | 纯函数 / utils / PathGuard / Watermark / Config（不碰 ComfyUI / DB） |
-| L2 | 集成测试 | pytest | `@pytest.mark.integration` | `tests/test_comfy_*.py` / `test_config_save.py` | ComfyClient 连通性 / Config 原子写入 / History DB 并发（需 ComfyUI 在线，默认跳过） |
+| L2 | 集成测试 | pytest | `@pytest.mark.integration` | `tests/test_native_*.py` / `test_config_save.py` | 原生引擎连通性 / Config 原子写入 / History DB 并发 |
 | L3 | API 路由测试 | pytest + httpx.AsyncClient | 默认 | `tests/test_*_routes.py` / `test_api_contract.py` | 所有 `/api/*` 端点 HTTP 层 + 契约测试（响应体字段一个不少） |
 | L4 | 安全攻击测试 | pytest 手工用例 | `@pytest.mark.security` | `tests/test_path_guard_attacks.py` / `test_sql_injection.py` / `test_security_audit.py` | 路径穿越 30+ 向量 / SQL 注入 / CSRF / 完整性校验 |
 | L5 | E2E 端到端 | pytest + Playwright | `@pytest.mark.e2e` | `tests/e2e/` | 生图全流程 / 引擎切换 / i18n 语言切换 / SSE 进度（需浏览器） |
@@ -286,13 +285,13 @@ uvicorn integrated_app.app_server:app --host 127.0.0.1 --port 8288 --workers 1
    {
      "status": "ok",
      "version": "2.0.0",
-     "engines_available": ["flux2_klein_9b_distilled", "z_image_turbo"],
+     "engines_available": ["z_image_turbo_native"],
      "engines_loaded": [],
      "gpu_vram_total_mb": 24576,
      "gpu_vram_used_mb": 1234
    }
    ```
-3. `GET http://127.0.0.1:8288/api/config/engines` → 返回 2 个引擎配置列表
+3. `GET http://127.0.0.1:8288/api/config/engines` → 返回唯一引擎 `z_image_turbo_native` 配置列表
 
 ---
 
@@ -363,11 +362,11 @@ key 本身直接显示（最差情况也比空白好）
 <footer>
 ```
 Type：`feat` / `fix` / `docs` / `style` / `refactor` / `perf` / `test` / `chore` / `ci` / `security`  
-Scope 建议：`comfy` / `routes` / `queue` / `history` / `i18n` / `watermark` / `security` / `workflow/flux2` / `workflow/z-turbo`
+Scope 建议：`comfy` / `routes` / `queue` / `history` / `i18n` / `watermark` / `security` / `workflow/z-turbo`
 
 示例：
 ```
-feat(workflow/flux2): VRAM 预检自动切 FP8 精度 + batch chunk 100 张落盘 checkpoint
+feat(workflow/z-turbo): VRAM 预检自动切 FP8 精度 + batch chunk 100 张落盘 checkpoint
 fix(watermark): 修复 DCT 嵌入 uint8 回绕导致的水印提取失败
 test(security): 新增 PathGuard 路径穿越攻击测试 30 例
 ci: 增加 E2E Playwright 截图对比 job
@@ -443,7 +442,7 @@ pre-commit run -a
 | M4 | 批量 + 历史 | `routes/task_routes.py` / `history_db.py` / `routes/output_routes.py` / `routes/preset_routes.py` |
 | M5 | UI/UX | `static/index.html` / `locales/*.json` |
 | M6 | 性能 + 安全 | `security/` / `scripts/benchmark.py` / `middleware/` / `Dockerfile` |
-| M7 | 原生引擎 + 双后端 | `native/`（source / executor / engine / lora / seedvr / compares / vram / preview）/ `config.yaml`（backend: native）|
+| M7 | 原生引擎 | `native/`（source / executor / engine / lora / seedvr / compares / vram / preview）/ `config.yaml`（backend: native）|
 
 ---
 
@@ -462,48 +461,47 @@ pre-commit run -a
 - path/to/file2.py
 -->
 
-#### SOP-1: 添加新的 ComfyUI 工作流引擎（比如新增 SDXL Turbo）
-**适用条件**：需要新增一种图像生成引擎到 ModelRegistry，通过统一 API 暴露，用户在 UI 的引擎下拉框可选
+#### SOP-1: 添加新的 Z-Image 变体引擎（比如新增一个 Z-Image 变体 `z_image_turbo_fast`）
+**适用条件**：需要新增一种 Z-Image 变体引擎到 ModelRegistry，通过统一 API 暴露，用户在 UI 的引擎下拉框可选
 
 **步骤**：
 1. **准备工作流 JSON + Schema YAML**：
-   - 把 ComfyUI 导出的工作流 JSON 放到 `workflows/SDXL_Turbo.json`
-   - 在 `bin/integrated_app/comfy/schemas/` 新建 `sdxl_turbo.yaml`，把 JSON 里的 CLIPTextEncode / KSampler / VAEDecode 等需要动态 patch 的节点的 ID、widgets_values 的下标对应好（参考 `flux2_klein_9b_distilled.yaml` 的格式）
+   - 把 ComfyUI 导出的工作流 JSON 放到 `workflows/Z_image_turbo_fast.json`
+   - 在 `bin/integrated_app/native/schemas/` 新建 `z_image_turbo_fast.yaml`，把 JSON 里的 CLIPTextEncode / KSampler / VAEDecode 等需要动态 patch 的节点的 ID、widgets_values 的下标对应好（参考 `z_image_turbo_native.yaml` 的格式）
 2. **注册引擎配置**：
    - 打开根目录 `config.yaml → models.engines`，追加一个新 block：
      ```yaml
-     sdxl_turbo:
-       name: sdxl_turbo
-       display_name: SDXL Turbo
-       display_name_en: SDXL Turbo
-       backend: comfyui
-       comfy_backend_preference: local
-       workflow_file: workflows/SDXL_Turbo.json
-       parameter_schema: bin/integrated_app/comfy/schemas/sdxl_turbo.yaml
-       text_encoder: { sub_dir: text, sub_path: sdXL_turbo/text_encoder.safetensors }
-       unet:         { sub_dir: unet, sub_path: sdXL_turbo/unet.safetensors }
-       vae:          { sub_dir: vae,  sub_path: sdXL_turbo/vae.safetensors }
+     z_image_turbo_fast:
+       name: z_image_turbo_fast
+       display_name: Z-Image Turbo Fast
+       display_name_en: Z-Image Turbo Fast
+       backend: native
+       workflow_file: workflows/Z_image_turbo_fast.json
+       parameter_schema: bin/integrated_app/native/schemas/z_image_turbo_fast.yaml
+       text_encoder: { sub_dir: text, sub_path: z_image_turbo_fast/text_encoder.safetensors }
+       unet:         { sub_dir: unet, sub_path: z_image_turbo_fast/unet.safetensors }
+       vae:          { sub_dir: vae,  sub_path: z_image_turbo_fast/vae.safetensors }
      ```
    - 同步更新 `config.yaml` 旁边的 `config.example.yaml`（如果项目里有这个文件的话）
 3. **`model_registry.py` 不需要改** → 启动时自动扫描 `config.yaml → models.engines.*` 的所有 key 并注册
 4. **i18n 翻译**：在 5 个 `locales/*.json` 里加引擎显示名的翻译 key：
    ```json
-   "engine_sdxl_turbo": "SDXL Turbo（极速）"  // 每个语言对应
+   "engine_z_image_turbo_fast": "Z-Image Turbo Fast（极速）"  // 每个语言对应
    ```
 5. **测试**：
    - 跑 `tests/test_model_registry.py` 确认新引擎被注册
-   - 跑 `tests/test_comfy_engine.py -m integration` 确认 workflow patcher 6 步都通（深拷贝→模式→link→widgets→batch→校验）
-   - 启动服务 → `GET /api/config/engines` 里出现 `sdxl_turbo` 条目
+   - 跑 `tests/test_native_engine.py -m integration` 确认 workflow patcher 6 步都通（深拷贝→模式→link→widgets→batch→校验）
+   - 启动服务 → `GET /api/config/engines` 里出现 `z_image_turbo_fast` 条目
 
 **验证**：Web UI 首页引擎下拉框出现新引擎选项 → 选中后加载引擎 → 输入 prompt 点生成 → 成功出图且 SSE 进度正常推送
 
 **关联文件**：
-- `workflows/SDXL_Turbo.json`
-- `bin/integrated_app/comfy/schemas/sdxl_turbo.yaml`
+- `workflows/Z_image_turbo_fast.json`
+- `bin/integrated_app/native/schemas/z_image_turbo_fast.yaml`
 - `config.yaml`
 - `bin/integrated_app/locales/*.json`
 - `tests/test_model_registry.py`
-- `tests/test_comfy_engine.py`
+- `tests/test_native_engine.py`
 
 #### SOP-2: 新增 API 路由（比如加一个 `/api/preset/fork` 克隆预设接口）
 **适用条件**：在 `/api/*` 下加新路由文件或在现有路由文件里加新端点

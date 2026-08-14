@@ -175,7 +175,6 @@ select:focus,input:focus,textarea:focus{border-color:var(--accent)}
   <div class="topbar-right">
     <span class="select-label" data-i18n="engine">引擎</span>
     <select id="engineSelect" style="width:220px">
-      <option>FLUX.2 Klein-9B Distilled</option>
       <option>Z-Image-Turbo</option>
     </select>
     <button class="icon-btn" id="themeToggle" title="主题切换">🌙</button>
@@ -210,7 +209,7 @@ select:focus,input:focus,textarea:focus{border-color:var(--accent)}
           <h2 data-i18n="pg_title">生图工作台 · txt2img</h2>
           <div class="preset-bar">
             <span class="lbl" data-i18n="preset">预设</span>
-            <select style="width:170px"><option>默认预设（FLUX.2 Klein）</option><option>亚洲人像写真</option><option>赛博朋克城市</option></select>
+            <select style="width:170px"><option>默认预设（Z-Image Turbo）</option><option>亚洲人像写真</option><option>赛博朋克城市</option></select>
             <button class="btn btn-sm" data-i18n="save_preset">💾 保存预设</button>
             <button class="btn btn-sm">导入</button>
             <button class="btn btn-sm">导出</button>
@@ -440,7 +439,7 @@ select:focus,input:focus,textarea:focus{border-color:var(--accent)}
       <section class="output-pane">
         <div class="preview">
           <div class="ph-big idle" id="phBig">等待生成…</div>
-          <div class="phase-line"><span id="phaseText">空闲 · 引擎已就绪（FLUX.2 Klein）</span><span>chunk 0/0</span></div>
+          <div class="phase-line"><span id="phaseText">空闲 · 引擎已就绪（Z-Image Turbo）</span><span>chunk 0/0</span></div>
           <div class="progress"><i id="progFill"></i></div>
         </div>
         <div class="out-grid" id="outGrid">
@@ -459,7 +458,7 @@ select:focus,input:focus,textarea:focus{border-color:var(--accent)}
   <div class="sb-item"><span data-i18n="queue">队列</span>: 1 生成中 · 0 待处理</div>
   <div class="sb-right">
     <div class="sb-item"><span data-i18n="gpu">GPU</span> 16.2/24GB</div>
-    <div class="sb-item"><span data-i18n="engine">引擎</span>: FLUX.2 Klein 已加载</div>
+    <div class="sb-item"><span data-i18n="engine">引擎</span>: Z-Image Turbo 已加载</div>
   </div>
 </footer>
 

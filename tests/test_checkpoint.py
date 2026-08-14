@@ -25,7 +25,7 @@ class TestTaskCheckpoint:
         """save → load 数据一致"""
         self.cp.save(
             task_id="test_task_001",
-            engine="flux2_klein_9b_distilled",
+            engine="z_image_turbo_native",
             total=32,
             completed_items=[{"prompt": "cat", "seed": 42}],
             remaining=[{"prompt": "dog", "seed": 99}],
@@ -34,7 +34,7 @@ class TestTaskCheckpoint:
         data = self.cp.load("test_task_001")
         assert data is not None
         assert data["task_id"] == "test_task_001"
-        assert data["engine"] == "flux2_klein_9b_distilled"
+        assert data["engine"] == "z_image_turbo_native"
         assert data["total"] == 32
         assert data["completed"] == 1
         assert len(data["completed_items"]) == 1
@@ -106,7 +106,7 @@ class TestTaskCheckpoint:
 
         self.cp.save(
             task_id="batch_task_001",
-            engine="flux2_klein_9b_distilled",
+            engine="z_image_turbo_native",
             total=total,
             completed_items=completed_items,
             remaining=remaining_items,

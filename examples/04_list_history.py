@@ -190,7 +190,7 @@ def main() -> None:
     list_all_tasks(SERVER_URL)
 
     # 2. 按引擎筛选
-    filter_by_engine(SERVER_URL, "flux2_klein_9b_distilled")
+    filter_by_engine(SERVER_URL, "z_image_turbo_native")
 
     # 3. 按状态筛选
     filter_by_status(SERVER_URL, "completed")

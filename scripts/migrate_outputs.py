@@ -9,7 +9,7 @@ scripts/migrate_outputs.py — 一次性脚本：迁移旧平铺输出文件到 
 
 功能:
     1. 扫描 outputs/*.png 平铺文件
-    2. 按命名规则解析引擎名（Flux.2_Klein-9B-Distilled_* → flux2_klein_9b_distilled）
+    2. 按命名规则解析引擎名（Z_image_turbo_* → z_image_turbo_native）
     3. 移入 outputs/{engine}/{date}/ 结构
     4. 更新 data/history.db 的 outputs.path 指向新路径
     5. --dry-run: 只打印不执行
@@ -32,7 +32,7 @@ DB_PATH = PROJECT_ROOT / "data" / "history.db"
 
 # 引擎名映射（文件名前缀 → 引擎 ID）
 ENGINE_NAME_MAP = {
-    "Flux.2_Klein-9B-Distilled": "flux2_klein_9b_distilled",
+    "Z_image_turbo": "z_image_turbo_native",
     "Z-Image_Turbo": "z_image_turbo",
     "test_engine": "test_engine",
 }

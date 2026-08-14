@@ -134,7 +134,6 @@ select:focus,input:focus,textarea:focus{border-color:var(--accent)}
   <div class="topbar-right">
     <span class="select-label" data-i18n="engine">引擎</span>
     <select id="engineSelect" style="width:220px">
-      <option>FLUX.2 Klein-9B Distilled</option>
       <option>Z-Image-Turbo</option>
     </select>
     <button class="icon-btn" id="themeToggle" title="主题切换">🌙</button>
@@ -164,7 +163,7 @@ select:focus,input:focus,textarea:focus{border-color:var(--accent)}
   <main class="content">
     <section class="hero rise">
       <h1>一站式 <em>AI 图像</em> 工作台</h1>
-      <p>统一界面驱动 ComfyUI 多引擎生图 —— FLUX.2 Klein / Z-Image-Turbo，LoRA 六层叠加、SeedVR2 超分、双图对比与显存预留，屏蔽工作流复杂度。</p>
+      <p>统一界面驱动原生引擎生图 —— Z-Image Turbo，LoRA 六层叠加、SeedVR2 超分、双图对比与显存预留，屏蔽工作流复杂度。</p>
       <div class="hero-cta">
         <a class="btn btn-primary" href="generate.html" data-i18n="cta_generate">开始生图</a>
         <a class="btn btn-ghost" href="history.html" data-i18n="cta_history">查看历史</a>
@@ -173,7 +172,7 @@ select:focus,input:focus,textarea:focus{border-color:var(--accent)}
 
     <section class="stat-grid rise d1">
       <div class="card stat"><div class="k"><span class="dot green"></span><span data-i18n="st_gpu">GPU 显存</span></div><div class="v">16.2 / 24 GB</div><div class="s">RTX 4090 · 利用率 42%</div><div class="bar"><i style="width:67%"></i></div></div>
-      <div class="card stat"><div class="k"><span class="dot green"></span><span data-i18n="st_engine">当前引擎</span></div><div class="v" style="font-size:17px">FLUX.2 Klein</div><div class="s">已加载 · fp8mixed</div><div class="bar"><i style="width:100%"></i></div></div>
+      <div class="card stat"><div class="k"><span class="dot green"></span><span data-i18n="st_engine">当前引擎</span></div><div class="v" style="font-size:17px">Z-Image Turbo</div><div class="s">已加载 · fp8mixed</div><div class="bar"><i style="width:100%"></i></div></div>
       <div class="card stat"><div class="k"><span class="dot gray"></span><span data-i18n="st_mem">系统内存</span></div><div class="v">11.8 / 64 GB</div><div class="s">Python 进程 1.2 GB</div><div class="bar"><i style="width:18%"></i></div></div>
       <div class="card stat"><div class="k"><span class="dot gray"></span><span data-i18n="st_uptime">运行时长</span></div><div class="v">3h 24m</div><div class="s">累计完成任务 128</div><div class="bar"><i style="width:64%"></i></div></div>
     </section>
@@ -186,14 +185,14 @@ select:focus,input:focus,textarea:focus{border-color:var(--accent)}
 
     <div class="section-title rise d3"><h2 data-i18n="recent">最近任务</h2><a href="history.html" data-i18n="view_all">查看全部 →</a></div>
     <section class="thumb-grid rise d3">
-      <div class="thumb"><div class="ph ph-a">对比图</div><div class="thumb-overlay"><button class="btn btn-sm">查看</button><button class="btn btn-sm">重绘</button></div><div class="thumb-meta"><span>FLUX.2 · 4096×2048</span><span class="seed">#88421</span></div></div>
+      <div class="thumb"><div class="ph ph-a">对比图</div><div class="thumb-overlay"><button class="btn btn-sm">查看</button><button class="btn btn-sm">重绘</button></div><div class="thumb-meta"><span>Z-Image Turbo · 4096×2048</span><span class="seed">#88421</span></div></div>
       <div class="thumb"><div class="ph ph-b">超分图</div><div class="thumb-overlay"><button class="btn btn-sm">查看</button><button class="btn btn-sm">重绘</button></div><div class="thumb-meta"><span>Z-Turbo · 2048²</span><span class="seed">#88397</span></div></div>
-      <div class="thumb"><div class="ph ph-c">对比图</div><div class="thumb-overlay"><button class="btn btn-sm">查看</button><button class="btn btn-sm">重绘</button></div><div class="thumb-meta"><span>FLUX.2 · 4096×2048</span><span class="seed">#88355</span></div></div>
+      <div class="thumb"><div class="ph ph-c">对比图</div><div class="thumb-overlay"><button class="btn btn-sm">查看</button><button class="btn btn-sm">重绘</button></div><div class="thumb-meta"><span>Z-Image Turbo · 4096×2048</span><span class="seed">#88355</span></div></div>
       <div class="thumb"><div class="ph ph-d">原图</div><div class="thumb-overlay"><button class="btn btn-sm">查看</button><button class="btn btn-sm">重绘</button></div><div class="thumb-meta"><span>Z-Turbo · 1024²</span><span class="seed">#88321</span></div></div>
-      <div class="thumb"><div class="ph ph-e">对比图</div><div class="thumb-overlay"><button class="btn btn-sm">查看</button><button class="btn btn-sm">重绘</button></div><div class="thumb-meta"><span>FLUX.2 · 3072×1536</span><span class="seed">#88290</span></div></div>
-      <div class="thumb"><div class="ph ph-f">超分图</div><div class="thumb-overlay"><button class="btn btn-sm">查看</button><button class="btn btn-sm">重绘</button></div><div class="thumb-meta"><span>FLUX.2 · 2048²</span><span class="seed">#88264</span></div></div>
+      <div class="thumb"><div class="ph ph-e">对比图</div><div class="thumb-overlay"><button class="btn btn-sm">查看</button><button class="btn btn-sm">重绘</button></div><div class="thumb-meta"><span>Z-Image Turbo · 3072×1536</span><span class="seed">#88290</span></div></div>
+      <div class="thumb"><div class="ph ph-f">超分图</div><div class="thumb-overlay"><button class="btn btn-sm">查看</button><button class="btn btn-sm">重绘</button></div><div class="thumb-meta"><span>Z-Image Turbo · 2048²</span><span class="seed">#88264</span></div></div>
       <div class="thumb"><div class="ph ph-b">原图</div><div class="thumb-overlay"><button class="btn btn-sm">查看</button><button class="btn btn-sm">重绘</button></div><div class="thumb-meta"><span>Z-Turbo · 1024²</span><span class="seed">#88212</span></div></div>
-      <div class="thumb"><div class="ph ph-a">对比图</div><div class="thumb-overlay"><button class="btn btn-sm">查看</button><button class="btn btn-sm">重绘</button></div><div class="thumb-meta"><span>FLUX.2 · 4096×2048</span><span class="seed">#88178</span></div></div>
+      <div class="thumb"><div class="ph ph-a">对比图</div><div class="thumb-overlay"><button class="btn btn-sm">查看</button><button class="btn btn-sm">重绘</button></div><div class="thumb-meta"><span>Z-Image Turbo · 4096×2048</span><span class="seed">#88178</span></div></div>
     </section>
   </main>
 </div>
@@ -203,7 +202,7 @@ select:focus,input:focus,textarea:focus{border-color:var(--accent)}
   <div class="sb-item"><span data-i18n="queue">队列</span>: 0 待处理</div>
   <div class="sb-right">
     <div class="sb-item"><span data-i18n="gpu">GPU</span> 16.2/24GB</div>
-    <div class="sb-item"><span data-i18n="engine">引擎</span>: FLUX.2 Klein 已加载</div>
+    <div class="sb-item"><span data-i18n="engine">引擎</span>: Z-Image Turbo 已加载</div>
   </div>
 </footer>
 

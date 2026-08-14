@@ -34,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **前端 UI 优化**：顶部栏图标按钮添加文字标签（主题、颜色、字体、关于、设置、模型、语言），移除冗余的「全部 / Native」引擎过滤选项，引擎选择简化为直接显示引擎列表
 - **彻底脱离 ComfyUI 前端残留**：移除「释放显存」按钮（`freeVramBtn`，对应已删除的 `/engine/free` 端点）、「ComfyUI 后端」状态面板（local/gpu-cluster · 8188）、状态栏 `CONN: LOCAL:8188`、关于面板「统一驱动 ComfyUI」副标题与「驱动本地 ComfyUI」特性条目
-- **引擎引用统一为 `z_image_turbo_native`**：硬编码引擎菜单 / `engineSelect` / 预设默认引擎 / 快照与状态栏文本由 `flux2_klein_9b_distilled`、`z_image_turbo`、`FLUX.2 Klein` 全部改为 `Z-Image Turbo（原生）`
+- **引擎引用统一为 `z_image_turbo_native`**：硬编码引擎菜单 / `engineSelect` / 预设默认引擎 / 快照与状态栏文本统一为 `Z-Image Turbo（原生）`
 
 ---
 
@@ -97,7 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `comfy/client.py`：HTTP + WebSocket 双通道客户端，自动重连（≤3 次指数退避）
   - `comfy/engine.py`：ComfyEngine 实现 ImageEngine Protocol（load / unload / infer_txt2img / cancel）
   - `comfy/workflow.py`：WorkflowManager Patcher 6 步（深拷贝→模式切换→link 重连→widgets patch→batch chunk→节点校验）
-- **内置双工作流**：Flux.2 Klein-9B Distilled（高保真）+ Z Image Turbo（高速低显存）
+- **内置工作流**：Z-Image Turbo（高速低显存）
   - 每引擎一份 Schema YAML（`comfy/schemas/`），节点 ID 严格对齐 `widgets_values` 下标
 - **VRAM 预检 + 精度推荐系统**：推理前估算显存需求（×1.5 系数），推荐 FP8/FP16 精度与 batch chunk 大小
 - **批量任务队列**：异步单 Worker 串行 + SSE 实时推送 + 任务取消 + 断点恢复

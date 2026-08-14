@@ -85,9 +85,9 @@ class ValidationError(ImageAppError):
 
 
 class ComfyUIConnectionError(ImageAppError):
-    """ComfyUI 后端连接异常（HTTP 503）。"""
+    """原生引擎连接异常（HTTP 503，遗留兼容类）。"""
 
-    def __init__(self, message: str = "ComfyUI 后端不可达", url: str = "") -> None:
+    def __init__(self, message: str = "引擎不可达", url: str = "") -> None:
         self.url: str = url
         super().__init__(message, code="COMFY_NOT_REACHABLE", status_code=503)
 

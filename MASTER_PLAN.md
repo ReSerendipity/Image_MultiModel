@@ -28,7 +28,7 @@ PRD 与 WEBAPP_GUIDE 存在 6 处不一致，按用户已确认决策裁决如�
 
 ## 2. 产品定位与范围（源自 PRD §1，节点级锁定）
 
-- 定位：基于 ComfyUI 生态的多模型图片生成 Web 应用，统一界面驱动 2 个引擎（FLUX.2 Klein-9B / Z-Image-Turbo）
+- 定位：基于 ComfyUI 生态的 Z-Image Turbo 图像生成平台，统一界面驱动唯一引擎 Z-Image Turbo（`z_image_turbo_native`）
 - 核心形态：txt2img + LoRA 六层叠加 + SeedVR2 超分 + Eses 双图对比 + ReservedVRAM 显存预留 + 批量（1~9999）+ 历史/素材库 + 预设 + 5 语言 i18n
 - 边界规则（v1.3 生效）：**范围严格以 `workflows/*.json` 节点是否存在为唯一标准**
   - 必做：txt2img、LoRA 6 层（id=16~21）、SeedVR2（id=61/62/63）、Eses（59）、ReservedVRAM（60）
@@ -72,15 +72,15 @@ Image_MultiModel/
 │       ├── gpu_utils.py             # 显存预检 ×1.5 + FP8 回退 + chunk 推荐（附录 B4）
 │       ├── security/                # PathGuard（附录 D1）/ integrity / watermark
 │       ├── middleware/              # CSRF（C1）/ RateLimit / RequestID / API Auth
-│       ├── comfy/
-│       │   ├── client.py            # HTTP + WS 连接池
-│       │   ├── engine.py            # ComfyEngine（ImageEngine impl，仅 infer_txt2img）
-│       │   ├── workflow.py          # WorkflowManager：Patcher 6 步（PRD 4.3.2）
-│       │   └── schemas/             # flux2_klein_9b_distilled.yaml / z_image_turbo.yaml
+│       ├── native/
+│       │   ├── source.py            # 把 references/ComfyUI 源码注入 sys.path（幂等）
+│       │   ├── engine.py            # NativeEngine（ImageEngine impl，仅 infer_txt2img）
+│       │   ├── executor.py          # 复用 comfy.sd / comfy.samplers 推理
+│       │   └── schemas/             # z_image_turbo_native.yaml
 │       ├── routes/                  # 自动发现：config / generate / tasks / outputs / presets / system(sse,health,gpu)
 │       ├── static/                  # ★ generate.html（唯一前端）+ css/js 资源
 │       └── locales/                 # 5 语言（前端字典的源文件）
-├── workflows/                       # 已存在：Flux.2_Klein-9B-Distilled.json / Z_image_turbo.json
+├── workflows/                       # 已存在：Z_image_turbo.json
 ├── pretrained_models/               # 已建空目录骨架（portable 模式模型）
 ├── text/ unet/ vae/                 # 已建空目录（shared 模式 Junction 挂载点，附录 E3 脚本）
 ├── data/ history.db / presets / cache
@@ -159,7 +159,7 @@ Image_MultiModel/
 
 ### 阶段 0 · 环境与决策确认（0.5 天）
 - 确认 Seedvr2 / TTS_MultiModel 本地仓库可读（附录复用依据）
-- 确认本地 ComfyUI（127.0.0.1:8188）可达；确认 2 个工作流 JSON 与 2 份 Schema 待建
+- 确认本机 `references/ComfyUI` 源码可复用；确认唯一工作流 JSON 与 Schema 就位
 - 将 `generate.html` 复制为 `bin/integrated_app/static/index.html`（唯一前端入口）
 - **验收**：原型在浏览器直接可开（现状已满足），后续所有改动基于此副本
 
@@ -170,11 +170,11 @@ Image_MultiModel/
 - 前端：FastAPI 托管单页；设置顶抽屉接通 config；i18n/主题 localStorage 持久化 + 防闪烁（附录 E2）
 - **验收**：浏览器打开即应用；改设置→写盘重启生效；SSE 连接建立；路径解析器双模式单测绿
 
-### M1 · ComfyUI 适配层 + Workflow Patcher（3 周）
-- comfy/client.py（HTTP+WS）、comfy/engine.py（ImageEngine）
-- comfy/workflow.py Patcher 6 步 + 2 份 Schema YAML（PRD M1）
+### M1 · 原生引擎适配层 + Workflow Patcher（3 周）
+- native/source.py（复用 references/ComfyUI 源码）、native/engine.py（NativeEngine 实现 ImageEngine）
+- native/workflow.py Patcher 6 步 + Schema YAML（PRD M1）
 - 前端：生成按钮接 `POST /api/generate` + SSE 进度 + 队列球联动（GUIDE 7）
-- **验收**（PRD M1）：Mock 后端 batch=9999 拆分 625 次正确；LoRA/SeedVR2/Eses/VRAM 开关组合 patch 快照 100% 正确；单测覆盖 ≥70%
+- **验收**（PRD M1）：Mock batch=9999 拆分 625 次正确；LoRA/SeedVR2/Eses/VRAM 开关组合 patch 快照 100% 正确；单测覆盖 ≥70%
 
 ### M2 · 文生图工作台全功能（4 周，⭐ 必做功能全部交付）
 - task_queue 单 Worker + 取消（B1/B2）；ModelManager/Registry + SSE 桥接（A2/A3）；显存预检（B4）
@@ -199,17 +199,17 @@ Image_MultiModel/
 ### M3 · 留空
 - 无 img2img/ControlNet 节点，不规划（PRD v1.3 边界规则）；用户提供含对应节点的新工作流后再补
 
-### M7 · 原生进程内引擎 + 双后端模式（已完成，v1.2.0）
+### M7 · 原生进程内引擎（已完成，v1.2.0）
 - **目标**：无需外部 ComfyUI 进程即可在应用进程内出图，复用本机 Comfy 源码，不重新实现模型网络。
 - `bin/integrated_app/native/` 包落地：
   - `source.py`：把 `references/ComfyUI` + aki-v3 自定义节点注入 `sys.path`（幂等）
   - `executor.py`：复用 `comfy.sd` / `comfy.samplers` 完成 加载→CLIP编码→采样→VAE解码
   - `engine.py`：`NativeEngine` 实现 `ImageEngine` Protocol，输出经 `PathGuard` 校验落盘 + DCT 水印 + 缩略图
   - `lora.py` / `seedvr.py` / `compares.py` / `vram.py` / `preview.py`：Phase 3 能力扩展
-- `config.yaml` 新增 `z_image_turbo_native`（`backend: native`）；`routes/engine_routes.py` 按 `backend` 分发 `ComfyEngine` / `NativeEngine`；前端引擎菜单支持「全部 / ComfyUI / 原生」切换。
+- `config.yaml` 保留唯一引擎 `z_image_turbo_native`（`backend: native`）；`routes/engine_routes.py` 引擎工厂统一走 `NativeEngine`（已删除 `/engine/free` 端点）；前端引擎菜单仅展示 Z-Image Turbo。
 - `engine_interface.py` 的 `GenerationConfig` 新增 `lora_stack` 动态字段。
 - 测试：`tests/test_native_*.py`（zimage_poc / lora / seedvr / compares / vram / preview / batch_cancel / security）。
-- **验收**：双后端引擎均满足 `ImageEngine` Protocol；原生引擎出图链路代码走通；`_save_outputs` 路径穿越攻击向量全部被 `PathGuard` 拒绝；版本号三处同步至 v1.2.0。
+- **验收**：原生引擎出图链路代码走通；`_save_outputs` 路径穿越攻击向量全部被 `PathGuard` 拒绝；版本号三处同步至 v1.2.0。
 
 **总计 ≈ 16 周**（与 PRD 一致）；前端因单页化省去多页模板开发，余量用于 5 语言与 batch=9999 稳定性。
 

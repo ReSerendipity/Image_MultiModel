@@ -52,7 +52,7 @@ class GenerationConfigFactory(factory.Factory):
     vram_seed = -1
     output_format = "png"
     output_prefix = "{engine}"
-    engine_name = "flux2_klein_9b_distilled"
+    engine_name = "z_image_turbo_native"
 
 
 class LargeBatchConfigFactory(GenerationConfigFactory):

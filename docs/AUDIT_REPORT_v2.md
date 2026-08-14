@@ -46,7 +46,7 @@
 
 **已验证事实**（检查时的实测结果）：
 - `python -m pytest -q` → 39 passed（仅 test_config + test_workflow 两个文件）
-- `load_config()` 成功，识别 2 引擎（flux2_klein_9b_distilled / z_image_turbo）
+- `load_config()` 成功，识别唯一引擎（z_image_turbo_native）
 - `python -m compileall` → 仅 1 处错误：`task_queue.py:97`
 - `static/index.html` 与原型 `prototypes/figma-refactor/generate.html` **字节相同**（104579 = 104579），`fetch(/EventSource/api/)` 匹配数 = 0
 - locales 现有 4 份：zh / en / ja / ko（**缺 zh-tw**）

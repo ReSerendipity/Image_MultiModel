@@ -213,7 +213,7 @@ select:focus,input:focus{background:var(--surface);border-color:var(--accent);bo
   <div class="topbar-right">
     <button class="icon-btn" id="themeToggle" title="主题切换" type="button">◐</button>
     <button class="icon-btn" id="setOpen" title="设置" type="button">⚙︎</button>
-    <select style="width:172px"><option>FLUX.2 Klein-9B Distilled</option><option>Z-Image-Turbo</option></select>
+    <select style="width:172px"><option>Z-Image-Turbo</option></select>
     <button class="share-btn" type="button">分享</button>
     <span class="avatar"></span>
   </div>
@@ -296,7 +296,7 @@ select:focus,input:focus{background:var(--surface);border-color:var(--accent);bo
   <div class="ov-head"><span><span class="no">/</span>设置<span class="hint">底抽屉 · 全局配置</span></span><button class="icon-btn" id="setClose" type="button">✕</button></div>
   <div class="ov-body">
     <div class="ov-sec"><h4>引擎与模型</h4>
-      <div class="sg"><span class="lbl">默认引擎</span><select><option>FLUX.2 Klein-9B Distilled</option><option>Z-Image-Turbo</option></select></div>
+      <div class="sg"><span class="lbl">默认引擎</span><select><option>Z-Image-Turbo</option></select></div>
       <div class="sg"><span class="lbl">工作流目录</span><input type="text" value="workflows/"></div>
       <div class="sg"><span class="lbl">LoRA 目录</span><input type="text" value="loras/"></div>
       <div class="sg"><span class="lbl">SeedVR2 模型</span><input type="text" value="models/seedvr2/"></div>
@@ -325,12 +325,12 @@ select:focus,input:focus{background:var(--surface);border-color:var(--accent);bo
       <div class="stat-bar"><div class="k"><span>系统内存</span><span>18%</span></div><div class="v">11.8 / 64 GB</div><div class="bar"><i style="width:18%"></i></div></div>
       <div class="stat-bar"><div class="k"><span>磁盘 outputs/</span><span>3%</span></div><div class="v">12.6 / 480 GB</div><div class="bar"><i style="width:3%"></i></div></div>
     </div>
-    <div class="ov-sec"><h4>ComfyUI 后端</h4>
+    <div class="ov-sec"><h4>原生引擎</h4>
       <div class="back-row"><span class="dot green"></span><b>local</b><span style="color:var(--ink-faint)">127.0.0.1:8188</span><span class="chip ok">在线</span><span style="margin-left:auto;color:var(--ink-faint)">12ms</span><button class="btn btn-sm" type="button">测试</button></div>
       <div class="back-row"><span class="dot gray"></span><b>gpu-cluster</b><span style="color:var(--ink-faint)">192.168.1.50:8188</span><span class="chip red">离线</span><span style="margin-left:auto;color:var(--ink-faint)">—</span><button class="btn btn-sm" type="button">测试</button></div>
     </div>
     <div class="ov-sec"><h4>引擎与资源</h4>
-      <div class="back-row"><b>FLUX.2 Klein-9B</b><span style="color:var(--ink-faint)">fp8mixed · 12GB</span><span class="chip ok">已加载</span></div>
+      <div class="back-row"><b>Z-Image Turbo</b><span style="color:var(--ink-faint)">fp8mixed · 12GB</span><span class="chip ok">已加载</span></div>
       <div class="back-row"><b>Z-Image-Turbo</b><span style="color:var(--ink-faint)">bf16 · 10GB</span><span class="chip">未加载</span></div>
       <div class="back-row"><b>LoRA 资源</b><span style="color:var(--ink-faint)">loras/ · 23 个文件</span><span class="chip ok">就绪</span></div>
     </div>
@@ -352,7 +352,7 @@ select:focus,input:focus{background:var(--surface);border-color:var(--accent);bo
   <div class="sb-item sb-click" id="sbQueue"><span class="dot yellow"></span>QUEUE 2 排队 · 1 生成中</div>
   <div class="sb-right">
     <div class="sb-item">GPU 16.2/24GB</div>
-    <div class="sb-item">ENGINE: FLUX.2 KLEIN</div>
+    <div class="sb-item">ENGINE: Z-IMAGE TURBO</div>
   </div>
 </footer>
 

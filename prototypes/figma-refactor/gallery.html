@@ -189,7 +189,7 @@ select:focus,input:focus{background:var(--surface);border-color:var(--accent);bo
   <div class="topbar-right">
     <button class="icon-btn" id="themeToggle" title="主题切换" type="button">◐</button>
     <button class="icon-btn" id="setOpen" title="设置" type="button">⚙︎</button>
-    <select style="width:172px"><option>全部引擎</option><option>FLUX.2 Klein-9B Distilled</option><option>Z-Image-Turbo</option></select>
+    <select style="width:172px"><option>全部引擎</option><option>Z-Image-Turbo</option></select>
     <button class="share-btn" type="button">分享</button>
     <span class="avatar"></span>
   </div>
@@ -234,7 +234,7 @@ select:focus,input:focus{background:var(--surface);border-color:var(--accent);bo
     <div class="v-img" id="vImg"><span id="vImgLabel">PREVIEW</span></div>
   </div>
   <div class="v-foot">
-    <span id="vMeta">FLUX.2 · 1024² · 08-08 15:24</span>
+    <span id="vMeta">Z-Image Turbo · 1024² · 08-08 15:24</span>
     <span><button class="btn btn-sm" type="button">下载</button> <button class="btn btn-sm" type="button">重绘</button></span>
   </div>
 </div>
@@ -245,7 +245,7 @@ select:focus,input:focus{background:var(--surface);border-color:var(--accent);bo
   <div class="ov-head"><span><span class="no">/</span>设置<span class="hint">底抽屉 · 全局配置</span></span><button class="icon-btn" id="setClose" type="button">✕</button></div>
   <div class="ov-body">
     <div class="ov-sec"><h4>引擎与模型</h4>
-      <div class="sg"><span class="lbl">默认引擎</span><select><option>FLUX.2 Klein-9B Distilled</option><option>Z-Image-Turbo</option></select></div>
+      <div class="sg"><span class="lbl">默认引擎</span><select><option>Z-Image-Turbo</option></select></div>
       <div class="sg"><span class="lbl">工作流目录</span><input type="text" value="workflows/"></div>
       <div class="sg"><span class="lbl">LoRA 目录</span><input type="text" value="loras/"></div>
       <div class="sg"><span class="lbl">SeedVR2 模型</span><input type="text" value="models/seedvr2/"></div>
@@ -274,12 +274,12 @@ select:focus,input:focus{background:var(--surface);border-color:var(--accent);bo
       <div class="stat-bar"><div class="k"><span>系统内存</span><span>18%</span></div><div class="v">11.8 / 64 GB</div><div class="bar"><i style="width:18%"></i></div></div>
       <div class="stat-bar"><div class="k"><span>磁盘 outputs/</span><span>3%</span></div><div class="v">12.6 / 480 GB</div><div class="bar"><i style="width:3%"></i></div></div>
     </div>
-    <div class="ov-sec"><h4>ComfyUI 后端</h4>
+    <div class="ov-sec"><h4>原生引擎</h4>
       <div class="back-row"><span class="dot green"></span><b>local</b><span style="color:var(--ink-faint)">127.0.0.1:8188</span><span class="chip ok">在线</span><span style="margin-left:auto;color:var(--ink-faint)">12ms</span><button class="btn btn-sm" type="button">测试</button></div>
       <div class="back-row"><span class="dot gray"></span><b>gpu-cluster</b><span style="color:var(--ink-faint)">192.168.1.50:8188</span><span class="chip red">离线</span><span style="margin-left:auto;color:var(--ink-faint)">—</span><button class="btn btn-sm" type="button">测试</button></div>
     </div>
     <div class="ov-sec"><h4>引擎与资源</h4>
-      <div class="back-row"><b>FLUX.2 Klein-9B</b><span style="color:var(--ink-faint)">fp8mixed · 12GB</span><span class="chip ok">已加载</span></div>
+      <div class="back-row"><b>Z-Image Turbo</b><span style="color:var(--ink-faint)">fp8mixed · 12GB</span><span class="chip ok">已加载</span></div>
       <div class="back-row"><b>Z-Image-Turbo</b><span style="color:var(--ink-faint)">bf16 · 10GB</span><span class="chip">未加载</span></div>
       <div class="back-row"><b>LoRA 资源</b><span style="color:var(--ink-faint)">loras/ · 23 个文件</span><span class="chip ok">就绪</span></div>
     </div>
@@ -301,24 +301,24 @@ select:focus,input:focus{background:var(--surface);border-color:var(--accent);bo
   <div class="sb-item sb-click" id="sbQueue">QUEUE 1·0</div>
   <div class="sb-right">
     <div class="sb-item">GPU 16.2/24GB</div>
-    <div class="sb-item">ENGINE: FLUX.2 KLEIN</div>
+    <div class="sb-item">ENGINE: Z-IMAGE TURBO</div>
   </div>
 </footer>
 
 <script>
 var cards=[
- ['PORTRAIT','亚洲女性肖像','原图','FLUX.2 · 1024² · 88421','88421','★'],
- ['CYBER','赛博朋克夜景','超分','FLUX.2 · 2048² · 88397','88397',''],
+ ['PORTRAIT','亚洲女性肖像','原图','Z-Image Turbo · 1024² · 88421','88421','★'],
+ ['CYBER','赛博朋克夜景','超分','Z-Image Turbo · 2048² · 88397','88397',''],
  ['ZEN','日本庭院枯山水','对比图','Z-Turbo · 4096×2048 · 88355','88355',''],
  ['STAGE','韩式女团舞台照','原图','Z-Turbo · 1024² · 88321','88321',''],
- ['FILM','老式胶片相机静物','超分','FLUX.2 · 3072×1536 · 88290','88290','★'],
- ['NIGHT','城市夜景长曝','对比图','FLUX.2 · 4096×2048 · 88264','88264',''],
- ['FLOWER','微观花卉微距','原图','FLUX.2 · 1024² · 88212','88212',''],
+ ['FILM','老式胶片相机静物','超分','Z-Image Turbo · 3072×1536 · 88290','88290','★'],
+ ['NIGHT','城市夜景长曝','对比图','Z-Image Turbo · 4096×2048 · 88264','88264',''],
+ ['FLOWER','微观花卉微距','原图','Z-Image Turbo · 1024² · 88212','88212',''],
  ['CAT','布偶猫肖像','超分','Z-Turbo · 2048² · 88178','88178',''],
- ['MOUNTAIN','雪山日出','对比图','FLUX.2 · 3072×1536 · 88123','88123',''],
+ ['MOUNTAIN','雪山日出','对比图','Z-Image Turbo · 3072×1536 · 88123','88123',''],
  ['FOOD','日式料理特写','原图','Z-Turbo · 1024² · 88067','88067','★'],
- ['MECH','机械装甲概念','超分','FLUX.2 · 2048² · 87990','87990',''],
- ['SPACE','深空星云','对比图','FLUX.2 · 4096×2048 · 87921','87921','']
+ ['MECH','机械装甲概念','超分','Z-Image Turbo · 2048² · 87990','87990',''],
+ ['SPACE','深空星云','对比图','Z-Image Turbo · 4096×2048 · 87921','87921','']
 ];
 var masonry=document.getElementById('masonry');
 cards.forEach(function(c,i){

@@ -13,7 +13,7 @@
 
 前置条件:
     1. Image MultiModel 已启动
-    2. ComfyUI 后端已启动且引擎已加载
+    2. 原生引擎已就绪（z_image_turbo_native）
 """
 
 from __future__ import annotations
@@ -173,7 +173,7 @@ def main() -> None:
         print(f"无法连接服务器: {SERVER_URL}")
         sys.exit(1)
 
-    engine = "flux2_klein_9b_distilled"
+    engine = "z_image_turbo_native"
 
     # 1. 查询现有预设
     list_presets(SERVER_URL)

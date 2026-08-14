@@ -438,8 +438,7 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
     <span class="ico-wrap" data-component="Engine Menu">
       <button class="icon-btn" id="engIcon" title="切换模型" type="button">◈</button>
       <div class="ico-pop" id="engMenu">
-        <button class="ip-item on" data-v="FLUX.2 Klein-9B Distilled" type="button">FLUX.2 Klein-9B Distilled</button>
-        <button class="ip-item" data-v="Z-Image-Turbo" type="button">Z-Image-Turbo</button>
+        <button class="ip-item on" data-v="Z-Image Turbo" type="button">Z-Image Turbo</button>
       </div>
     </span>
     <span class="ico-wrap" data-component="Language Menu">
@@ -453,7 +452,6 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
       </div>
     </span>
     <select id="engineSelect" style="display:none" aria-label="引擎">
-      <option>FLUX.2 Klein-9B Distilled</option>
       <option>Z-Image-Turbo</option>
     </select>
     <select id="langSelect" style="display:none" aria-label="语言">
@@ -471,7 +469,7 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
 <div class="layout">
   <main class="stage" data-component="Stage">
     <div class="big-title">用一句话，生成一张 <em>图</em></div>
-    <p class="sub" data-i18n="sub">支持 简中/繁中/英/日/韩 直接输入 · 默认 FLUX.2 Klein 蒸馏配置，开箱即用</p>
+    <p class="sub" data-i18n="sub">支持 简中/繁中/英/日/韩 直接输入 · 默认 Z-Image Turbo 蒸馏配置，开箱即用</p>
 
     <div class="prompt-card" data-component="Prompt Input">
       <textarea id="posPrompt" placeholder="描述你想生成的画面，例如：一位亚洲女性肖像，柔和自然光，浅景深，胶片质感…">一位亚洲女性肖像，柔和自然光，浅景深，胶片质感，细节丰富</textarea>
@@ -492,7 +490,7 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
     <div class="gen-row" data-component="Actions Row">
       <button class="btn-gen" id="genBtn" type="button">▶ 生成</button>
       <div class="snap-row" data-component="Param Snapshot">
-        <span class="snap">引擎 <b id="snapEngine">FLUX.2 Klein</b></span>
+        <span class="snap">引擎 <b id="snapEngine">Z-Image Turbo</b></span>
         <span class="snap">分辨率 <b id="snapRes">1024 × 1024</b></span>
         <span class="snap">steps <b id="snapSteps">8</b></span>
         <span class="snap">cfg <b id="snapCfg">1.0</b></span>
@@ -505,7 +503,7 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
     <div class="warn-box red" id="warn5000" data-component="Batch Warning">⚠ 超过 5000 张：自动断点续跑（每 100 张 checkpoint），点击「生成」需二次确认（倒计时 5s）</div>
 
     <div class="gen-progress" id="genProgress" data-component="Generation Progress">
-      <div class="phase-line"><span id="phaseText">空闲 · 引擎已就绪（FLUX.2 Klein）</span><span>chunk 0/0</span></div>
+      <div class="phase-line"><span id="phaseText">空闲 · 引擎已就绪（Z-Image Turbo）</span><span>chunk 0/0</span></div>
       <div class="progress"><i id="progFill"></i></div>
     </div>
 
@@ -522,8 +520,8 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
     <section class="results" data-component="Results">
       <div class="r-title"><span data-i18n="recent">最近生成</span><span class="bar"></span></div>
       <div class="masonry" id="outGrid">
-        <div class="r-card" style="--ar:1/1"><div class="ph-img">PORTRAIT</div><div class="r-actions"><button class="btn btn-sm" type="button">下载</button><button class="btn btn-sm" type="button">收藏</button><button class="btn btn-sm" type="button">重绘</button></div><div class="r-meta"><b>亚洲女性肖像</b><span>FLUX.2 · 1024² · 88421</span></div></div>
-        <div class="r-card" style="--ar:1/1"><div class="ph-img">CYBERPUNK</div><div class="r-actions"><button class="btn btn-sm" type="button">下载</button><button class="btn btn-sm" type="button">收藏</button><button class="btn btn-sm" type="button">重绘</button></div><div class="r-meta"><b>赛博朋克夜景</b><span>FLUX.2 · 2048² · 88397</span></div></div>
+        <div class="r-card" style="--ar:1/1"><div class="ph-img">PORTRAIT</div><div class="r-actions"><button class="btn btn-sm" type="button">下载</button><button class="btn btn-sm" type="button">收藏</button><button class="btn btn-sm" type="button">重绘</button></div><div class="r-meta"><b>亚洲女性肖像</b><span>Z-Image Turbo · 1024² · 88421</span></div></div>
+        <div class="r-card" style="--ar:1/1"><div class="ph-img">CYBERPUNK</div><div class="r-actions"><button class="btn btn-sm" type="button">下载</button><button class="btn btn-sm" type="button">收藏</button><button class="btn btn-sm" type="button">重绘</button></div><div class="r-meta"><b>赛博朋克夜景</b><span>Z-Image Turbo · 2048² · 88397</span></div></div>
         <div class="r-card" style="--ar:2/1"><div class="ph-img">ZEN</div><div class="r-actions"><button class="btn btn-sm" type="button">下载</button><button class="btn btn-sm" type="button">收藏</button><button class="btn btn-sm" type="button">重绘</button></div><div class="r-meta"><b>日本庭院枯山水</b><span>Z-Turbo · 4096×2048 · 88355</span></div></div>
       </div>
     </section>
@@ -601,17 +599,17 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
     <!-- 预设管理 -->
     <section class="drawer-sec" id="sec-presets" data-component="Presets">
       <div class="p-list" id="pList">
-        <div class="p-card"><button class="fav on" type="button">★</button><div class="nm">默认预设（FLUX.2）</div><p class="ds">亚洲人像基线：1.0 cfg · 8 steps · 1024²</p><div class="param-chips"><span class="eng">FLUX.2</span><span>LoRA ×6</span><span>超分 2048</span></div><div class="acts"><button class="btn btn-sm" type="button">应用</button><button class="btn btn-sm ed" type="button">编辑</button></div></div>
-        <div class="p-card"><button class="fav" type="button">☆</button><div class="nm">亚洲人像写真</div><p class="ds">L2 0.7 强化，柔和自然光模板</p><div class="param-chips"><span class="eng">FLUX.2</span><span>L2 0.7</span></div><div class="acts"><button class="btn btn-sm" type="button">应用</button><button class="btn btn-sm ed" type="button">编辑</button></div></div>
+        <div class="p-card"><button class="fav on" type="button">★</button><div class="nm">默认预设（Z-Image Turbo）</div><p class="ds">亚洲人像基线：1.0 cfg · 8 steps · 1024²</p><div class="param-chips"><span class="eng">Z-Image Turbo</span><span>LoRA ×6</span><span>超分 2048</span></div><div class="acts"><button class="btn btn-sm" type="button">应用</button><button class="btn btn-sm ed" type="button">编辑</button></div></div>
+        <div class="p-card"><button class="fav" type="button">☆</button><div class="nm">亚洲人像写真</div><p class="ds">L2 0.7 强化，柔和自然光模板</p><div class="param-chips"><span class="eng">Z-Image Turbo</span><span>L2 0.7</span></div><div class="acts"><button class="btn btn-sm" type="button">应用</button><button class="btn btn-sm ed" type="button">编辑</button></div></div>
         <div class="p-card"><button class="fav" type="button">☆</button><div class="nm">赛博朋克城市</div><p class="ds">Z-Turbo 快速出图：1536²</p><div class="param-chips"><span class="eng">Z-Turbo</span><span>4 steps</span></div><div class="acts"><button class="btn btn-sm" type="button">应用</button><button class="btn btn-sm ed" type="button">编辑</button></div></div>
-        <div class="p-card"><button class="fav" type="button">☆</button><div class="nm">胶片复古静物</div><p class="ds">暖调胶片质感，3072 大图</p><div class="param-chips"><span class="eng">FLUX.2</span><span>3072</span></div><div class="acts"><button class="btn btn-sm" type="button">应用</button><button class="btn btn-sm ed" type="button">编辑</button></div></div>
+        <div class="p-card"><button class="fav" type="button">☆</button><div class="nm">胶片复古静物</div><p class="ds">暖调胶片质感，3072 大图</p><div class="param-chips"><span class="eng">Z-Image Turbo</span><span>3072</span></div><div class="acts"><button class="btn btn-sm" type="button">应用</button><button class="btn btn-sm ed" type="button">编辑</button></div></div>
       </div>
       <div class="ed-sec" id="pEdit">
         <button class="btn btn-sm" id="pBack" type="button">← 返回列表</button>
         <h3 style="font-size:10.5px;font-weight:700;color:var(--ink-faint);margin:11px 0 8px">编辑预设</h3>
         <div class="fgroup" style="margin-bottom:9px"><label>名称</label><input id="pName" value=""></div>
         <div class="fgroup" style="margin-bottom:9px"><label>描述</label><textarea id="pDesc" style="height:52px"></textarea></div>
-        <div class="fgroup" style="margin-bottom:9px"><label>引擎</label><select id="pEngine"><option>FLUX.2 Klein-9B Distilled</option><option>Z-Image-Turbo</option></select></div>
+        <div class="fgroup" style="margin-bottom:9px"><label>引擎</label><select id="pEngine"><option>Z-Image-Turbo</option></select></div>
         <div style="display:flex;gap:7px;margin-top:6px"><button class="btn" id="pCancel" type="button">取消</button><button class="btn btn-primary" id="pSave" type="button">保存预设</button></div>
       </div>
       <div style="margin-top:9px"><button class="btn" id="pNew" type="button">＋ 新建预设</button></div>
@@ -632,17 +630,17 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
       <div class="hist-toolbar">
         <div class="search"><span>⌕</span><input placeholder="搜索 Prompt / seed…" aria-label="搜索"></div>
         <select aria-label="状态筛选" style="min-width:92px"><option>状态</option><option>成功</option><option>失败</option></select>
-        <select aria-label="引擎筛选" style="min-width:92px"><option>引擎</option><option>FLUX.2</option><option>Z-Turbo</option></select>
+        <select aria-label="引擎筛选" style="min-width:92px"><option>引擎</option><option>Z-Image Turbo</option></select>
       </div>
       <table class="tbl">
         <thead><tr><th style="width:44px">预览</th><th class="pro">Prompt</th><th>状态</th><th style="width:86px">操作</th></tr></thead>
         <tbody id="histRows">
-          <tr data-p="一位亚洲女性肖像，柔和自然光，浅景深，胶片质感，细节丰富" data-e="FLUX.2" data-s="完成" data-d="4096×2048 · 88421" data-t="42.3s · 08-08 15:24"><td><div class="th">PORTRAIT</div></td><td class="pro">一位亚洲女性肖像，柔和自然光，浅景深，胶片质感，细节丰富</td><td><span class="chip ok">完成</span></td><td><button class="btn btn-sm" type="button">详情</button></td></tr>
+          <tr data-p="一位亚洲女性肖像，柔和自然光，浅景深，胶片质感，细节丰富" data-e="Z-Image Turbo" data-s="完成" data-d="4096×2048 · 88421" data-t="42.3s · 08-08 15:24"><td><div class="th">PORTRAIT</div></td><td class="pro">一位亚洲女性肖像，柔和自然光，浅景深，胶片质感，细节丰富</td><td><span class="chip ok">完成</span></td><td><button class="btn btn-sm" type="button">详情</button></td></tr>
           <tr data-p="赛博朋克城市夜景，雨夜，霓虹灯反射，广角镜头，电影感" data-e="Z-Turbo" data-s="完成" data-d="2048×2048 · 88397" data-t="31.0s · 08-08 14:58"><td><div class="th">CYBER</div></td><td class="pro">赛博朋克城市夜景，雨夜，霓虹灯反射，广角镜头，电影感</td><td><span class="chip ok">完成</span></td><td><button class="btn btn-sm" type="button">详情</button></td></tr>
-          <tr data-p="日本庭院枯山水，禅意，清晨薄雾，柔光" data-e="FLUX.2" data-s="进行中" data-d="4096×2048 · —" data-t="— · 08-08 14:41"><td><div class="th">ZEN</div></td><td class="pro">日本庭院枯山水，禅意，清晨薄雾，柔光</td><td><span class="chip warn">进行中</span></td><td><button class="btn btn-sm" type="button">详情</button></td></tr>
+          <tr data-p="日本庭院枯山水，禅意，清晨薄雾，柔光" data-e="Z-Image Turbo" data-s="进行中" data-d="4096×2048 · —" data-t="— · 08-08 14:41"><td><div class="th">ZEN</div></td><td class="pro">日本庭院枯山水，禅意，清晨薄雾，柔光</td><td><span class="chip warn">进行中</span></td><td><button class="btn btn-sm" type="button">详情</button></td></tr>
           <tr data-p="韩式女团舞台照，聚光灯，动感，高对比" data-e="Z-Turbo" data-s="失败" data-d="1024×1024 · 88321" data-t="12.1s · 08-08 14:12"><td><div class="th">STAGE</div></td><td class="pro">韩式女团舞台照，聚光灯，动感，高对比</td><td><span class="chip red">失败</span></td><td><button class="btn btn-sm" type="button">详情</button></td></tr>
-          <tr data-p="老式胶片相机，静物，暖调，颗粒感，复古海报风" data-e="FLUX.2" data-s="完成" data-d="3072×1536 · 88290" data-t="38.7s · 08-08 13:55"><td><div class="th">FILM</div></td><td class="pro">老式胶片相机，静物，暖调，颗粒感，复古海报风</td><td><span class="chip ok">完成</span></td><td><button class="btn btn-sm" type="button">详情</button></td></tr>
-          <tr data-p="批量任务 b4f2 · 20 Prompt × 5 batch · 100 张（300 份）" data-e="FLUX.2" data-s="完成" data-d="多图 · —" data-t="18m 24s · 08-08 11:02"><td><div class="th">BATCH</div></td><td class="pro">批量任务 b4f2 · 20 Prompt × 5 batch · 100 张（300 份）</td><td><span class="chip ok">完成</span></td><td><button class="btn btn-sm" type="button">详情</button></td></tr>
+          <tr data-p="老式胶片相机，静物，暖调，颗粒感，复古海报风" data-e="Z-Image Turbo" data-s="完成" data-d="3072×1536 · 88290" data-t="38.7s · 08-08 13:55"><td><div class="th">FILM</div></td><td class="pro">老式胶片相机，静物，暖调，颗粒感，复古海报风</td><td><span class="chip ok">完成</span></td><td><button class="btn btn-sm" type="button">详情</button></td></tr>
+          <tr data-p="批量任务 b4f2 · 20 Prompt × 5 batch · 100 张（300 份）" data-e="Z-Image Turbo" data-s="完成" data-d="多图 · —" data-t="18m 24s · 08-08 11:02"><td><div class="th">BATCH</div></td><td class="pro">批量任务 b4f2 · 20 Prompt × 5 batch · 100 张（300 份）</td><td><span class="chip ok">完成</span></td><td><button class="btn btn-sm" type="button">详情</button></td></tr>
         </tbody>
       </table>
       <div style="margin-top:9px;display:flex;justify-content:space-between;align-items:center;font-size:9.5px;color:var(--ink-faint)"><span>共 1,284 条 · 第 1/26 页</span><span><button class="btn btn-sm" type="button">下一页 ›</button></span></div>
@@ -650,7 +648,7 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
     <div class="detail-sec" id="histDetail">
       <button class="btn btn-sm" id="histBack" type="button">← 返回列表</button>
       <h3>任务详情</h3>
-      <div class="d-tags" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"><span class="chip eng" id="ddEngine">FLUX.2</span><span class="chip" id="ddStatus">完成</span></div>
+      <div class="d-tags" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"><span class="chip eng" id="ddEngine">Z-Image Turbo</span><span class="chip" id="ddStatus">完成</span></div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:10px"><div class="th" style="width:100%;height:56px">ORIGINAL</div><div class="th" style="width:100%;height:56px">UPSCALED</div><div class="th" style="width:100%;height:56px">COMPARE</div></div>
       <div class="kv"><span>prompt</span><b id="ddPrompt">…</b></div>
       <div class="kv"><span>尺寸 · seed</span><b id="ddDim">…</b></div>
@@ -728,7 +726,7 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
   <div class="ov-head"><span><span class="no">/</span>设置<span class="hint">顶抽屉 · 全局配置</span></span><button class="icon-btn" id="setClose" type="button">✕</button></div>
   <div class="ov-body">
     <div class="ov-sec"><h4>引擎与模型</h4>
-      <div class="sg"><span class="lbl">默认引擎</span><select><option>FLUX.2 Klein-9B Distilled</option><option>Z-Image-Turbo</option></select></div>
+      <div class="sg"><span class="lbl">默认引擎</span><select><option>Z-Image-Turbo</option></select></div>
       <div class="sg"><span class="lbl">工作流目录</span><input type="text" value="workflows/"></div>
       <div class="sg"><span class="lbl">LoRA 目录</span><input type="text" value="loras/"></div>
       <div class="sg"><span class="lbl">SeedVR2 模型</span><input type="text" value="models/seedvr2/"></div>
@@ -757,12 +755,12 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
       <div class="stat-bar"><div class="k"><span>系统内存</span><span>18%</span></div><div class="v">11.8 / 64 GB</div><div class="bar"><i style="width:18%"></i></div></div>
       <div class="stat-bar"><div class="k"><span>磁盘 outputs/</span><span>3%</span></div><div class="v">12.6 / 480 GB</div><div class="bar"><i style="width:3%"></i></div></div>
     </div>
-    <div class="ov-sec"><h4>ComfyUI 后端</h4>
+    <div class="ov-sec"><h4>原生引擎</h4>
       <div class="back-row"><span class="dot green"></span><b>local</b><span style="color:var(--ink-faint)">127.0.0.1:8188</span><span class="chip ok">在线</span><span style="margin-left:auto;color:var(--ink-faint)">12ms</span><button class="btn btn-sm" type="button">测试</button></div>
       <div class="back-row"><span class="dot gray"></span><b>gpu-cluster</b><span style="color:var(--ink-faint)">192.168.1.50:8188</span><span class="chip red">离线</span><span style="margin-left:auto;color:var(--ink-faint)">—</span><button class="btn btn-sm" type="button">测试</button></div>
     </div>
     <div class="ov-sec"><h4>引擎与资源</h4>
-      <div class="back-row"><b>FLUX.2 Klein-9B</b><span style="color:var(--ink-faint)">fp8mixed · 12GB</span><span class="chip ok">已加载</span></div>
+      <div class="back-row"><b>Z-Image Turbo</b><span style="color:var(--ink-faint)">fp8mixed · 12GB</span><span class="chip ok">已加载</span></div>
       <div class="back-row"><b>Z-Image-Turbo</b><span style="color:var(--ink-faint)">bf16 · 10GB</span><span class="chip">未加载</span></div>
       <div class="back-row"><b>LoRA 资源</b><span style="color:var(--ink-faint)">loras/ · 23 个文件</span><span class="chip ok">就绪</span></div>
     </div>
@@ -777,8 +775,8 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
     <div class="about-card" data-component="Project Card">
       <span class="about-lg"><span class="figma-logo"><span class="fl fl-1"></span><span class="fl fl-2"></span><span class="fl fl-3"></span></span></span>
       <div class="nm">Image MultiModel</div>
-      <div class="sub">统一驱动 ComfyUI 多引擎生图工作台</div>
-      <p class="desc">面向本地 AI 图像生成的工作台：FLUX.2 Klein / Z-Image-Turbo 多引擎，LoRA 六层叠加、SeedVR2 超分、Eses 双图对比与显存预留，以对话式主界面屏蔽工作流复杂度。</p>
+      <div class="sub">统一驱动原生引擎生图工作台</div>
+      <p class="desc">面向本地 AI 图像生成的工作台：Z-Image Turbo 引擎，LoRA 六层叠加、SeedVR2 超分、Eses 双图对比与显存预留，以对话式主界面屏蔽工作流复杂度。</p>
       <div class="kv3">
         <div class="it"><b>作者</b><span>待补充</span></div>
         <div class="it"><b>当前版本</b><span>v0.1 · 原型</span></div>
@@ -793,12 +791,12 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
       </div>
     </div>
     <div style="margin-top:12px" class="feat2" data-component="Feature Grid">
-      <div class="it"><b><span class="ic">▦</span>多引擎驱动</b><span>FLUX.2 Klein / Z-Image-Turbo，统一界面切换</span></div>
+      <div class="it"><b><span class="ic">▦</span>Z-Image Turbo 引擎</b><span>Z-Image Turbo，统一界面切换</span></div>
       <div class="it"><b><span class="ic">▥</span>六层 LoRA</b><span>串联叠加 id=16→21，禁用自动重连</span></div>
       <div class="it"><b><span class="ic">◔</span>SeedVR2 超分</b><span>ema_vae + 3B DiT，多档最短边</span></div>
       <div class="it"><b><span class="ic">◫</span>双图对比</b><span>Eses h/v/s 拼接，直观比对</span></div>
       <div class="it"><b><span class="ic">◳</span>显存预留</b><span>ReservedVRAM 保护生成稳定</span></div>
-      <div class="it"><b><span class="ic">◧</span>本地运行</b><span>驱动本地 ComfyUI，数据不出机器</span></div>
+      <div class="it"><b><span class="ic">◧</span>本地运行</b><span>驱动本地原生引擎，数据不出机器</span></div>
     </div>
     <p class="db-note" style="margin-top:10px">作者 / GitHub / 社交 / 协议为占位，待项目构建并开源后补充。</p>
   </div>
@@ -818,7 +816,7 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
     </span>
   </div>
   <div class="v-body"><div class="v-img" id="vImg"><span id="vImgLabel">PREVIEW</span></div></div>
-  <div class="v-foot"><span id="vMeta">FLUX.2 · 1024²</span><span><button class="btn btn-sm" type="button">下载</button> <button class="btn btn-sm" type="button">重绘</button></span></div>
+  <div class="v-foot"><span id="vMeta">Z-Image Turbo · 1024²</span><span><button class="btn btn-sm" type="button">下载</button> <button class="btn btn-sm" type="button">重绘</button></span></div>
 </div>
 
 <!-- ========== 队列悬浮球 ========== -->
@@ -836,7 +834,7 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
   <div class="sb-item sb-click" id="sbQueue">QUEUE 1·0</div>
   <div class="sb-right">
     <div class="sb-item">GPU 16.2/24GB</div>
-    <div class="sb-item">ENGINE: FLUX.2 KLEIN</div>
+    <div class="sb-item">ENGINE: Z-IMAGE TURBO</div>
     <span class="zoom"><button class="z-btn" id="zOut" type="button" aria-label="缩小">−</button><span class="z-val" id="zVal">100%</span><button class="z-btn" id="zIn" type="button" aria-label="放大">＋</button></span>
   </div>
 </footer>
@@ -844,9 +842,9 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
 <script>
 /* ---------- i18n ---------- */
 var I18N={
-'zh-CN':{nav_home:'首页',nav_generate:'生图',nav_batch:'批量',nav_history:'历史',nav_status:'状态',nav_settings:'设置',sub:'支持 简中/繁中/英/日/韩 直接输入 · 默认 FLUX.2 Klein 蒸馏配置，开箱即用',preset:'预设',save_preset:'保存当前为预设',recent:'最近生成',neg_add:'＋ 负向提示词',neg_hide:'− 收起负向提示词'},
-'zh-TW':{nav_home:'首頁',nav_generate:'生圖',nav_batch:'批量',nav_history:'歷史',nav_status:'狀態',nav_settings:'設定',sub:'支援 簡中/繁中/英/日/韓 直接輸入 · 預設 FLUX.2 Klein 蒸餾配置',preset:'預設',save_preset:'儲存目前為預設',recent:'最近生成',neg_add:'＋ 負向提示詞',neg_hide:'− 收起負向提示詞'},
-'en-US':{nav_home:'Home',nav_generate:'Generate',nav_batch:'Batch',nav_history:'History',nav_status:'Status',nav_settings:'Settings',sub:'Type in zh-CN/zh-TW/en/ja/ko directly · FLUX.2 Klein defaults',preset:'Preset',save_preset:'Save as preset',recent:'Recent',neg_add:'＋ Negative prompt',neg_hide:'− Hide negative prompt'},
+'zh-CN':{nav_home:'首页',nav_generate:'生图',nav_batch:'批量',nav_history:'历史',nav_status:'状态',nav_settings:'设置',sub:'支持 简中/繁中/英/日/韩 直接输入 · 默认 Z-Image Turbo 蒸馏配置，开箱即用',preset:'预设',save_preset:'保存当前为预设',recent:'最近生成',neg_add:'＋ 负向提示词',neg_hide:'− 收起负向提示词'},
+'zh-TW':{nav_home:'首頁',nav_generate:'生圖',nav_batch:'批量',nav_history:'歷史',nav_status:'狀態',nav_settings:'設定',sub:'支援 簡中/繁中/英/日/韓 直接輸入 · 預設 Z-Image Turbo 蒸餾配置',preset:'預設',save_preset:'儲存目前為預設',recent:'最近生成',neg_add:'＋ 負向提示詞',neg_hide:'− 收起負向提示詞'},
+'en-US':{nav_home:'Home',nav_generate:'Generate',nav_batch:'Batch',nav_history:'History',nav_status:'Status',nav_settings:'Settings',sub:'Type in zh-CN/zh-TW/en/ja/ko directly · Z-Image Turbo defaults',preset:'Preset',save_preset:'Save as preset',recent:'Recent',neg_add:'＋ Negative prompt',neg_hide:'− Hide negative prompt'},
 'ja-JP':{nav_home:'ホーム',nav_generate:'生成',nav_batch:'バッチ',nav_history:'履歴',nav_status:'ステータス',nav_settings:'設定',sub:'簡中/繁中/英/日/韓を直接入力可',preset:'プリセット',save_preset:'プリセット保存',recent:'最近の生成',neg_add:'＋ ネガティブプロンプト',neg_hide:'− 閉じる'},
 'ko-KR':{nav_home:'홈',nav_generate:'생성',nav_batch:'배치',nav_history:'기록',nav_status:'상태',nav_settings:'설정',sub:'중국어/번체/영어/일어/한국어 직접 입력',preset:'프리셋',save_preset:'현재를 프리셋으로 저장',recent:'최근 생성',neg_add:'＋ 네거티브 프롬프트',neg_hide:'− 접기'}
 };
@@ -938,7 +936,7 @@ document.getElementById('b100').addEventListener('click',function(){var e=docume
 document.getElementById('restoreBtn').addEventListener('click',function(){document.getElementById('cfg').value=1.0;document.getElementById('steps').value=8;document.getElementById('width').value=1024;document.getElementById('height').value=1024;document.getElementById('seed').value=-1;document.getElementById('batchSize').value=1;document.getElementById('seedvr2Toggle').checked=true;document.getElementById('esesToggle').checked=true;document.getElementById('vramToggle').checked=true;document.getElementById('vramGb').value=0.6;document.getElementById('upscaleSeed').value=-1;document.getElementById('vramSeed').value=-1;updateEst();});
 /* ---------- 估算 + 快照 ---------- */
 function estCount(){var n=+document.getElementById('batchSize').value||1;var coef=(document.getElementById('seedvr2Toggle').checked?2:1)+(document.getElementById('esesToggle').checked?1:0);return {n:n,coef:coef,total:n*coef};}
-function syncChips(){document.getElementById('snapRes').textContent=document.getElementById('width').value+' × '+document.getElementById('height').value;document.getElementById('snapSteps').textContent=document.getElementById('steps').value;document.getElementById('snapCfg').textContent=document.getElementById('cfg').value;document.getElementById('snapOut').textContent=estCount().total;document.getElementById('snapEngine').textContent=document.getElementById('engineSelect').value.indexOf('FLUX')>-1?'FLUX.2 Klein':'Z-Image-Turbo';}
+function syncChips(){document.getElementById('snapRes').textContent=document.getElementById('width').value+' × '+document.getElementById('height').value;document.getElementById('snapSteps').textContent=document.getElementById('steps').value;document.getElementById('snapCfg').textContent=document.getElementById('cfg').value;document.getElementById('snapOut').textContent=estCount().total;document.getElementById('snapEngine').textContent='Z-Image Turbo';}
 function updateEst(){var e=estCount(),line=document.getElementById('estLine');document.getElementById('bsWarn').style.display=e.n>500?'':'none';document.getElementById('bsWarn').style.color=e.n>5000?'var(--red)':'var(--amber)';line.innerHTML='预计生成 <b>'+e.total+'</b> 张 = 1 Prompt × '+e.n+' batch × (SeedVR2'+(e.coef===3?'×2':'')+' + Eses'+(e.coef===3?'×1':'')+')';line.className='est-line'+(e.total>=5000?' red':(e.total>=500?' yellow':''));document.getElementById('warn500').classList.toggle('show',e.total>=500&&e.total<5000);document.getElementById('warn5000').classList.toggle('show',e.total>=5000);syncChips();}
 ['batchSize','seedvr2Toggle','esesToggle','width','height','steps','cfg'].forEach(function(id){var el=document.getElementById(id);el.addEventListener('input',updateEst);el.addEventListener('change',updateEst);});
 document.getElementById('engineSelect').addEventListener('change',syncChips);
@@ -958,7 +956,7 @@ document.getElementById('queuePill').addEventListener('click',function(){qpop.cl
 document.getElementById('qpClose').addEventListener('click',function(e){e.stopPropagation();qpop.classList.remove('show');});
 document.querySelector('.queue-pop .btn-sm').addEventListener('click',function(){cancelGen();qpop.classList.remove('show');});
 /* ---------- 图片展示（抽屉内 + 悬浮查看器） ---------- */
-var gCards=[['PORTRAIT','亚洲女性肖像','原图','FLUX.2 · 1024² · 88421','88421','1/1'],['CYBER','赛博朋克夜景','超分','FLUX.2 · 2048² · 88397','88397','1/1'],['ZEN','日本庭院枯山水','对比图','Z-Turbo · 4096×2048 · 88355','88355','2/1'],['STAGE','韩式女团舞台照','原图','Z-Turbo · 1024² · 88321','88321','1/1'],['FILM','老式胶片相机静物','超分','FLUX.2 · 3072×1536 · 88290','88290','2/1'],['NIGHT','城市夜景长曝','对比图','FLUX.2 · 4096×2048 · 88264','88264','2/1'],['FLOWER','微观花卉微距','原图','FLUX.2 · 1024² · 88212','88212','1/1'],['CAT','布偶猫肖像','超分','Z-Turbo · 2048² · 88178','88178','1/1']];
+var gCards=[['PORTRAIT','亚洲女性肖像','原图','Z-Image Turbo · 1024² · 88421','88421','1/1'],['CYBER','赛博朋克夜景','超分','Z-Image Turbo · 2048² · 88397','88397','1/1'],['ZEN','日本庭院枯山水','对比图','Z-Turbo · 4096×2048 · 88355','88355','2/1'],['STAGE','韩式女团舞台照','原图','Z-Turbo · 1024² · 88321','88321','1/1'],['FILM','老式胶片相机静物','超分','Z-Image Turbo · 3072×1536 · 88290','88290','2/1'],['NIGHT','城市夜景长曝','对比图','Z-Image Turbo · 4096×2048 · 88264','88264','2/1'],['FLOWER','微观花卉微距','原图','Z-Image Turbo · 1024² · 88212','88212','1/1'],['CAT','布偶猫肖像','超分','Z-Turbo · 2048² · 88178','88178','1/1']];
 var gMasonry=document.getElementById('gMasonry');
 function renderGallery(filter){filter=filter||'全部';gMasonry.innerHTML='';gCards.forEach(function(c,i){if(filter!=='全部'&&c[2]!==filter)return;var d=document.createElement('div');d.className='g-card';d.style.setProperty('--ar',c[5]);d.innerHTML='<span class="g-type">'+c[2]+'</span><div class="ph">'+c[0]+'</div><div class="g-meta"><b>'+c[1]+'</b><span>'+c[3]+'</span></div>';d.addEventListener('click',function(){openViewer(i);});gMasonry.appendChild(d);});}
 document.querySelectorAll('#galleryDrawer .f-chip').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('#galleryDrawer .f-chip').forEach(function(x){x.classList.remove('on');});b.classList.add('on');renderGallery(b.dataset.f);});});

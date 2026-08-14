@@ -33,9 +33,9 @@ if (-not $ComfyDir) {
 } else {
     # 本应用所需模型家族（原根目录 Junction 指向的 aki 目录）
     $CopyPlan = @{
-        "text_encoders" = @("text_encoders", @("FLUX.2-klein-9b", "Z_image(turbo)"))
-        "unet"          = @("unet", @("FLUX.2-klein-9b-fp8", "Z-image_turbo-bf16"))
-        "vae"           = @("vae", @("FLUX.1-dev(Z-image(turbo))", "FLUX.2-klein-9b"))
+        "text_encoders" = @("text_encoders", @("Z_image(turbo)"))
+        "unet"          = @("unet", @("Z-image_turbo-bf16"))
+        "vae"           = @("vae", @("FLUX.1-dev(Z-image(turbo))"))
     }
     foreach ($dest in $CopyPlan.Keys) {
         $subDir = $CopyPlan[$dest][0]
@@ -100,6 +100,6 @@ if ($SkipZip) {
 
 # STEP 7: 冒烟清单提示
 Write-Host "[STEP 7] 在干净新机器上按 PRD §10.5 STEP 7 冒烟验收（7 项）" -ForegroundColor Cyan
-Write-Host "        1) 解压到非中文路径  2) start.bat 15s 内开浏览器  3) 2 引擎列表"
-Write-Host "        4) 加载 FLUX.2 ≤30s  5) 生成 1 张出 3 图  6) 关闭无残留  7) QA Pass"
+Write-Host "        1) 解压到非中文路径  2) start.bat 15s 内开浏览器  3) 唯一 Z-Image Turbo 引擎"
+Write-Host "        4) 加载 Z-Image Turbo ≤30s  5) 生成 1 张出 3 图  6) 关闭无残留  7) QA Pass"
 Write-Host "=== 打包流程结束 ===" -ForegroundColor Green

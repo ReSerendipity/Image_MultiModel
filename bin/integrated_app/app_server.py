@@ -389,7 +389,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Image MultiModel",
-        description="基于 ComfyUI 生态的多模型图片生成 Web 应用",
+        description="Z-Image Turbo 图像生成 Web 应用（进程内原生引擎）",
         version=config.version,
         lifespan=lifespan,
     )

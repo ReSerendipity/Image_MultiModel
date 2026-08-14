@@ -111,7 +111,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
   <div class="logo"><span class="logo-dot"></span><span class="logo-text"><i>Image</i> MultiModel</span></div>
   <div class="topbar-right">
     <span class="select-label" data-i18n="engine">引擎</span>
-    <select style="width:220px"><option>全部引擎</option><option>FLUX.2 Klein-9B Distilled</option><option>Z-Image-Turbo</option></select>
+    <select style="width:220px"><option>全部引擎</option><option>Z-Image-Turbo</option></select>
     <button class="icon-btn" id="themeToggle" title="主题切换">🌙</button>
     <select id="langSelect" style="width:118px">
       <option value="zh-CN">简体中文</option>
@@ -164,7 +164,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
         </div>
       </div>
       <div class="card">
-        <h3>ComfyUI 后端</h3>
+        <h3>原生引擎</h3>
         <table class="tbl">
           <thead><tr><th>名称</th><th>地址</th><th>状态</th><th>延迟</th><th>操作</th></tr></thead>
           <tbody>
@@ -185,8 +185,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
           <thead><tr><th>引擎</th><th>工作流</th><th>精度</th><th>显存估算</th><th>状态</th><th>操作</th></tr></thead>
           <tbody>
             <tr>
-              <td><b>FLUX.2 Klein-9B</b><br><span style="font-size:11px;color:var(--ink-faint)">flux2_klein_9b_distilled</span></td>
-              <td style="font-size:12px">Flux.2_Klein-9B-Distilled.json</td>
+              <td><b>Z-Image Turbo</b><br><span style="font-size:11px;color:var(--ink-faint)">z_image_turbo_native</span></td>
+          <td style="font-size:12px">Z_image_turbo.json</td>
               <td>fp8mixed</td>
               <td>12.0 GB ×1.5</td>
               <td><span class="chip ok">已加载</span></td>
@@ -219,7 +219,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
       <table class="tbl">
         <thead><tr><th>task_id</th><th>引擎</th><th>Prompt（截断）</th><th>状态</th><th>进度</th><th>时间</th></tr></thead>
         <tbody>
-          <tr><td style="font-variant-numeric:tabular-nums">01J2K…f9a2</td><td>FLUX.2</td><td>日本庭院枯山水，禅意…</td><td><span class="chip ok">生成中</span></td><td><div style="width:160px"><div class="bar"><i style="width:64%"></i></div></div>64% · chunk 5/8</td><td>14:41:02</td></tr>
+          <tr><td style="font-variant-numeric:tabular-nums">01J2K…f9a2</td><td>Z-Image Turbo</td><td>日本庭院枯山水，禅意…</td><td><span class="chip ok">生成中</span></td><td><div style="width:160px"><div class="bar"><i style="width:64%"></i></div></div>64% · chunk 5/8</td><td>14:41:02</td></tr>
           <tr><td style="font-variant-numeric:tabular-nums">01J2K…k3b8</td><td>Z-Turbo</td><td>批量 #b4f2 剩余 17 条…</td><td><span class="chip gray">排队</span></td><td>—</td><td>14:58:40</td></tr>
         </tbody>
       </table>
@@ -232,7 +232,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
   <div class="sb-item"><span data-i18n="queue">队列</span>: 1 生成中 · 1 待处理</div>
   <div class="sb-right">
     <div class="sb-item"><span data-i18n="gpu">GPU</span> 16.2/24GB</div>
-    <div class="sb-item"><span data-i18n="engine">引擎</span>: FLUX.2 Klein 已加载</div>
+    <div class="sb-item"><span data-i18n="engine">引擎</span>: Z-Image Turbo 已加载</div>
   </div>
 </footer>
 

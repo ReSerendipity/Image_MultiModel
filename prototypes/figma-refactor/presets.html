@@ -191,7 +191,7 @@ textarea{height:auto}
   <div class="topbar-right">
     <button class="icon-btn" id="themeToggle" title="主题切换" type="button">◐</button>
     <button class="icon-btn" id="setOpen" title="设置" type="button">⚙︎</button>
-    <select style="width:172px"><option>全部引擎</option><option>FLUX.2 Klein-9B Distilled</option><option>Z-Image-Turbo</option></select>
+    <select style="width:172px"><option>全部引擎</option><option>Z-Image-Turbo</option></select>
     <button class="share-btn" type="button">分享</button>
     <span class="avatar"></span>
   </div>
@@ -205,23 +205,23 @@ textarea{height:auto}
     </div>
     <div class="toolbar">
       <div class="search"><span>⌕</span><input placeholder="搜索预设名称 / 标签…"></div>
-      <select style="width:120px"><option>全部引擎</option><option>FLUX.2 Klein</option><option>Z-Image-Turbo</option></select>
+      <select style="width:120px"><option>全部引擎</option><option>Z-Image-Turbo</option></select>
       <button class="btn btn-primary" id="newBtn" type="button">＋ 新建预设</button>
     </div>
 
     <div class="p-grid" id="pGrid" data-component="Preset Grid">
       <div class="p-card">
         <button class="fav on" type="button">★</button>
-        <div class="head"><span class="ico">▣</span><span class="nm">默认预设（FLUX.2）</span></div>
+        <div class="head"><span class="ico">▣</span><span class="nm">默认预设（Z-Image Turbo）</span></div>
         <p class="ds">亚洲人像基线：1.0 cfg · 8 steps · 1024²，LoRA 六层全开，SeedVR2 2048 + Eses h</p>
-        <div class="param-chips"><span class="eng">FLUX.2</span><span>8 steps</span><span>1024²</span><span>LoRA ×6</span><span>超分 2048</span></div>
+        <div class="param-chips"><span class="eng">Z-Image Turbo</span><span>8 steps</span><span>1024²</span><span>LoRA ×6</span><span>超分 2048</span></div>
         <div class="foot"><span class="last">最后使用 08-08 15:24</span><span class="acts"><button class="btn btn-sm" type="button">应用</button><button class="btn btn-sm" type="button">编辑</button><button class="btn btn-sm" type="button">复制</button></span></div>
       </div>
       <div class="p-card">
         <button class="fav" type="button">☆</button>
         <div class="head"><span class="ico">▣</span><span class="nm">亚洲人像写真</span></div>
         <p class="ds">人像风格化：LoRA L2 0.7 强化，柔和自然光描述模板，超分 2048 · lab</p>
-        <div class="param-chips"><span class="eng">FLUX.2</span><span>1.0 cfg</span><span>8 steps</span><span>L2 0.7</span></div>
+        <div class="param-chips"><span class="eng">Z-Image Turbo</span><span>1.0 cfg</span><span>8 steps</span><span>L2 0.7</span></div>
         <div class="foot"><span class="last">最后使用 08-07 21:02</span><span class="acts"><button class="btn btn-sm" type="button">应用</button><button class="btn btn-sm" type="button">编辑</button><button class="btn btn-sm" type="button">复制</button></span></div>
       </div>
       <div class="p-card">
@@ -235,7 +235,7 @@ textarea{height:auto}
         <button class="fav" type="button">☆</button>
         <div class="head"><span class="ico">▣</span><span class="nm">胶片复古静物</span></div>
         <p class="ds">暖调胶片质感：颗粒感提示模板，SeedVR2 3072 出大图，色彩校正 adain</p>
-        <div class="param-chips"><span class="eng">FLUX.2</span><span>3072</span><span>adain</span><span>LoRA L3 0.5</span></div>
+        <div class="param-chips"><span class="eng">Z-Image Turbo</span><span>3072</span><span>adain</span><span>LoRA L3 0.5</span></div>
         <div class="foot"><span class="last">最后使用 08-05 10:11</span><span class="acts"><button class="btn btn-sm" type="button">应用</button><button class="btn btn-sm" type="button">编辑</button><button class="btn btn-sm" type="button">复制</button></span></div>
       </div>
     </div>
@@ -249,7 +249,7 @@ textarea{height:auto}
   <div class="ed-body">
     <div class="fgroup"><label>名称</label><input id="edName" value="" placeholder="例如：新预设名称"></div>
     <div class="fgroup"><label>描述</label><textarea id="edDesc" placeholder="一句话说明该预设的用途与风格…"></textarea></div>
-    <div class="fgroup"><label>引擎</label><select id="edEngine"><option>FLUX.2 Klein-9B Distilled</option><option>Z-Image-Turbo</option></select></div>
+    <div class="fgroup"><label>引擎</label><select id="edEngine"><option>Z-Image-Turbo</option></select></div>
     <div class="fgroup"><label>参数来源</label><select><option>保存当前生图页参数（22 项）</option><option>基于选中的历史任务</option><option>手填（仅基础参数）</option></select></div>
     <div class="fgroup"><label>标签（逗号分隔）</label><input placeholder="人像, 胶片, 夜景…"></div>
   </div>
@@ -265,7 +265,7 @@ textarea{height:auto}
   <div class="ov-head"><span><span class="no">/</span>设置<span class="hint">底抽屉 · 全局配置</span></span><button class="icon-btn" id="setClose" type="button">✕</button></div>
   <div class="ov-body">
     <div class="ov-sec"><h4>引擎与模型</h4>
-      <div class="sg"><span class="lbl">默认引擎</span><select><option>FLUX.2 Klein-9B Distilled</option><option>Z-Image-Turbo</option></select></div>
+      <div class="sg"><span class="lbl">默认引擎</span><select><option>Z-Image-Turbo</option></select></div>
       <div class="sg"><span class="lbl">工作流目录</span><input type="text" value="workflows/"></div>
       <div class="sg"><span class="lbl">LoRA 目录</span><input type="text" value="loras/"></div>
       <div class="sg"><span class="lbl">SeedVR2 模型</span><input type="text" value="models/seedvr2/"></div>
@@ -294,12 +294,12 @@ textarea{height:auto}
       <div class="stat-bar"><div class="k"><span>系统内存</span><span>18%</span></div><div class="v">11.8 / 64 GB</div><div class="bar"><i style="width:18%"></i></div></div>
       <div class="stat-bar"><div class="k"><span>磁盘 outputs/</span><span>3%</span></div><div class="v">12.6 / 480 GB</div><div class="bar"><i style="width:3%"></i></div></div>
     </div>
-    <div class="ov-sec"><h4>ComfyUI 后端</h4>
+    <div class="ov-sec"><h4>原生引擎</h4>
       <div class="back-row"><span class="dot green"></span><b>local</b><span style="color:var(--ink-faint)">127.0.0.1:8188</span><span class="chip ok">在线</span><span style="margin-left:auto;color:var(--ink-faint)">12ms</span><button class="btn btn-sm" type="button">测试</button></div>
       <div class="back-row"><span class="dot gray"></span><b>gpu-cluster</b><span style="color:var(--ink-faint)">192.168.1.50:8188</span><span class="chip red">离线</span><span style="margin-left:auto;color:var(--ink-faint)">—</span><button class="btn btn-sm" type="button">测试</button></div>
     </div>
     <div class="ov-sec"><h4>引擎与资源</h4>
-      <div class="back-row"><b>FLUX.2 Klein-9B</b><span style="color:var(--ink-faint)">fp8mixed · 12GB</span><span class="chip ok">已加载</span></div>
+      <div class="back-row"><b>Z-Image Turbo</b><span style="color:var(--ink-faint)">fp8mixed · 12GB</span><span class="chip ok">已加载</span></div>
       <div class="back-row"><b>Z-Image-Turbo</b><span style="color:var(--ink-faint)">bf16 · 10GB</span><span class="chip">未加载</span></div>
       <div class="back-row"><b>LoRA 资源</b><span style="color:var(--ink-faint)">loras/ · 23 个文件</span><span class="chip ok">就绪</span></div>
     </div>
@@ -321,7 +321,7 @@ textarea{height:auto}
   <div class="sb-item sb-click" id="sbQueue">QUEUE 1·0</div>
   <div class="sb-right">
     <div class="sb-item">GPU 16.2/24GB</div>
-    <div class="sb-item">ENGINE: FLUX.2 KLEIN</div>
+    <div class="sb-item">ENGINE: Z-IMAGE TURBO</div>
   </div>
 </footer>
 

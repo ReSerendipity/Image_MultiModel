@@ -131,7 +131,7 @@ body:
       label: 使用的引擎
       description: 出现问题时使用的引擎
       options:
-        - flux2_klein_9b_distilled
+        - z_image_turbo_native
         - z_image_turbo
         - 两个都有
         - 不确定
@@ -147,7 +147,7 @@ body:
         ```yaml
         models:
           model_source_mode: shared
-          default_engine: flux2_klein_9b_distilled
+          default_engine: z_image_turbo_native
 
         comfy:
           backends:

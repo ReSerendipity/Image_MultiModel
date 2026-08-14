@@ -236,10 +236,9 @@ footer{font-size:11.5px;color:var(--ink-faint);padding:8px 16px 40px;text-align:
   <div class="spacer"></div>
   <div class="ctl">
     <div class="menu-wrap">
-      <button class="icon-btn" id="engBtn" title="引擎">⚙ <span id="engLabel">Flux.2</span> ▾</button>
+      <button class="icon-btn" id="engBtn" title="引擎">⚙ <span id="engLabel">Z-Image Turbo</span> ▾</button>
       <div class="menu" id="engMenu">
-        <button data-eng="flux" class="active">Flux.2 Klein-9B Distilled</button>
-        <button data-eng="zimg">Z-Image-Turbo</button>
+        <button data-eng="zimg" class="active">Z-Image Turbo</button>
         <div class="sep"></div>
         <button id="engAbout">关于引擎（信息）</button>
       </div>
@@ -295,7 +294,7 @@ footer{font-size:11.5px;color:var(--ink-faint);padding:8px 16px 40px;text-align:
       <div class="pb-foot"><span id="promptCount">0 字 · ≈0 token</span><span style="flex:1"></span>
         <button class="icon-btn" id="clearPos" title="清空" style="padding:2px 7px">✕</button>
         <button class="icon-btn" id="copyPos" title="复制" style="padding:2px 7px">⧉</button>
-        <span class="badge gray" id="engBadge">Flux.2 Klein-9B Distilled</span></div>
+        <span class="badge gray" id="engBadge">Z-Image Turbo</span></div>
     </div>
     <div class="neg-row">
       <input id="negPrompt" placeholder="＋ 负面提示词…">
@@ -404,7 +403,7 @@ footer{font-size:11.5px;color:var(--ink-faint);padding:8px 16px 40px;text-align:
 <aside class="drawer" id="drawerAbout">
   <div class="drawer-head">关于 Image MultiModel <button class="icon-btn" data-close="drawerAbout">✕</button></div>
   <div class="drawer-body">
-    <p style="font-size:13px;color:var(--ink-soft)">多模型 AI 图像生成平台，基于 ComfyUI 工作流引擎，支持 Flux.2 Klein-9B Distilled、Z Image Turbo 等多模型工作流的统一 Web UI。</p>
+    <p style="font-size:13px;color:var(--ink-soft)">Z-Image Turbo 图像生成平台</p>
     <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
       <a class="btn ghost" href="https://github.com/ReSerendipity/Image_MultiModel" target="_blank" rel="noopener">GitHub 仓库 ↗</a>
       <button class="btn ghost" onclick="showToast('账号待补充（模拟）')">Bilibili</button>
@@ -412,7 +411,7 @@ footer{font-size:11.5px;color:var(--ink-faint);padding:8px 16px 40px;text-align:
       <button class="btn ghost" onclick="showToast('账号待补充（模拟）')">抖音</button>
     </div>
     <div class="card-title" style="margin-top:16px">特性</div>
-    <div style="font-size:12.5px;color:var(--ink-soft);line-height:2">✓ 多工作流引擎（Flux.2 / Z-Image）<br>✓ VRAM 预检与参数推荐<br>✓ 批量任务队列 + SSE 实时推送<br>✓ 预设管理 / 历史记录 / DCT 数字水印<br>✓ 5 语言界面 / 深浅主题</div>
+    <div style="font-size:12.5px;color:var(--ink-soft);line-height:2">✓ Z-Image Turbo 引擎<br>✓ VRAM 预检与参数推荐<br>✓ 批量任务队列 + SSE 实时推送<br>✓ 预设管理 / 历史记录 / DCT 数字水印<br>✓ 5 语言界面 / 深浅主题</div>
   </div>
 </aside>
 
@@ -420,7 +419,7 @@ footer{font-size:11.5px;color:var(--ink-faint);padding:8px 16px 40px;text-align:
 <aside class="drawer" id="drawerSettings">
   <div class="drawer-head">设置 <button class="icon-btn" data-close="drawerSettings">✕</button></div>
   <div class="drawer-body">
-    <div class="set-row"><div class="l"><b>默认引擎</b><span>启动时加载的引擎</span></div><select id="setEngine"><option>Flux.2 Klein-9B Distilled</option><option>Z Image Turbo</option></select></div>
+    <div class="set-row"><div class="l"><b>默认引擎</b><span>启动时加载的引擎</span></div><select id="setEngine"><option>Z-Image Turbo</option></select></div>
     <div class="set-row"><div class="l"><b>工作流目录</b><span>只读（模拟配置）</span></div><span class="badge gray" style="font-family:monospace;font-size:10.5px">workflows/</span></div>
     <div class="set-row"><div class="l"><b>模型源模式</b><span>shared / portable</span></div><select id="setModelSrc"><option>shared</option><option>portable</option></select></div>
     <div class="set-row"><div class="l"><b>心跳轮询</b><span>后端健康检查间隔</span></div><select><option>5s</option><option>10s</option><option>30s</option></select></div>
@@ -447,7 +446,7 @@ footer{font-size:11.5px;color:var(--ink-faint);padding:8px 16px 40px;text-align:
     </div>
     <div class="card-title" style="margin-top:14px">后端健康</div>
     <div style="display:flex;flex-direction:column;gap:7px">
-      <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;background:var(--surface-2);border-radius:8px;padding:9px 11px"><span class="ok" style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block"></span> 本地 ComfyUI（127.0.0.1:8188）<span style="margin-left:auto;color:var(--ink-faint)">延迟 12ms</span><button class="btn ghost sm" onclick="showToast('延迟 12ms（模拟）')">测试</button></div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;background:var(--surface-2);border-radius:8px;padding:9px 11px"><span class="ok" style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block"></span> 本地原生引擎（127.0.0.1:8188）<span style="margin-left:auto;color:var(--ink-faint)">延迟 12ms</span><button class="btn ghost sm" onclick="showToast('延迟 12ms（模拟）')">测试</button></div>
       <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;background:var(--surface-2);border-radius:8px;padding:9px 11px"><span style="width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block"></span> 远程后端（192.168.1.20:8188）<span style="margin-left:auto;color:var(--ink-faint)">离线</span><button class="btn ghost sm" onclick="showToast('连接失败（模拟）')">测试</button></div>
     </div>
     <div class="card-title" style="margin-top:14px">健康信息（模拟 /api/health）</div>
@@ -470,7 +469,7 @@ footer{font-size:11.5px;color:var(--ink-faint);padding:8px 16px 40px;text-align:
   <h3 id="peTitle">新建预设</h3>
   <div class="param-grid">
     <div class="fld"><label>名称</label><input id="peName"></div>
-    <div class="fld"><label>引擎</label><select id="peEngine"><option>Flux.2 Klein-9B Distilled</option><option>Z Image Turbo</option></select></div>
+    <div class="fld"><label>引擎</label><select id="peEngine"><option>Z-Image Turbo</option></select></div>
   </div>
   <div class="fld" style="margin-top:8px"><label>描述</label><textarea id="peDesc" rows="2" style="width:100%;resize:vertical"></textarea></div>
   <div class="fld" style="margin-top:8px"><label>参数 JSON（模拟）</label><textarea id="peJson" rows="3" style="width:100%;resize:vertical;font-family:ui-monospace,Consolas,monospace;font-size:11px"></textarea></div>
@@ -484,7 +483,7 @@ footer{font-size:11.5px;color:var(--ink-faint);padding:8px 16px 40px;text-align:
     <div class="filter-row">
       <input id="histSearch" placeholder="搜索 prompt / seed…">
       <select id="histStatus"><option value="all">全部状态</option><option value="done">成功</option><option value="fail">失败</option><option value="running">进行中</option></select>
-      <select id="histEngine"><option value="all">全部引擎</option><option value="flux">Flux.2</option><option value="zimg">Z-Image</option></select>
+      <select id="histEngine"><option value="all">全部引擎</option><option value="zimg">Z-Image Turbo</option></select>
     </div>
     <div style="display:flex;gap:6px;margin-bottom:10px">
       <button class="btn ghost sm" id="histPurge">🧹 清理异常记录</button>
@@ -583,15 +582,15 @@ footer{font-size:11.5px;color:var(--ink-faint);padding:8px 16px 40px;text-align:
 <div class="modal hidden" id="modal" onclick="if(event.target.id==='modal')this.classList.add('hidden')"><img id="modalImg" src="" alt="大图" style="max-width:min(900px,100%);max-height:80vh;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.4)"></div>
 <div class="toast" id="toast"></div>
 
-<footer>Image MultiModel 在线模拟演示 · 生成结果为内置示例图片（来自仓库 outputs/）· 真实推理需 ComfyUI + Flux.2 / Z-Image 模型权重</footer>
+<footer>Image MultiModel 在线模拟演示 · 生成结果为内置示例图片（来自仓库 outputs/）· 真实推理需 Z-Image Turbo 模型权重</footer>
 
 <div class="statusbar">
-  <span class="item"><span class="ok"></span>ComfyUI · 模拟在线</span>
+  <span class="item"><span class="ok"></span>原生引擎 · 模拟在线</span>
   <span class="item sb-click" id="sbQueue" title="点击查看队列">队列 <b id="queueCount">0</b></span>
   <span class="item sb-click" id="sbConn" title="点击展开系统状态">CONN <b id="connState">OK</b></span>
   <span class="sb-group">
     <span class="item">VRAM <span id="vramLive">12.4 GB</span></span>
-    <span class="item" id="engineName">Flux.2 Klein-9B Distilled · FP8</span>
+    <span class="item" id="engineName">Z-Image Turbo · FP8</span>
     <span id="pageScaleBtn">缩放 <button id="zOut">−</button><span id="zLabel">100%</span><button id="zIn">＋</button></span>
   </span>
 </div>
@@ -635,8 +634,8 @@ const PROMPTS=[
   '白色猫咪坐在窗台上，强光下毛发通透，正面视角，极简背景'
 ];
 let curGen=0, curPrompt='', lastSeed=42, favs=new Set(), generating=false, genToken=0, pageZoom=100;
-const ENGINES={flux:{label:'Flux.2 Klein-9B Distilled',snap:'Flux.2 · FP8'},zimg:{label:'Z-Image-Turbo',snap:'Z-Image · FP8'}};
-let curEngine='flux';
+const ENGINES={zimg:{label:'Z-Image Turbo',snap:'Z-Image Turbo · FP8'}};
+let curEngine='zimg';
 
 /* 主题/颜色/字体 */
 function applyTheme(t){document.documentElement.dataset.theme=t}
@@ -656,11 +655,10 @@ document.addEventListener('click',e=>{if(!e.target.closest('.menu-wrap'))$$('.me
 function setEngine(eng){
   curEngine=eng;
   $$('#engMenu button[data-eng]').forEach(b=>b.classList.toggle('active',b.dataset.eng===eng));
-  $('#engLabel').textContent=eng==='flux'?'Flux.2':'Z-Image';
+  $('#engLabel').textContent='Z-Image Turbo';
   $('#engBadge').textContent=ENGINES[eng].label;
   $('#engineName').textContent=ENGINES[eng].snap;
-  if(eng==='zimg'){/* 联动默认分辨率（模拟） */showToast('已切换 '+ENGINES[eng].label+'（联动默认参数）')}
-  else showToast('已切换 '+ENGINES[eng].label);
+  showToast('已切换 '+ENGINES[eng].label);
 }
 $('#protoBtn').onclick=()=>openModal('<h3>原型导航</h3><p style="font-size:13px;color:var(--ink-soft)">真实 UI 中此处链接「首页仪表盘」与「旧版独立页」。演示站为单页融合版，所有功能均在本页可用。</p><div class="mb-actions"><button class="btn ghost" onclick="document.getElementById(\'modal\').classList.add(\'hidden\')">关闭</button></div>');
 $('#shareBtn').onclick=()=>showToast('已模拟分享（演示环境不真正发布）');
@@ -701,7 +699,7 @@ $('#b100').onclick=()=>{$('#batchN').value=Math.min(9999,(+$('#batchN').value||1
 /* 快照与估算 */
 function updateSnap(){
   const w=$('#w').value,h=$('#h').value,s=$('#stepsN').value,b=+$('#batchN').value||1;
-  const est=b*(curEngine==='flux'?1:1.2);
+  const est=b*1.2;
   $('#snapshot').innerHTML=`<span class="snap-tag">${ENGINES[curEngine].label}</span><span class="snap-tag">${w}×${h}</span><span class="snap-tag">${s} 步</span><span class="snap-tag">CFG ${$('#cfg').value}</span><span class="snap-tag">预计 ${est} 张</span>`;
   $('#warn500').style.display=b>=500?'block':'none';
   $('#warn5000').style.display=b>=5000?'block':'none';
@@ -756,7 +754,7 @@ $('#exportCfg').onclick=()=>{
   showToast('已导出配置 JSON（模拟）');
 };
 $('#importCfg').onclick=()=>showToast('导入功能为模拟占位：真实 UI 中从本地 JSON 读取配置');
-$('#setEngine').onchange=e=>{const v=e.target.value;setEngine(v.includes('Z')?'zimg':'flux')};
+$('#setEngine').onchange=()=>setEngine('zimg');
 
 /* 抽屉 */
 function openDrawer(id){$$('.drawer').forEach(d=>d.classList.remove('open'));$('#'+id).classList.add('open');$('#overlay').classList.add('show')}
@@ -835,7 +833,7 @@ function renderHist(){
   $('#histList').innerHTML=rows.map(h=>`
     <div class="hist-item">
       <img src="${h.img}" alt="" onclick="openViewer('${h.img}')">
-      <div class="meta" onclick="redrawFromHist(${histItems.indexOf(h)})"><b>${h.prompt.slice(0,26)}${h.prompt.length>26?'…':''}</b><span>${h.engine==='flux'?'Flux.2':'Z-Image'} · ${h.w}×${h.h} · seed ${h.seed} · ${h.time}</span></div>
+      <div class="meta" onclick="redrawFromHist(${histItems.indexOf(h)})"><b>${h.prompt.slice(0,26)}${h.prompt.length>26?'…':''}</b><span>Z-Image Turbo · ${h.w}×${h.h} · seed ${h.seed} · ${h.time}</span></div>
       <div class="ops"><button class="icon-btn sm" title="重绘" onclick="redrawFromHist(${histItems.indexOf(h)})">↻</button><button class="icon-btn sm danger" title="删除" onclick="removeHist(${histItems.indexOf(h)})">✕</button></div>
     </div>`).join('')||'<div style="color:var(--ink-faint);text-align:center;padding:24px 0">暂无记录</div>';
   $('#histInfo').textContent=`第 ${histPage+1} / ${pages} 页 · ${rows.length} 条`;
@@ -863,9 +861,9 @@ $('#histClear').onclick=()=>{
 
 /* 预设 CRUD */
 let presets=[
-  {name:'窗台猫咪 · 自然光',desc:'浅色猫窗台写实',engine:'flux',json:'{"cfg":3.5,"steps":28}',prompt:'一只浅色猫咪坐在窗台上，自然光洒落，毛发细节清晰，写实摄影风格',fav:true},
-  {name:'沙发猫咪 · 实拍',desc:'灰猫卧沙发',engine:'flux',json:'{"cfg":4.0,"steps":28}',prompt:'灰色猫咪慵懒地卧在沙发上，戴着项圈，室内自然光，实拍质感',fav:false},
-  {name:'橘猫 · 午后暖阳',desc:'橘猫窗台阳光',engine:'flux',json:'{"cfg":3.0,"steps":20}',prompt:'橘猫坐在窗台边，午后阳光照射，眼神明亮，写实摄影大片',fav:false},
+  {name:'窗台猫咪 · 自然光',desc:'浅色猫窗台写实',engine:'zimg',json:'{"cfg":3.5,"steps":28}',prompt:'一只浅色猫咪坐在窗台上，自然光洒落，毛发细节清晰，写实摄影风格',fav:true},
+  {name:'沙发猫咪 · 实拍',desc:'灰猫卧沙发',engine:'zimg',json:'{"cfg":4.0,"steps":28}',prompt:'灰色猫咪慵懒地卧在沙发上，戴着项圈，室内自然光，实拍质感',fav:false},
+  {name:'橘猫 · 午后暖阳',desc:'橘猫窗台阳光',engine:'zimg',json:'{"cfg":3.0,"steps":20}',prompt:'橘猫坐在窗台边，午后阳光照射，眼神明亮，写实摄影大片',fav:false},
   {name:'白猫 · 强光极简',desc:'白猫强光正面',engine:'zimg',json:'{"cfg":3.5,"steps":28}',prompt:'白色猫咪坐在窗台上，强光下毛发通透，正面视角，极简背景',fav:false},
 ];
 let peIdx=-1;
@@ -873,7 +871,7 @@ function renderPresets(){
   $('#presetList').innerHTML=presets.map((p,i)=>`
     <div class="preset-item">
       <div class="ph"><b>${p.name}</b><span class="star" onclick="togglePFav(${i})">${p.fav?'★':'☆'}</span></div>
-      <span>${p.desc} · ${p.engine==='flux'?'Flux.2':'Z-Image'} · <code style="font-size:10.5px">${p.json}</code></span>
+      <span>${p.desc} · Z-Image Turbo · <code style="font-size:10.5px">${p.json}</code></span>
       <div class="ops">
         <button class="btn sm" onclick="applyPreset(${i})">应用</button>
         <button class="btn ghost sm" onclick="editPreset(${i})">编辑</button>
@@ -898,13 +896,13 @@ function openPresetEdit(){
   $('#peTitle').textContent=p?'编辑预设':'新建预设';
   $('#peName').value=p?p.name:'';
   $('#peDesc').value=p?p.desc:'';
-  $('#peEngine').value=p&&p.engine==='zimg'?'Z Image Turbo':'Flux.2 Klein-9B Distilled';
+  $('#peEngine').value='Z-Image Turbo';
   $('#peJson').value=p?p.json:'{"cfg":3.5,"steps":28}';
   $('#presetEdit').classList.remove('hidden');
 }
 $('#peCancel').onclick=()=>$('#presetEdit').classList.add('hidden');
 $('#peSave').onclick=()=>{
-  const obj={name:$('#peName').value||'未命名预设',desc:$('#peDesc').value,engine:$('#peEngine').value.includes('Z')?'zimg':'flux',json:$('#peJson').value||'{}',fav:false};
+  const obj={name:$('#peName').value||'未命名预设',desc:$('#peDesc').value,engine:'zimg',json:$('#peJson').value||'{}',fav:false};
   if(peIdx>=0)presets[peIdx]=obj;else presets.push(obj);
   $('#presetEdit').classList.add('hidden');renderPresets();
   showToast(peIdx>=0?'预设已更新（模拟）':'预设已保存（模拟）');
@@ -1076,7 +1074,7 @@ setInterval(()=>{
   $('#stVramBar').style.width=Math.round(v/24*100)+'%';
   $('#stMemBar').style.width=Math.round(35+Math.random()*25)+'%';
   $('#stDiskBar').style.width=Math.round(35+Math.random()*20)+'%';
-  $('#healthInfo').textContent=`status: ok\nversion: 2.0.0 (demo)\ngpu: RTX 4090 24GB\nvram: ${v} GB used\nengine: ${curEngine==='flux'?'flux2_klein_9b':'z_image_turbo'}\ntime: ${new Date().toLocaleTimeString('zh-CN',{hour12:false})}`;
+  $('#healthInfo').textContent=`status: ok\nversion: 2.0.0 (demo)\ngpu: RTX 4090 24GB\nvram: ${v} GB used\nengine: z_image_turbo_native\ntime: ${new Date().toLocaleTimeString('zh-CN',{hour12:false})}`;
 },2500);
 $('#zOut').onclick=()=>{pageZoom=Math.max(50,pageZoom-25);applyZoom()};
 $('#zIn').onclick=()=>{pageZoom=Math.min(200,pageZoom+25);applyZoom()};

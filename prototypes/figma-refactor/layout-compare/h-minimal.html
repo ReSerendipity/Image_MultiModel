@@ -78,7 +78,7 @@ select{font-family:inherit;font-size:12px;color:var(--ink);background:var(--surf
   <div class="logo"><span class="figma-logo"><span class="fl-1"></span><span class="fl-2"></span><span class="fl-3"></span></span><span class="logo-text">Image MultiModel <i>/ txt2img 工作台</i></span></div>
   <div class="topbar-right">
     <button class="icon-btn" type="button">◐</button>
-    <select style="width:160px"><option>FLUX.2 Klein-9B Distilled</option></select>
+    <select style="width:160px"><option>Z-Image Turbo</option></select>
     <span class="avatar"></span>
   </div>
 </header>
@@ -86,7 +86,7 @@ select{font-family:inherit;font-size:12px;color:var(--ink);background:var(--surf
 <div class="layout">
   <main class="stage">
     <div class="big-title">用一句话，生成一张 <em>图</em></div>
-    <p class="sub">支持 简中/繁中/英/日/韩 直接输入 · 默认 FLUX.2 Klein 蒸馏配置，开箱即用</p>
+    <p class="sub">支持 简中/繁中/英/日/韩 直接输入 · 默认 Z-Image Turbo 蒸馏配置，开箱即用</p>
 
     <div class="prompt-box">
       <textarea id="prompt" placeholder="描述你想生成的画面，例如：一位亚洲女性肖像，柔和自然光，浅景深，胶片质感…">一位亚洲女性肖像，柔和自然光，浅景深，胶片质感，细节丰富</textarea>
@@ -110,14 +110,14 @@ select{font-family:inherit;font-size:12px;color:var(--ink);background:var(--surf
         <div class="fgroup"><label>SeedVR2 超分</label><select><option>on · 2048 · lab</option></select></div>
         <div class="fgroup"><label>Eses 对比 / VRAM</label><select><option>on · horizontal / 0.6GB auto</option></select></div>
       </div>
-      <div class="adv-foot"><span>22 项参数均已收敛为常用项，完整参数可在生成后从历史查看</span><span>预设：默认（FLUX.2）</span></div>
+      <div class="adv-foot"><span>22 项参数均已收敛为常用项，完整参数可在生成后从历史查看</span><span>预设：默认（Z-Image Turbo）</span></div>
     </div>
 
     <section class="results">
       <div class="r-title"><span>最近生成</span><span class="bar"></span></div>
       <div class="masonry">
-        <div class="r-card"><div class="ph-img">ORIGINAL</div><div class="r-meta"><b>亚洲女性肖像</b><span>FLUX.2 · 1024² · #88421</span></div></div>
-        <div class="r-card"><div class="ph-img">UPSCALED</div><div class="r-meta"><b>赛博朋克夜景</b><span>FLUX.2 · 2048² · #88397</span></div></div>
+        <div class="r-card"><div class="ph-img">ORIGINAL</div><div class="r-meta"><b>亚洲女性肖像</b><span>Z-Image Turbo · 1024² · #88421</span></div></div>
+        <div class="r-card"><div class="ph-img">UPSCALED</div><div class="r-meta"><b>赛博朋克夜景</b><span>Z-Image Turbo · 2048² · #88397</span></div></div>
         <div class="r-card"><div class="ph-img">COMPARE</div><div class="r-meta"><b>日本庭院枯山水</b><span>Z-Turbo · 4096×2048 · #88355</span></div></div>
       </div>
     </section>
@@ -127,7 +127,7 @@ select{font-family:inherit;font-size:12px;color:var(--ink);background:var(--surf
 <footer class="statusbar">
   <span class="dot green"></span>CONN: LOCAL:8188 · 12MS
   <span>QUEUE 1·0</span>
-  <div class="sb-right"><span>GPU 16.2/24GB</span><span>ENGINE: FLUX.2 KLEIN</span><span class="zoom">− 100% ＋</span></div>
+  <div class="sb-right"><span>GPU 16.2/24GB</span><span>ENGINE: Z-IMAGE TURBO</span><span class="zoom">− 100% ＋</span></div>
 </footer>
 
 <script>

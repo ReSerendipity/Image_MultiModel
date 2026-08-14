@@ -156,7 +156,7 @@
 | batch=9999 全量验收（D5/PRD I-5） | 需 4090 级显存 | 具备 4090 后按 PRD I-5 验收 |
 | 便携包干净机器冒烟（C2） | 需未污染 Windows 机器 | 发布前在干净机按 PRD 10.5 STEP 7 |
 | Docker 构建运行（C3） | 本机未安装 Docker | 安装 Docker Desktop 后 `docker compose up` |
-| 多后端负载均衡真机验证（E4 发布） | 需 2 个 ComfyUI 实例长期运行 | 发布部署阶段 |
+| 多后端负载均衡真机验证（E4 发布） | 需 2 个 ComfyUI 实例长期运行（已废弃，现为单一原生引擎） | 发布部署阶段 |
 | API Token/Basic Auth 开启后全量回归（发布 E2） | 开启后日常开发受鉴权干扰 | 发布前统一验证 CSRF 联动 |
 | 监控告警/HTTPS 反代（发布 E3） | 部署环境事项 | 正式部署时 |
 | 3 图全量对比（original+upscaled+compare 同时出 3 文件） | 12GB 显卡 SeedVR2+Eses 全开时工作流仅落 1 张对比图；完整 3 文件链路需 4090 | 4090 环境 |

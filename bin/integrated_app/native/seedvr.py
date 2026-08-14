@@ -30,12 +30,15 @@ SEEDVR2_FOLDER = "SEEDVR2"
 # 合法 color_correction 选项（对齐 video_upscaler.py）
 VALID_COLOR_CORRECTION = ("lab", "wavelet", "wavelet_adaptive", "hsv", "adain", "none")
 
-# 默认自定义节点源码根 & models 目录
-_AKI_ROOT = Path(r"C:\\Users\\Doro\\APP\\ComfyUI-aki-v3\\ComfyUI")
-_DEFAULT_SEEDVR2_SRC = (
-    _AKI_ROOT / "custom_nodes" / "ComfyUI-SeedVR2_VideoUpscaler"
-)
-_DEFAULT_MODELS_DIR = _AKI_ROOT / "models" / SEEDVR2_FOLDER
+# 项目根目录：native/ -> integrated_app/ -> bin/ -> 项目根
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
+# 默认自定义节点源码根 & models 目录（项目内自包含，不硬编码本机 aki 路径）。
+#   - 源码根：项目内 references/（与 references/ComfyUI 同位，Vendor 进项目）
+#   - 模型目录：pretrained_models/seedvr2/（portable 自包含，符合模型摆放约定）
+# 运行时可通过参数 / config 显式覆盖；未 Vendor/未复制时，调用方会得到清晰的缺文件错误。
+_DEFAULT_SEEDVR2_SRC = _PROJECT_ROOT / "references" / "ComfyUI-SeedVR2_VideoUpscaler"
+_DEFAULT_MODELS_DIR = _PROJECT_ROOT / "pretrained_models" / SEEDVR2_FOLDER
 
 
 def _seedvr_source_dir(seedvr_source_dir: str | Path | None = None) -> Path:
@@ -102,7 +105,7 @@ def resolve_weights(
     """定位 DiT / VAE 权重绝对路径。
 
     Args:
-        models_dir: aki-v3 models/SEEDVR2 目录；为 None 用默认路径
+        models_dir: pretrained_models/SEEDVR2 目录；为 None 用默认路径
         dit_model: DiT 权重文件名
         vae_model: VAE 权重文件名
 
@@ -217,7 +220,7 @@ def upscale_2x(
         resolution: 短边目标分辨率（像素）
         seed: 随机种子（-1 用固定确定性种子）
         color_correction: lab/wavelet/hsv/adain/none 之一
-        models_dir: 权重目录（默认 aki-v3 models/SEEDVR2）
+        models_dir: 权重目录（默认 pretrained_models/SEEDVR2）
         seedvr_source_dir: 自定义节点源码根目录
         device: 推理设备（默认 cuda 优先 cpu 兜底）
 

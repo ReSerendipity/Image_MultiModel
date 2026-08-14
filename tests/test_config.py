@@ -99,11 +99,11 @@ class TestResolveModelPath:
                 mount_map={"text": "text_encoders", "unet": "unet", "vae": "vae"},
             ),
         )
-        mp = ModelPaths(sub_dir="text", sub_path="FLUX.2-klein-9b/qwen_3_8b_fp8mixed.safetensors")
+        mp = ModelPaths(sub_dir="text", sub_path="Z_image(turbo)/qwen_3_4b_fp8_mixed.safetensors")
         result = resolve_model_path(mp, models_config, project_root)
 
         assert "text_encoders" in result
-        assert "FLUX.2-klein-9b/qwen_3_8b_fp8mixed.safetensors" in result
+        assert "Z_image(turbo)/qwen_3_4b_fp8_mixed.safetensors" in result
         assert fake_models_dir in result or "text_encoders" in result
 
     def test_portable_mode_resolution(self, project_root):
@@ -115,12 +115,12 @@ class TestResolveModelPath:
                 sub_dirs={"text": "text_encoders", "unet": "unet", "vae": "vae"},
             ),
         )
-        mp = ModelPaths(sub_dir="text", sub_path="FLUX.2-klein-9b/qwen_3_8b_fp8mixed.safetensors")
+        mp = ModelPaths(sub_dir="text", sub_path="Z_image(turbo)/qwen_3_4b_fp8_mixed.safetensors")
         result = resolve_model_path(mp, models_config, project_root)
 
         assert "pretrained_models" in result
         assert "text_encoders" in result
-        assert "FLUX.2-klein-9b/qwen_3_8b_fp8mixed.safetensors" in result
+        assert "Z_image(turbo)/qwen_3_4b_fp8_mixed.safetensors" in result
 
     def test_engine_model_paths_resolution(self, app_config, project_root):
         """引擎的所有模型路径都能解析"""
@@ -226,7 +226,7 @@ class TestHistoryDB:
         """创建并获取任务"""
         db.create_task(
             task_id="test-001",
-            engine="flux2_klein_9b_distilled",
+            engine="z_image_turbo_native",
             mode="txt2img",
             prompt="test prompt",
             negative_prompt="",
@@ -234,7 +234,7 @@ class TestHistoryDB:
         )
         task = db.get_task("test-001")
         assert task is not None
-        assert task["engine"] == "flux2_klein_9b_distilled"
+        assert task["engine"] == "z_image_turbo_native"
         assert task["prompt"] == "test prompt"
         assert task["generation_config"]["cfg"] == 1.0
 
@@ -243,7 +243,7 @@ class TestHistoryDB:
         for i in range(10):
             db.create_task(
                 task_id=f"test-{i:03d}",
-                engine="flux2_klein_9b_distilled",
+                engine="z_image_turbo_native",
                 prompt=f"prompt {i}",
             )
         tasks, total = db.list_tasks(page=1, page_size=5)
@@ -259,7 +259,7 @@ class TestHistoryDB:
 
     def test_preset_crud(self, db):
         """预设 CRUD"""
-        pid = db.create_preset("flux2_klein_9b_distilled", "test-preset", {"cfg": 1.0})
+        pid = db.create_preset("z_image_turbo_native", "test-preset", {"cfg": 1.0})
         assert pid > 0
 
         preset = db.get_preset(pid)
