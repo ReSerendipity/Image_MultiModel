@@ -1,4 +1,4 @@
-version: 1.2.0
+version: 1.2.2
 server:
   host: 127.0.0.1
   port: 8288
@@ -10,7 +10,7 @@ server:
     certfile: bin/cert.pem
     keyfile: bin/key.pem
 models:
-  model_source_mode: shared
+  model_source_mode: portable
   default_engine: z_image_turbo_native
   shared:
     comfy_models_dir: C:/Users/Doro/APP/ComfyUI-aki-v3/ComfyUI/models
@@ -47,13 +47,13 @@ models:
         sub_path: Z_image(turbo)/qwen_3_4b_fp8_mixed.safetensors
       unet:
         sub_dir: unet
-        sub_path: Z-image_turbo-bf16/z_image_turbo_bf16.safetensors
+        sub_path: Z-image_turbo-bf16/zimageTurboNSFWByStable_2602NSFWFP8.safetensors
       vae:
         sub_dir: vae
         sub_path: FLUX.1-dev(Z-image(turbo))/ae.safetensors
       vram_gb: 10.0
       ram_gb: 16.0
-      default_precision: bf16
+      default_precision: fp8
       fallback_precision: fp8
       supported_features:
       - txt2img

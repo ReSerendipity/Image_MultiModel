@@ -163,14 +163,19 @@ class TaskQueue:
         logger.info("TaskQueue worker stopped")
 
     async def _worker_loop(self, worker_func: Callable[[Task], None]) -> None:
-        """主 Worker 循环"""
+        """主 Worker 循环
+
+        使用 ``get_nowait()`` + ``asyncio.sleep`` 轮询取任务，避免
+        ``asyncio.wait_for(queue.get(), timeout=...)`` 在该运行环境下
+        超时不触发导致 worker 永久挂起的问题（Known Gotcha #22）。
+        """
+        logger.info("TaskQueue worker loop started")
         while self._running:
             try:
-                task = await asyncio.wait_for(self._queue.get(), timeout=1.0)
-            except TimeoutError:
+                task = self._queue.get_nowait()
+            except asyncio.QueueEmpty:
+                await asyncio.sleep(0.2)
                 continue
-            except asyncio.CancelledError:
-                break
 
             if task.status == TaskStatus.CANCELLED:
                 continue

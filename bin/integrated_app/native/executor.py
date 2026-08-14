@@ -29,8 +29,8 @@ ZIMAGE_SCHEDULER = "sgm_uniform"
 ZIMAGE_STEPS = 8
 ZIMAGE_CFG = 1.0
 
-# 空 latent 的形状（与 workflow 的 EmptySD3LatentImage 一致）
-LATENT_CHANNELS = 4
+# 空 latent 的形状（Z-Image 使用 FLUX AE，16 通道 / 8 倍下采样）
+LATENT_CHANNELS = 16
 SPATIAL_DOWNSCALE = 8
 # 采样进度区间：从 20% 到 90%（前后各留 10% 给加载/解码）
 SAMPLING_PCT_START = 20
@@ -156,8 +156,11 @@ def _encode_conditioning(clip: Any, text: str) -> list[Any]:
 
 
 def _vae_decode(vae: Any, latent: torch.Tensor) -> torch.Tensor:
-    """VAE 解码，返回 [0,1] 范围 RGB 张量 (B,H,W,3)。"""
-    return vae.decode({"samples": latent})
+    """VAE 解码，返回 [0,1] 范围 RGB 张量 (B,H,W,3)。
+
+    对齐 Comfy 的 VAEDecode 节点：直接把 latent 张量传给 ``vae.decode``。
+    """
+    return vae.decode(latent)
 
 
 def _make_sampling_callback(

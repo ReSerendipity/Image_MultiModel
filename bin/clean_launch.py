@@ -23,9 +23,10 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 BIN_DIR = Path(__file__).resolve().parent
 
 # ── WinPython 自动检测 ───────────────────────────────────────
-# 优先使用项目内的 WPy64 目录，其次查找参考项目的 WinPython
+# 优先使用项目内的 WPy64 目录，其次查找参考项目的 WinPython，
+# 再回退到系统级 CUDA Python（C:\Python312，含 cu13x PyTorch）。
 def find_winpython():
-    """查找 WinPython python.exe 路径"""
+    """查找带 CUDA 的 python.exe 路径"""
     # 1. 项目内的 WinPython
     for wpy_dir in PROJECT_ROOT.glob("WPy64-*"):
         py = wpy_dir / "python" / "python.exe"
@@ -39,7 +40,22 @@ def find_winpython():
     ref_wpy2 = Path(r"C:\Users\Doro\TTS_MultiModel\WPy64-312101\python\python.exe")
     if ref_wpy2.exists():
         return str(ref_wpy2)
-    # 4. 回退到当前 Python（如果 WinPython 不存在）
+    # 4. 系统级 CUDA Python（含 cu13x PyTorch，CUDA 可用）——避免回退到 CPU 版 torch
+    for sys_py in (
+        Path(r"C:\Python312\python.exe"),
+        Path(r"C:\Users\Doro\APP\ComfyUI-aki-v3\python\python.exe"),
+    ):
+        if sys_py.exists():
+            try:
+                code = subprocess.run(
+                    [str(sys_py), "-c", "import torch; assert torch.cuda.is_available()"],
+                    capture_output=True, timeout=30,
+                )
+                if code.returncode == 0:
+                    return str(sys_py)
+            except Exception:
+                pass
+    # 5. 回退到当前 Python（如果上面都不存在）
     return sys.executable
 
 
@@ -199,10 +215,10 @@ def launch():
 
 
 if __name__ == "__main__":
-    # 如果不是 WinPython 在运行，重启为 WinPython
+    # 如果找到的 CUDA Python 与当前运行的不是同一个，则重启为它
     wpy = find_winpython()
-    if "WPy64" in wpy and "WPy64" not in sys.executable:
-        print(f"[INFO] Relaunching with WinPython: {wpy}")
+    if os.path.abspath(wpy) != os.path.abspath(sys.executable):
+        print(f"[INFO] Relaunching with CUDA Python: {wpy}")
         os.execv(wpy, [wpy, __file__])
     else:
         launch()

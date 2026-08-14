@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.2] - 2026-08-14
+
+### Fixed
+
+- **修复原生引擎 worker 不消费任务**（`task_queue.py`）：`asyncio.wait_for(queue.get(), timeout=1.0)` 在该运行环境下超时不触发导致 worker 永久挂起、任务永远 pending。改为 `get_nowait()` + `asyncio.sleep(0.2)` 轮询取任务，彻底避开 `wait_for` 超时机制
+- **修复原生引擎 latent 参数错误**（`native/executor.py`）：Z-Image 使用 FLUX AE，latent 应为 **16 通道 / 8 倍下采样**（原代码误用 SD3 的 4 通道 / 8 倍下采样，导致输出分辨率减半为 384×384）。修正后恢复 768×768
+- **修复 VAE 解码传参**（`native/executor.py`）：`vae.decode()` 应直接传 latent 张量，而非 `{"samples": ...}`（Comfy 的 `VAEDecode` 节点语义）
+- **修复服务跑在 CPU 版 torch 上**：服务此前运行在 `torch 2.13.0+cpu`（无 CUDA），推理报 `Torch not compiled with CUDA enabled`。`bin/clean_launch.py` 的 `find_winpython()` 新增系统级 CUDA Python 候选（`C:\Python312`，torch 2.13.0+cu132），并修正重启逻辑（检测到非当前 CUDA Python 即切换）
+
+### Changed
+
+- **模型来源切换为 portable（便携独立运行）**：`config.yaml → models.model_source_mode` 由 `shared`（指向本机外部 ComfyUI-aki-v3 模型目录）改为 `portable`，模型放入项目内 `pretrained_models/`，无任何外部链接 / junction，可作便携包独立运行
+- **unet 改用 FP8 模型**：`config.yaml` 引擎 `z_image_turbo_native` 的 unet 指向 `Z-image_turbo-bf16/zimageTurboNSFWByStable_2602NSFWFP8.safetensors`（FP8，约 5.9GB），`default_precision` 同步设为 `fp8`，出图更快
+- **补装原生引擎依赖**：`einops`、`torchsde`、`comfy-aimdo==0.4.13`、`comfy-kitchen==0.2.30`（源自 `references/ComfyUI/requirements.txt` 与本机 ComfyUI-aki-v3）
+
+---
+
 ## [1.2.1] - 2026-08-14
 
 ### Fixed

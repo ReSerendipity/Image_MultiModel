@@ -1,8 +1,8 @@
 # Image MultiModel AGENTS.md — AI 辅助开发指南
 
-> 🧬 **自进化协议版本**：v1.7  
+> 🧬 **自进化协议版本**：v1.8  
 > 📅 **最后更新日期**：2026-08-14  
-> 🎯 **对应项目版本**：v1.2.0（Apache-2.0 开源协议）
+> 🎯 **对应项目版本**：v1.2.2（Apache-2.0 开源协议）
 
 ---
 
@@ -18,8 +18,8 @@ AI Agent 打开本文件后的 **第一件事** 是执行下面的「🧪 自进
 5. **🏷️ 版本递增（Version Increment）**：每次更新本文件内容后，**必须** 做三件事：① 文件顶部「自进化协议版本号」+0.1（小改）或 +1.0（大改/框架调整）；② 更新「最后更新日期」；③ 在文件末尾「📋 自进化修订记录表」追加一行记录。
 
 ### 🧪 自进化自检清单（每次启动工作前必跑）
-- [ ] 目录结构（`bin/integrated_app/`、`routes/`、`comfy/`、`native/`、`middleware/`、`security/`、`tests/`）是否和第 3 节模块边界描述一致？
-- [ ] 2 个工作流引擎（flux2_klein_9b_distilled / z_image_turbo）及原生引擎（z_image_turbo_native，`backend: native`）的配置是否和 `config.yaml → models.engines` 实际条目一致？
+- [ ] 目录结构（`bin/integrated_app/`、`routes/`、`native/`、`middleware/`、`security/`、`tests/`）是否和第 3 节模块边界描述一致？
+- [ ] 原生引擎（`z_image_turbo_native`，`backend: native`）的配置是否和 `config.yaml → models.engines` 实际条目一致？模型来源是否为 portable（`pretrained_models/`，无外部链接）？
 - [ ] 上次工作是否踩了新坑？如果是，是否已追加到第 14 节 Known Gotchas？
 - [ ] 是否新增了路由文件？如果是，是否已确保文件内定义了 `router = APIRouter(...)` 变量（app_server.py 使用 `pkgutil.iter_modules` 自动发现，无需手动注册）？
 - [ ] 新增的翻译 key 是否已完成 5 种语言 JSON 同步（见第 8 节 i18n 规范）？
@@ -637,6 +637,10 @@ pre-commit run -a
 | 19 | **根目录 text/unet/vae Junction 误导模型摆放** | 项目根曾建 `text/`、`unet/`、`vae/` 指向 aki 的 Junction（`setup_symlinks.ps1` / 手工），但运行时 `resolve_engine_model_paths` 从不读它们（shared 用 `comfy_models_dir`，portable 用 `pretrained_models/`） | 项目根看起来"模型在这"实际指向外部，独立运行时放错位置、误导认知 | 根目录不再允许模型链接；模型只走两处：shared→`models.shared.comfy_models_dir`，portable→`pretrained_models/`。已删除 6 个遗留 Junction，退役 `setup_symlinks.ps1`，`pack_portable.ps1` STEP 3 改从 `comfy_models_dir` 直接拷贝 | 2026-08-13 |
 | 20 | **完全脱离 ComfyUI 后遗留 HTTP 引擎引用** | 决定项目完全脱离外部 ComfyUI 进程、统一走进程内 `NativeEngine`，但前后端/测试/脚本仍残留 `integrated_app.comfy.*`、`ComfyEngine`、`ComfyClient`、`8188`、`/engine/free` 等引用 | ① 测试 collection 报 `ModuleNotFoundError: No module named 'integrated_app.comfy'`；② 前端仍显示 ComfyUI 后端状态 / 释放显存按钮；③ 生成接口因 `flux2_klein_9b_distilled` 引擎已删除返回 404 | 全量清理：删除 `bin/integrated_app/comfy/` HTTP 引擎包；`app_server.py` worker 与 `engine_routes.py` 工厂统一走 `NativeEngine`（删除 `/engine/free` 端点）；`config.yaml`/`config_models.py` 只保留 `z_image_turbo_native`（backend: native）；前端移除 ComfyUI 状态/释放显存/backend 过滤/comfy_preview；删除 `test_comfy_vram_scheduler.py`、`test_ws_reconnect.py`，`test_i18n_backend.py` 改引 `native.engine.PHASE_KEY_MAP`，各测试引擎名改 `z_image_turbo_native`；`benchmark.py`/`pack_portable.ps1` 去 8188/auto_spawn 残留 | 2026-08-13 |
 | 21 | **HTML 中文 mojibake 乱码 + 自动修复脚本二次破坏** | `static/index.html` 中文经多次 GBK/UTF-8 往返编码被破坏（曾提交到 git 的 `6b63310`/`978f7ab`），页面出现 `?` 乱码；随后用 `errors="replace"` 的自动修复脚本想"反向还原"，反而把 1118 个字符永久替换成 `\ufffd` 丢失 | 浏览器显示中文变 `涓婚闃查棯`（UTF-8 被当 GBK 解码）或 `主?防闪?`（非法字节被替换成 `?`/``）；部分字符因 PUA / `\ufffd` 已不可逆 | ① 不要用 `errors="replace"` 的脚本去"还原"乱码——数据已丢，越改越坏；② 正确做法：从**干净的 git 提交**（`git log` 逐个验证 `SET=设置` 筛出 `014edd3`）整文件重建，再按需求重做改动；③ 结构化 diff 判断：乱码提交与干净提交通常**仅中文不同、结构一致**，用 `git diff --no-index` 对齐即可确认；④ 改 HTML 前先 `python -c "t=open(f,encoding='utf-8').read();assert t.count('\ufffd')==0"` | 2026-08-14 |
+| 22 | **`asyncio.wait_for(queue.get(), timeout=...)` 超时不触发导致 worker 永久挂起** | 原生引擎选 `z_image_turbo_native` 生成，任务提交后一直 pending，worker 从不消费；曾用 `asyncio.wait_for(self._queue.get(), timeout=1.0)` 做取任务超时 | 日志只有 `Task submitted: xxx`，永远没有 `Worker processing task: xxx`；任务 status 卡在 pending，即使队列 qsize=1 / 同一事件循环 / 同一队列实例，worker 的 `wait_for` 既不返回也不超时（HTTP 请求正常，事件循环未阻塞） | **不要用 `wait_for(queue.get(), timeout)` 做取任务超时**——该环境（ProactorEventLoop + uvicorn）下 timeout 定时器不触发。改为 `get_nowait()` + `asyncio.sleep(0.2)` 轮询：`try: task = self._queue.get_nowait() / except asyncio.QueueEmpty: await asyncio.sleep(0.2); continue` | 2026-08-14 |
+| 23 | **Z-Image 原生引擎 latent 用错 SD3 通道/下采样参数** | `native/executor.py` 的 `LATENT_CHANNELS=4` / `SPATIAL_DOWNSCALE=8`（SD3 参数），但 Z-Image 用 FLUX AE | 采样时 `RuntimeError: mat1 and mat2 shapes cannot be multiplied (2304x16 and 64x3840)`（Lumina `x_embedder` 期望 patch_size²×in_channels＝64，但 latent 只有 4 通道）；或输出分辨率减半（768 变 384） | Z-Image 用 **FLUX AE：16 通道 / 8 倍下采样**。`LATENT_CHANNELS=16`、`SPATIAL_DOWNSCALE=8`；验证输出的宽高 = 输入宽高（768→768）。`model.latent_format` 对 Z-Image 为 None，需硬编码正确默认值 | 2026-08-14 |
+| 24 | **`vae.decode()` 传参错误：多包了一层 `{"samples": ...}`** | `native/executor.py` 的 `_vae_decode` 写 `vae.decode({"samples": latent})` | `AttributeError: 'dict' object has no attribute 'ndim'`（`comfy/sd.py` 的 `decode` 直接访问 `samples_in.ndim`） | `vae.decode(latent)` 直接传 latent 张量（对齐 Comfy 的 `VAEDecode` 节点语义），不要再包 dict | 2026-08-14 |
+| 25 | **服务跑在 CPU 版 torch 上，推理报无 CUDA** | 服务由 TRAE VM 自带 python（`torch 2.13.0+cpu`）启动，选引擎生成时 | `RuntimeError: Torch not compiled with CUDA enabled`（`torch.cuda.is_available()==False`） | 用带 CUDA 的 Python 启动（本机 `C:\Python312`，torch 2.13.0+cu132）。`bin/clean_launch.py` 的 `find_winpython()` 新增系统级 CUDA Python 候选（`C:\Python312`、`ComfyUI-aki-v3\python`），并修正重启逻辑（`os.path.abspath(wpy) != os.path.abspath(sys.executable)` 即切换，不再只认 `WPy64`） | 2026-08-14 |
 
 ---
 
@@ -659,5 +663,7 @@ pre-commit run -a
 | v1.6 | 2026-08-13 | 彻底删除 comfy/ HTTP 引擎包，项目完全脱离外部 ComfyUI 进程 | 新增 Gotcha #20（完全脱离 ComfyUI 后遗留 HTTP 引擎引用）；删除 `bin/integrated_app/comfy/`（client/engine/workflow/vram_scheduler/schemas）；`app_server.py` worker 与 `engine_routes.py` 引擎工厂统一走 `NativeEngine`（删除 `/engine/free` 端点）；`config.yaml`/`config_models.py` 只保留 `z_image_turbo_native`（backend: native）；前端移除 ComfyUI 状态/释放显存/backend 过滤/comfy_preview；删除 `test_comfy_vram_scheduler.py`、`test_ws_reconnect.py`，`test_i18n_backend.py` 改引 `native.engine.PHASE_KEY_MAP`，各测试引擎名改 `z_image_turbo_native`；`benchmark.py`/`pack_portable.ps1` 去 8188/auto_spawn 残留；同步第 2.2 节 import 示例、第 3 节目录树、硬约束 #1/#2 为 native 语义 | v1.2.0 |
 
 | v1.7 | 2026-08-14 | 修复 `index.html` 中文 mojibake 乱码 + 彻底清理前端 ComfyUI 残留 | 新增 Gotcha #21（HTML 中文 mojibake + 自动修复脚本二次破坏）；从干净 git 提交 `014edd3` 整文件重建 `static/index.html`（0 乱码）；前端彻底脱离 ComfyUI：移除 `freeVramBtn`/`/engine/free`、ComfyUI 后端状态面板、`CONN: LOCAL:8188`、关于面板「统一驱动 ComfyUI」副标题；引擎引用统一为 `z_image_turbo_native`；顶部图标按钮加文字标签（主题/颜色/字体/关于/设置/模型/语言）；删除会二次破坏编码的 `scripts/fix_encoding_ui.py` | v1.2.1 |
+
+| v1.8 | 2026-08-14 | 修复原生引擎无法出图（worker 挂起 + latent 参数错 + VAE 传参 + CPU torch），切 portable 模型来源 + 用 FP8 unet | 新增 Gotcha #22（`asyncio.wait_for(queue.get(), timeout)` 超时不触发导致 worker 永久挂起 → 改 `get_nowait()`+`sleep` 轮询）+ #23（Z-Image latent 应为 16 通道/8 倍下采样，误用 SD3 的 4 通道导致 shape 错/分辨率减半）+ #24（`vae.decode()` 直接传张量，勿包 `{"samples":...}`）+ #25（服务须用 CUDA Python `C:\Python312`，`torch 2.13.0+cu132`，勿用 TRAE VM CPU 版 torch）；`config.yaml → model_source_mode` 改 `portable`（模型入 `pretrained_models/`，无外部链接，便携独立运行）；unet 改用 FP8（`zimageTurboNSFWByStable_2602NSFWFP8.safetensors`），`default_precision=fp8`；`clean_launch.py` 新增系统级 CUDA Python 候选 + 修正重启逻辑；补装 `einops`/`torchsde`/`comfy-aimdo`/`comfy-kitchen`；实测 768×768 出图 ~30s；版本号 1.2.0 → 1.2.2 三处同步 | v1.2.2 |
 
 <!-- 🔄 下次更新 AGENTS.md 时，在上面表格末尾追加新一行，不要删除历史记录 -->
