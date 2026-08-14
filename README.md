@@ -2,7 +2,7 @@
 
 ![Version](https://img.shields.io/badge/version-1.2.2-blue?style=for-the-badge) ![License](https://img.shields.io/badge/license-Apache2.0-green?style=for-the-badge) ![Python](https://img.shields.io/badge/python-3.10+-yellow?style=for-the-badge&logo=python&logoColor=white) ![GPU](https://img.shields.io/badge/GPU-NVIDIA%20CUDA-76B900?style=for-the-badge&logo=nvidia&logoColor=white) [![CI](https://github.com/ReSerendipity/Image_MultiModel/actions/workflows/ci.yml/badge.svg)](https://github.com/ReSerendipity/Image_MultiModel/actions)
 
-**Z-Image Turbo 图像生成平台 — 基于进程内原生引擎，复用 ComfyUI 源码实现 Z-Image Turbo 推理的「单页 Web UI」**
+**Image MultiModel — 多模型 AI 图像生成平台：基于进程内原生引擎，复用 ComfyUI 源码实现 Z-Image Turbo 推理的「单页 Web UI」**
 
 > **Image MultiModel** — A unified AI image generation platform powered by the Z-Image Turbo workflow via a native in-process engine (reusing local ComfyUI source), fully decoupled from any external ComfyUI process.
 
