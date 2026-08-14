@@ -64,7 +64,9 @@
    ```
    应显示类似 `Python 3.12.x`
 3. 双击运行 **`install.bat`**（会自动检测系统 Python，安装 PyTorch CUDA 版 + 全部依赖）
-4. 配置 `config.yaml`，设置模型路径
+4. **（可选）配置环境变量**  
+   - **新手**：跳过此步，默认便携模式即可使用  
+   - **高级用户**：复制 `.env.example` 为 `.env`，按需修改（详见 [docs/PATH-CONFIGURATION.md](docs/PATH-CONFIGURATION.md)）
 5. 确认模型文件已就位（存放于 `pretrained_models/`，portable 模式，完全自包含）
 6. 双击运行：
    ```bat
@@ -87,7 +89,7 @@
 1. 下载 [WinPython 3.12](https://github.com/winpython/winpython/releases) 并解压到项目根目录，确保：
    - `WPy64-312101/python/python.exe` 存在
 2. 双击运行 **`install.bat`**（检测不到系统 Python 时会自动回退到 WinPython）
-3. 配置 `config.yaml`，准备好工作流和模型
+3. **（可选）配置环境变量**（参考上方说明）或确保模型已就位
 4. 双击运行：
    ```bat
    start.bat
@@ -275,6 +277,12 @@ python -m pytest tests/e2e -m e2e
 ## 模型许可说明
 
 > 本表为**模型权重**的许可清单（项目代码为 Apache-2.0，见 [LICENSE](LICENSE)）。
+
+### 非官方声明
+
+- 本项目为**独立开源项目**，基于阿里通义实验室（Tongyi-MAI）开源模型 **Z-Image-Turbo**（Apache-2.0）构建，与阿里巴巴集团及通义品牌**无隶属关系**，并非通义官方出品。
+- "Z-Image" 为阿里通义实验室的官方模型品牌名，本项目中仅作**描述性引用**以说明所集成的引擎，不暗示本项目的官方身份或获得官方背书。
+- 项目内置的 SeedVR2 超分组件同为第三方集成，相关归属与免责说明见 [SeedVR2 项目声明](https://github.com/ReSerendipity/SeedVR2)。
 > **接入新模型时：更新本表 + `config.yaml` 中对应引擎的 `license` 字段。**
 
 | 模型 | 引擎 key | 权重许可 | 商用 | 说明 |
