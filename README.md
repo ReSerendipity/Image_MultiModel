@@ -1,10 +1,10 @@
 # Image MultiModel
 
-![Version](https://img.shields.io/badge/version-1.2.0-blue?style=for-the-badge) ![License](https://img.shields.io/badge/license-Apache2.0-green?style=for-the-badge) ![Python](https://img.shields.io/badge/python-3.10+-yellow?style=for-the-badge&logo=python&logoColor=white) ![GPU](https://img.shields.io/badge/GPU-NVIDIA%20CUDA-76B900?style=for-the-badge&logo=nvidia&logoColor=white) [![CI](https://github.com/ReSerendipity/Image_MultiModel/actions/workflows/ci.yml/badge.svg)](https://github.com/ReSerendipity/Image_MultiModel/actions)
+![Version](https://img.shields.io/badge/version-1.2.2-blue?style=for-the-badge) ![License](https://img.shields.io/badge/license-Apache2.0-green?style=for-the-badge) ![Python](https://img.shields.io/badge/python-3.10+-yellow?style=for-the-badge&logo=python&logoColor=white) ![GPU](https://img.shields.io/badge/GPU-NVIDIA%20CUDA-76B900?style=for-the-badge&logo=nvidia&logoColor=white) [![CI](https://github.com/ReSerendipity/Image_MultiModel/actions/workflows/ci.yml/badge.svg)](https://github.com/ReSerendipity/Image_MultiModel/actions)
 
-**多模型 AI 图像生成平台 — 基于进程内原生引擎，复用 ComfyUI 源码实现 Z-Image Turbo 推理的「单页 Web UI」**
+**Z-Image Turbo 图像生成平台 — 基于进程内原生引擎，复用 ComfyUI 源码实现 Z-Image Turbo 推理的「单页 Web UI」**
 
-> **Image MultiModel** — A unified AI image generation platform that runs a native in-process engine (reusing local ComfyUI source) to power the Z-Image Turbo workflow, fully decoupled from any external ComfyUI process.
+> **Image MultiModel** — A unified AI image generation platform powered by the Z-Image Turbo workflow via a native in-process engine (reusing local ComfyUI source), fully decoupled from any external ComfyUI process.
 
 ---
 
@@ -64,21 +64,20 @@
    ```
    应显示类似 `Python 3.12.x`
 3. 双击运行 **`install.bat`**（会自动检测系统 Python，安装 PyTorch CUDA 版 + 全部依赖）
-4. 配置 `config.yaml`，设置模型源模式与模型路径
-5. 确认模型文件已就位（shared 模式指向 ComfyUI 的 `models/`，portable 模式指向 `pretrained_models/`）
+4. 配置 `config.yaml`，设置模型路径
+5. 确认模型文件已就位（存放于 `pretrained_models/`，portable 模式，完全自包含）
 6. 双击运行：
    ```bat
    start.bat
    ```
 7. 浏览器自动打开 Web UI（默认地址 `http://127.0.0.1:8288`）
 
-> 💡 **优势**：多个项目（SeedVR2、TTS_MultiModel、Image_MultiModel）共享一套 Python + PyTorch + 依赖，避免每个项目重复 1~2GB 的 WinPython 环境。
+> 💡 **优势**：进程内原生引擎复用项目内 `references/ComfyUI` 源码，完全脱离外部 ComfyUI 进程，模型随 `pretrained_models/` 内置，可作便携包独立运行。
 
 > 📌 **默认端口**：`8288`（可在 `config.yaml` → `server.port` 修改）。
 
 > 📌 **模型路径模式**（`config.yaml` → `models.model_source_mode`）：
-> - `shared`（默认）：模型路径直接指向 ComfyUI 的 `models/` 目录，与 ComfyUI 共享模型文件，无需复制。
-> - `portable`：模型路径指向项目内 `pretrained_models/` 目录，适合便携包模式（完全自包含）。
+> - `portable`（当前默认）：模型路径指向项目内 `pretrained_models/` 目录，适合便携包模式（完全自包含，无外部链接）。
 > - 切换模式后重启应用即可生效。
 
 ---

@@ -93,7 +93,7 @@ Image_MultiModel/
 | `GET /api/health` | 后端/引擎/队列状态摘要 |
 
 ```json
-{ "ok": true, "engine": "FLUX.2 Klein", "loaded": true, "queue": { "running": 1, "pending": 0 } }
+{ "ok": true, "engine": "Z-Image Turbo", "loaded": true, "queue": { "running": 1, "pending": 0 } }
 ```
 
 ### 5.2 配置
@@ -103,7 +103,7 @@ Image_MultiModel/
 | `PUT /api/config` | 写回 config.yaml |
 
 ```json
-{ "server": { "port": 8288 }, "models": { "default_engine": "FLUX.2 Klein-9B Distilled" }, "run": { "heartbeat_s": 30, "auto_spawn": true, "balance": "round_robin" }, "retention": { "days": 90, "gb": 100 } }
+{ "server": { "port": 8288 }, "models": { "default_engine": "Z-Image Turbo" }, "run": { "heartbeat_s": 30, "auto_spawn": true, "balance": "round_robin" }, "retention": { "days": 90, "gb": 100 } }
 ```
 
 ### 5.3 生成
@@ -117,14 +117,14 @@ Image_MultiModel/
 
 ```json
 {
-  "engine": "FLUX.2 Klein-9B Distilled",
+  "engine": "Z-Image Turbo",
   "prompt": "一位亚洲女性肖像，柔和自然光，浅景深，胶片质感",
   "negative_prompt": "",
   "cfg": 1.0, "steps": 8, "width": 1024, "height": 1024,
   "seed": -1, "batch_size": 1,
   "lora": [
     { "name": ".safetensors", "strength": 1.0 },
-    { "name": "Kook_Flux_klein_亚洲人像.safetensors", "strength": 0.7 }
+    { "name": "人像风格LoRA.safetensors", "strength": 0.7 }
   ],
   "seedvr2": { "on": true, "res": 2048, "color": "lab", "seed": -1 },
   "eses": { "on": true, "axis": "h" },
@@ -181,7 +181,7 @@ Image_MultiModel/
 {
   "id": "88421",
   "status": "done", "progress": 100, "phase": "保存与入库",
-  "engine": "FLUX.2 Klein-9B Distilled",
+  "engine": "Z-Image Turbo",
   "config": { "…完整 GenerationConfig…" },
   "outputs": [
     { "kind": "original", "path": "outputs/88421_original.png", "width": 1024, "height": 1024 },
@@ -195,7 +195,7 @@ Image_MultiModel/
 
 ### 6.3 Preset（presets.json）
 ```json
-{ "id": "p1", "name": "默认预设（FLUX.2）", "desc": "亚洲人像基线", "engine": "FLUX.2 Klein-9B Distilled",
+{ "id": "p1", "name": "默认预设（Z-Image Turbo）", "desc": "亚洲人像基线", "engine": "Z-Image Turbo",
   "config": { "…GenerationConfig…" }, "tags": ["人像"], "fav": true, "updated_at": "…" }
 ```
 
@@ -260,7 +260,7 @@ Image_MultiModel/
 ## 10. 待确认/待提供输入
 
 - [ ] 后端骨架是否已有（或从 SeedVR2 直接复用 main.py 模式）
-- [ ] 真实引擎工作流文件（`workflows/flux2_klein_9b_distilled.json` 等）与参数节点映射表
+- [ ] 真实引擎工作流文件（`workflows/Z_image_turbo.json` 等）与参数节点映射表
 - [ ] `outputs/` 目录命名与归档约定（保留策略 90 天/100GB 的落盘实现）
 - [ ] 任务/预设落盘格式（本文档第 6 节为建议，可调整）
 - [ ] 资源扫描（LoRA/模型目录）的返回结构与展示粒度

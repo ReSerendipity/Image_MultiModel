@@ -52,8 +52,8 @@ Image MultiModel 提供 REST API 和 SSE 事件流，支持程序化调用。
   },
   "engines": [
     {
-      "name": "flux2_klein_9b_distilled",
-      "display_name": "FLUX.2 Klein-9B Distilled",
+      "name": "z_image_turbo_native",
+      "display_name": "Z-Image Turbo",
       "ready": false,
       "active": true
     }
@@ -127,7 +127,7 @@ GPU 状态 — 返回当前 GPU 显存使用情况。
   "vram_seed": -1,
   "output_format": "png",
   "output_prefix": "",
-  "engine_name": "flux2_klein_9b_distilled"
+  "engine_name": "z_image_turbo_native"
 }
 ```
 
@@ -179,7 +179,7 @@ GPU 状态 — 返回当前 GPU 显存使用情况。
 ```bash
 curl -X POST http://127.0.0.1:8288/api/generate \
   -H "Content-Type: application/json" \
-  -d '{"positive_prompt":"a cat","engine_name":"z_image_turbo"}'
+  -d '{"positive_prompt":"a cat","engine_name":"z_image_turbo_native"}'
 ```
 
 ---
@@ -205,7 +205,7 @@ curl -X POST http://127.0.0.1:8288/api/generate \
     "height": 1024,
     "seed": -1,
     "batch_size": 1,
-    "engine_name": "z_image_turbo",
+    "engine_name": "z_image_turbo_native",
     "seedvr2_enable": false
   }
 }
@@ -271,7 +271,7 @@ curl -X POST http://127.0.0.1:8288/api/generate \
   "tasks": [
     {
       "task_id": "01J5A3B2C...",
-      "engine": "flux2_klein_9b_distilled",
+      "engine": "z_image_turbo_native",
       "mode": "txt2img",
       "status": "completed",
       "prompt": "a cat",
@@ -298,7 +298,7 @@ curl -X POST http://127.0.0.1:8288/api/generate \
 ```json
 {
   "task_id": "01J5A3B2C...",
-  "engine": "flux2_klein_9b_distilled",
+  "engine": "z_image_turbo_native",
   "mode": "txt2img",
   "status": "completed",
   "prompt": "a cat",
@@ -313,7 +313,7 @@ curl -X POST http://127.0.0.1:8288/api/generate \
   },
   "outputs": [
     {
-      "path": "flux2_klein_9b_distilled/20260810/task_id_original.png",
+      "path": "z_image_turbo_native/20260810/task_id_original.png",
       "output_type": "original",
       "format": "png",
       "file_size": 4567890,
@@ -321,11 +321,11 @@ curl -X POST http://127.0.0.1:8288/api/generate \
       "height": 1024
     },
     {
-      "path": "flux2_klein_9b_distilled/20260810/task_id_upscaled.png",
+      "path": "z_image_turbo_native/20260810/task_id_upscaled.png",
       "output_type": "upscaled"
     },
     {
-      "path": "flux2_klein_9b_distilled/20260810/task_id_compare.png",
+      "path": "z_image_turbo_native/20260810/task_id_compare.png",
       "output_type": "compare"
     }
   ],
@@ -450,9 +450,9 @@ curl -X POST http://127.0.0.1:8288/api/generate \
 {
   "engines": [
     {
-      "name": "flux2_klein_9b_distilled",
-      "display_name": "FLUX.2 Klein-9B Distilled",
-      "display_name_en": "FLUX.2 Klein-9B Distilled",
+      "name": "z_image_turbo_native",
+      "display_name": "Z-Image Turbo",
+      "display_name_en": "Z-Image Turbo",
       "ready": false,
       "state": "unloaded",
       "active": true,
@@ -461,20 +461,10 @@ curl -X POST http://127.0.0.1:8288/api/generate \
       "default_precision": "fp8",
       "supported_features": ["txt2img", "lora_stack_6", "seedvr2_upscale_2x"],
       "tags": ["realistic", "high-quality", "distilled", "fast"]
-    },
-    {
-      "name": "z_image_turbo",
-      "display_name": "Z-Image Turbo",
-      "ready": false,
-      "state": "unloaded",
-      "active": false,
-      "vram_gb": 10.0,
-      "default_precision": "bf16",
-      "tags": ["turbo", "fast", "real-time", "low-vram"]
     }
   ],
-  "active_engine": "flux2_klein_9b_distilled",
-  "count": 2
+  "active_engine": "z_image_turbo_native",
+  "count": 1
 }
 ```
 
@@ -487,16 +477,16 @@ curl -X POST http://127.0.0.1:8288/api/generate \
 **请求体**：
 ```json
 {
-  "engine_name": "flux2_klein_9b_distilled"
+  "engine_name": "z_image_turbo_native"
 }
 ```
 
 **响应**：
 ```json
 {
-  "engine_name": "flux2_klein_9b_distilled",
+  "engine_name": "z_image_turbo_native",
   "status": "loaded",
-  "message": "Engine 'FLUX.2 Klein-9B Distilled' loaded successfully"
+  "message": "Engine 'Z-Image Turbo' loaded successfully"
 }
 ```
 
@@ -509,9 +499,9 @@ curl -X POST http://127.0.0.1:8288/api/generate \
 **响应**：
 ```json
 {
-  "engine_name": "flux2_klein_9b_distilled",
+  "engine_name": "z_image_turbo_native",
   "status": "unloaded",
-  "message": "Engine 'flux2_klein_9b_distilled' unloaded"
+  "message": "Engine 'z_image_turbo_native' unloaded"
 }
 ```
 
@@ -626,7 +616,7 @@ curl -X POST http://127.0.0.1:8288/api/generate \
 [
   {
     "id": 1,
-    "engine_name": "flux2_klein_9b_distilled",
+    "engine_name": "z_image_turbo_native",
     "name": "人像摄影",
     "thumbnail": "",
     "config": {
@@ -649,7 +639,7 @@ curl -X POST http://127.0.0.1:8288/api/generate \
 **请求体**：
 ```json
 {
-  "engine_name": "flux2_klein_9b_distilled",
+  "engine_name": "z_image_turbo_native",
   "name": "风景摄影",
   "config": {
     "cfg": 1.0,
@@ -708,7 +698,7 @@ curl -X POST http://127.0.0.1:8288/api/generate \
 ```json
 {
   "status": "applied",
-  "engine_name": "flux2_klein_9b_distilled",
+  "engine_name": "z_image_turbo_native",
   "config": {
     "cfg": 1.0,
     "steps": 10,
@@ -728,12 +718,12 @@ curl -X POST http://127.0.0.1:8288/api/generate \
 ```json
 [
   {
-    "engine_name": "flux2_klein_9b_distilled",
+    "engine_name": "z_image_turbo_native",
     "name": "预设1",
     "config": {}
   },
   {
-    "engine_name": "z_image_turbo",
+    "engine_name": "z_image_turbo_native",
     "name": "预设2",
     "config": {}
   }
@@ -775,7 +765,7 @@ curl -X POST http://127.0.0.1:8288/api/generate \
 {
   "outputs": [
     {
-      "path": "flux2_klein_9b_distilled/20260810/xxx_original.png",
+      "path": "z_image_turbo_native/20260810/xxx_original.png",
       "output_type": "original",
       "format": "png",
       "file_size": 4567890,
@@ -807,7 +797,7 @@ curl -X POST http://127.0.0.1:8288/api/generate \
 ```json
 {
   "status": "favorited",
-  "path": "outputs/flux2_klein_9b_distilled/20260810/xxx_original.png"
+  "path": "outputs/z_image_turbo_native/20260810/xxx_original.png"
 }
 ```
 
@@ -834,7 +824,7 @@ SSE 单连接事件总线 — 前端建立一个 `EventSource` 连接，接收�
 | `task_status` | 任务状态变更 | `{"task_id":"...","progress":0.5,"status":"processing","phase":"sampling"}` |
 | `comfy_preview` | 采样中预览图 | `{"task_id":"...","b64":"data:image/jpeg;base64,...","format":"jpg"}` |
 | `gpu_status` | GPU 状态（2s） | `{"name":"RTX 5070 Ti","total_vram_gb":12,"used_vram_gb":3.5,"free_vram_gb":8.5}` |
-| `model_status` | 引擎加载状态 | `{"engine":"flux2_klein_9b_distilled","state":"loading"}` |
+| `model_status` | 引擎加载状态 | `{"engine":"z_image_turbo_native","state":"loading"}` |
 | `queue_status` | 队列状态 | `{"pending":3,"processing":1,"completed":10}` |
 
 **前端监听示例**：

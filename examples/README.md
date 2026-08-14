@@ -13,9 +13,8 @@
    ```
    默认地址：`http://127.0.0.1:8288`
 
-2. **ComfyUI 后端已启动**（生成功能需要）：
-   - ComfyUI 默认地址：`http://127.0.0.1:8188`
-   - 在 `config.yaml` 中配置
+2. **确认原生引擎已就绪**（生成功能需要）：
+   - 平台统一走进程内 `NativeEngine`（复用 `references/ComfyUI` 源码），无需外部 ComfyUI 进程
 
 3. **Python 依赖**：
    ```bash
@@ -60,7 +59,7 @@ python examples/05_apply_preset.py
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
 | `SERVER_URL` | `http://127.0.0.1:8288` | Image MultiModel 服务地址 |
-| `engine_name` | `flux2_klein_9b_distilled` | 使用哪个引擎（`flux2_klein_9b_distilled` / `z_image_turbo`） |
+| `engine_name` | `z_image_turbo_native` | 使用哪个引擎（`z_image_turbo_native`） |
 | `prompts.txt` | 内置 5 条示例 | 批量生成的 Prompt 列表（每行一个） |
 | `width` / `height` | `1024` / `1024` | 生成图片分辨率 |
 | `steps` | `8` | 采样步数（步数越多质量越好但越慢） |
@@ -84,7 +83,6 @@ python examples/05_apply_preset.py
 | `/api/presets/{id}/apply` | POST | 应用预设 |
 | `/api/engine/engines` | GET | 引擎列表 |
 | `/api/engine/load` | POST | 加载引擎 |
-| `/api/engine/free` | POST | 释放显存 |
 | `/api/config` | GET/PUT | 读取/保存配置 |
 
 完整 API 文档请参阅 [docs/API.md](../docs/API.md)，或启动服务器后访问 `http://127.0.0.1:8288/docs`（FastAPI Swagger UI）。

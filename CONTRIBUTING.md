@@ -1,6 +1,6 @@
 # 参与贡献 (Contributing to Image MultiModel)
 
-感谢你对 Image MultiModel 的关注！这是一个基于 ComfyUI 工作流引擎的多模型 AI 图像生成平台。
+感谢你对 Image MultiModel 的关注！这是一个基于 ComfyUI 工作流引擎的 Z-Image Turbo 图像生成平台。
 
 ## 快速开始
 
@@ -21,7 +21,7 @@ pip install -r requirements.txt
 pip install -r requirements-lock.txt --require-hashes  # 可复现安装（可选）
 ```
 
-3. 配置 `config.yaml`（ComfyUI 地址 / 模型路径 / 端口）后启动：
+3. 配置 `config.yaml`（模型路径 / 端口）后启动：
 
 ```bash
 start.bat   # 或 python bin/clean_launch.py
