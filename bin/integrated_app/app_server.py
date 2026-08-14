@@ -11,6 +11,7 @@ import asyncio
 import importlib
 import logging
 import logging.handlers
+import os
 import pkgutil
 import sys
 import time
@@ -97,10 +98,26 @@ def _auto_discover_routers() -> list:
 
 
 def setup_logging(config) -> None:
-    """配置日志"""
+    """配置日志：控制台 + 按大小轮转的文件（参数来自 config.yaml logging 段）。
+
+    统一格式：时间戳 + 级别 + 进程/线程 + 模块位置 + 请求ID（request_id） + 消息，
+    便于生产环境按 request_id 链路追踪、按 filename:lineno 快速定位。
+    """
     log_cfg = config.logging
     log_dir = Path(config.project_root) / log_cfg.file
     log_dir.parent.mkdir(parents=True, exist_ok=True)
+
+    # 日志级别支持环境变量 LOG_LEVEL 覆盖（优先级高于配置文件）
+    level_name = os.environ.get("LOG_LEVEL", log_cfg.level).upper()
+    log_level = getattr(logging, level_name, logging.INFO)
+
+    formatter = logging.Formatter(
+        "[%(asctime)s] [%(levelname)s] [PID:%(process)d TID:%(thread)d] "
+        "[%(name)s:%(filename)s:%(lineno)d] [req=%(request_id)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    from .middleware.request_id import RequestIDLogFilter
 
     handlers: list[logging.Handler] = [
         logging.StreamHandler(sys.stdout),
@@ -115,10 +132,14 @@ def setup_logging(config) -> None:
     except Exception as e:
         logger.warning(f"Could not set up file logging: {e}")
 
+    for handler in handlers:
+        handler.setFormatter(formatter)
+        handler.addFilter(RequestIDLogFilter())
+
     logging.basicConfig(
-        level=getattr(logging, log_cfg.level.upper(), logging.INFO),
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        level=log_level,
         handlers=handlers,
+        force=True,
     )
 
 
