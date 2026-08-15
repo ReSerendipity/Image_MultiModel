@@ -30,7 +30,13 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         # GET 请求：设置 token
         if request.method in self.EXEMPT_METHODS:
             response = await call_next(request)
-            token = secrets.token_hex(16)
+            # 已有有效 cookie 则复用，避免每次 GET 轮换 token：
+            # httponly cookie 前端不可读，只能依赖响应头 X-CSRF-Token；
+            # 若 SSE(/api/events) 重连等 GET 都轮换，会导致前端持有的
+            # header token 与 cookie 失配，POST 被 403 打断。
+            token = request.cookies.get(self.cookie_name, "")
+            if not token:
+                token = secrets.token_hex(16)
             response.set_cookie(
                 self.cookie_name, token,
                 httponly=True, samesite="lax", max_age=3600,

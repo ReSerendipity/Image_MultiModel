@@ -159,6 +159,8 @@ security:
     enabled: false
     tokens:
     - REPLACE_WITH_YOUR_BEARER_TOKEN_32BYTES
+  csrf:
+    enabled: true
   cors:
     allowed_origins:
     - http://127.0.0.1:8288

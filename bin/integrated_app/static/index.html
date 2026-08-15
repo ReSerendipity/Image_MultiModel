@@ -1039,18 +1039,33 @@ document.querySelectorAll('#langMenu .ip-item').forEach(function(b){
 });
 
 /* ---------- API 辅助对象 + 全局 SSE ---------- */
+/* CSRF (Double-Submit Cookie)：GET 响应头 X-CSRF-Token 与 httponly csrf_token cookie 同值；
+   POST/PUT/DELETE 需带 X-CSRF-Token 头（后端校验 头==cookie，否则 403） */
+var _csrfToken=null;
+async function _ensureCsrf(){
+  if(_csrfToken)return _csrfToken;
+  var r=await fetch('/api/health');  // 任意 GET 领取 token
+  var t=r.headers.get('X-CSRF-Token');if(t)_csrfToken=t;
+  return _csrfToken;
+}
 var API={
-  get:async function(p){return(await fetch('/api'+p)).json();},
+  get:async function(p){
+    var r=await fetch('/api'+p);
+    var t=r.headers.get('X-CSRF-Token');if(t)_csrfToken=t;  // 每次 GET 刷新本地 token
+    return r.json();
+  },
   send:async function(p,body,method){
     method=method||'POST';
-    var opts={method:method,headers:{'Content-Type':'application/json'}};
+    var h={'Content-Type':'application/json'};
+    var t=await _ensureCsrf();if(t)h['X-CSRF-Token']=t;
+    var opts={method:method,headers:h};
     if(body)opts.body=JSON.stringify(body);
     var r=await fetch('/api'+p,opts);
     return r.json();
   },
-  put:async function(p,body){var r=await fetch('/api'+p,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});return r.json();},
-  del:async function(p){var r=await fetch('/api'+p,{method:'DELETE'});return r.json();},
-  post:async function(p,body){var r=await fetch('/api'+p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});return r.json();}
+  put:async function(p,body){return API.send(p,body,'PUT');},
+  del:async function(p){return API.send(p,null,'DELETE');},
+  post:async function(p,body){return API.send(p,body,'POST');}
 };
 var evt=new EventSource('/api/events'); // 全局唯一 SSE 连接
 var currentTaskId=null;

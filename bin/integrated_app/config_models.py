@@ -278,6 +278,11 @@ class IntegritySelfcheckConfig(BaseModel):
     manifest_file: str = "bin/integrated_app/security/integrity_manifest.json"
 
 
+class CSRFConfig(BaseModel):
+    """CSRF (Double-Submit Cookie) 防护开关"""
+    enabled: bool = True
+
+
 class SecurityConfig(BaseModel):
     allowed_base_dirs: list[str] = Field(
         default_factory=lambda: ["outputs/", "data/", "workflows/", "pretrained_models/"]
@@ -285,6 +290,7 @@ class SecurityConfig(BaseModel):
     rate_limit: RateLimitConfig = RateLimitConfig()
     basic_auth: BasicAuthConfig = BasicAuthConfig()
     api_token: APITokenConfig = APITokenConfig()
+    csrf: CSRFConfig = CSRFConfig()
     cors: CORSConfig = CORSConfig()
     model_format: ModelFormatConfig = ModelFormatConfig()
     integrity_selfcheck: IntegritySelfcheckConfig = IntegritySelfcheckConfig()

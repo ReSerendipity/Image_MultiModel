@@ -425,8 +425,8 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # CSRF（POST/PUT/DELETE 需 X-CSRF-Token 头）
-    if config.security.basic_auth.enabled or config.security.api_token.enabled:
+    # CSRF（POST/PUT/DELETE 需 X-CSRF-Token 头，默认开启）
+    if config.security.csrf.enabled:
         app.add_middleware(CSRFMiddleware)
 
     # RequestID
