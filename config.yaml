@@ -173,6 +173,8 @@ security:
   integrity_selfcheck:
     enabled: true
     manifest_file: bin/integrated_app/security/integrity_manifest.json
+  content_filter:
+    fail_closed_on_clip_missing: false
 gpu:
   backend: auto
   device_ids:

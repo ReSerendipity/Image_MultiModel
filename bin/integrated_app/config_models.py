@@ -283,6 +283,11 @@ class CSRFConfig(BaseModel):
     enabled: bool = True
 
 
+class ContentFilterConfig(BaseModel):
+    """内容过滤（CLIP 安全检测）配置"""
+    fail_closed_on_clip_missing: bool = False
+
+
 class SecurityConfig(BaseModel):
     allowed_base_dirs: list[str] = Field(
         default_factory=lambda: ["outputs/", "data/", "workflows/", "pretrained_models/"]
@@ -294,6 +299,7 @@ class SecurityConfig(BaseModel):
     cors: CORSConfig = CORSConfig()
     model_format: ModelFormatConfig = ModelFormatConfig()
     integrity_selfcheck: IntegritySelfcheckConfig = IntegritySelfcheckConfig()
+    content_filter: ContentFilterConfig = ContentFilterConfig()
 
 
 # ──────────────────────────────────────────────────────────────

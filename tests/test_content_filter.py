@@ -184,3 +184,59 @@ class TestCheckImageDegraded:
         # CLIP 未安装时降级，is_safe=True
         assert result.is_safe is True
         assert result.details.get("degraded") is True
+
+    def test_check_image_fail_open_is_default(self, tmp_path, monkeypatch):
+        """默认 fail-open（向后兼容）：CLIP 缺失时降级放行"""
+        cf = ContentSafetyFilter()
+        # mock CLIP 缺失：_ensure_loaded 恒为 False（等价于 clip 未安装）
+        monkeypatch.setattr(cf, "_ensure_loaded", lambda: False)
+
+        result = cf.check_image(str(tmp_path / "any.png"))
+        assert result.is_safe is True
+        assert result.violation_type is None
+        assert result.details.get("degraded") is True
+
+    def test_check_image_fail_closed_blocks_when_clip_missing(self, tmp_path, monkeypatch):
+        """fail_closed_on_clip_missing=True 时，CLIP 缺失应拦截（mock CLIP 缺失）"""
+        cf = ContentSafetyFilter(fail_closed_on_clip_missing=True)
+        monkeypatch.setattr(cf, "_ensure_loaded", lambda: False)
+
+        result = cf.check_image(str(tmp_path / "any.png"))
+        assert result.is_safe is False
+        assert result.violation_type == "clip_unavailable"
+        assert result.details.get("degraded") is True
+        assert "reason" in result.details
+
+    def test_filter_image_generation_fail_closed_blocks_reference_image(
+        self, tmp_path, monkeypatch
+    ):
+        """filter_image_generation 传 fail_closed 标志 → CLIP 缺失时拦截参考图"""
+        from integrated_app.security.content_filter import (
+            ContentSafetyFilter as _CSF,
+        )
+
+        monkeypatch.setattr(
+            "integrated_app.security.content_filter.get_content_filter",
+            lambda fail_closed_on_clip_missing=None: _CSF(
+                fail_closed_on_clip_missing=bool(fail_closed_on_clip_missing)
+            ),
+        )
+        is_safe, reason = filter_image_generation(
+            "safe prompt",
+            image_path=str(tmp_path / "any.png"),
+            fail_closed_on_clip_missing=True,
+        )
+        assert is_safe is False
+        assert "image_blocked" in reason
+        assert "clip_unavailable" in reason
+
+    def test_get_content_filter_applies_fail_closed_flag(self):
+        """get_content_filter 传入 fail_closed 标志应同步更新单例"""
+        cf = get_content_filter()
+        cf.set_fail_closed_on_clip_missing(False)  # 复位，避免污染其他用例
+        try:
+            cf2 = get_content_filter(fail_closed_on_clip_missing=True)
+            assert cf2 is cf
+            assert cf._fail_closed_on_clip_missing is True
+        finally:
+            cf.set_fail_closed_on_clip_missing(False)

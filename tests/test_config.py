@@ -55,7 +55,7 @@ class TestConfigLoading:
 
     def test_app_config_builds(self, app_config):
         """AppConfig 构建成功"""
-        assert app_config.version == "1.2.0"
+        assert app_config.version == "1.2.2"
         assert app_config.server.host == "127.0.0.1"
         assert app_config.server.port == 8288
         assert app_config.models.model_source_mode in ("shared", "portable")
@@ -83,6 +83,11 @@ class TestConfigLoading:
         safe = app_config.get_safe_config_dict()
         # api_token tokens 应为空
         assert safe["security"]["api_token"]["tokens"] == []
+
+    def test_content_filter_fail_closed_default_off(self, app_config, config_yaml):
+        """CLIP 缺失降级默认 fail-open（向后兼容），可显式开启 fail-closed"""
+        assert app_config.security.content_filter.fail_closed_on_clip_missing is False
+        assert config_yaml["security"]["content_filter"]["fail_closed_on_clip_missing"] is False
 
 
 class TestResolveModelPath:

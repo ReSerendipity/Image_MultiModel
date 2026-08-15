@@ -69,18 +69,34 @@ class ContentSafetyFilter:
     ``check_prompt`` 关键词过滤仍然生效。
     """
 
-    def __init__(self, model_name: str = "ViT-B/32") -> None:
+    def __init__(
+        self,
+        model_name: str = "ViT-B/32",
+        fail_closed_on_clip_missing: bool = False,
+    ) -> None:
         """初始化安全过滤器。
 
         Args:
             model_name: CLIP 模型名称（默认 ViT-B/32，体积小速度快）。
+            fail_closed_on_clip_missing: CLIP 模型缺失时的降级策略。
+                False=降级放行（fail-open，默认，向后兼容）；True=降级拦截（fail-closed）。
         """
         self._model_name: str = model_name
+        self._fail_closed_on_clip_missing: bool = fail_closed_on_clip_missing
         self._model: Any = None
         self._preprocess: Any = None
         self._device: str = ""
         self._loaded: bool = False
         self._load_error: str | None = None
+
+    # ── 降级策略（运行时可更新）──────────────────────────────────
+    def set_fail_closed_on_clip_missing(self, value: bool) -> None:
+        """运行时更新 CLIP 缺失时的降级策略（默认 fail-open）。
+
+        Args:
+            value: True=CLIP 缺失时拦截（fail-closed）；False=放行（fail-open）。
+        """
+        self._fail_closed_on_clip_missing = bool(value)
 
     # ── 模型懒加载 ──────────────────────────────────────────────
     def _ensure_loaded(self) -> bool:
@@ -120,8 +136,9 @@ class ContentSafetyFilter:
         """检查图片是否包含违规内容。
 
         使用 CLIP 计算图片与不安全文本提示的相似度。
-        如果 CLIP 未安装，返回保守放行结果（is_safe=True），
-        同时在 details 中记录降级信息。
+        如果 CLIP 未安装：默认返回降级放行（is_safe=True，向后兼容）；
+        配置 fail_closed_on_clip_missing=True 时返回拦截（is_safe=False）。
+        两种情况均在 details 中记录 degraded 降级信息。
 
         Args:
             image_path: 图片路径（已经过 PathGuard 校验）。
@@ -130,14 +147,24 @@ class ContentSafetyFilter:
             SafetyResult: 安全检测结果。
         """
         if not self._ensure_loaded():
+            details = {
+                "degraded": True,
+                "reason": self._load_error or "CLIP not available",
+            }
+            if self._fail_closed_on_clip_missing:
+                # fail-closed：CLIP 不可用时拦截（violation_type 供上层区分原因）
+                return SafetyResult(
+                    is_safe=False,
+                    violation_type="clip_unavailable",
+                    confidence=0.0,
+                    details=details,
+                )
+            # fail-open（默认，向后兼容）：降级放行，记录 degraded 标记
             return SafetyResult(
                 is_safe=True,
                 violation_type=None,
                 confidence=0.0,
-                details={
-                    "degraded": True,
-                    "reason": self._load_error or "CLIP not available",
-                },
+                details=details,
             )
 
         try:
@@ -222,21 +249,32 @@ class ContentSafetyFilter:
 _content_filter: ContentSafetyFilter | None = None
 
 
-def get_content_filter() -> ContentSafetyFilter:
+def get_content_filter(
+    fail_closed_on_clip_missing: bool | None = None,
+) -> ContentSafetyFilter:
     """获取全局 ContentSafetyFilter 单例。
+
+    Args:
+        fail_closed_on_clip_missing: 可选。CLIP 缺失时是否 fail-closed 拦截。
+            单例创建时作为初始值；单例已存在且该值不为 None 时同步更新。
 
     Returns:
         ContentSafetyFilter 实例。
     """
     global _content_filter
     if _content_filter is None:
-        _content_filter = ContentSafetyFilter()
+        _content_filter = ContentSafetyFilter(
+            fail_closed_on_clip_missing=bool(fail_closed_on_clip_missing)
+        )
+    elif fail_closed_on_clip_missing is not None:
+        _content_filter.set_fail_closed_on_clip_missing(fail_closed_on_clip_missing)
     return _content_filter
 
 
 def filter_image_generation(
     prompt: str,
     image_path: str | Path | None = None,
+    fail_closed_on_clip_missing: bool | None = None,
 ) -> tuple[bool, str]:
     """过滤图像生成请求（提示词 + 可选参考图）。
 
@@ -247,11 +285,12 @@ def filter_image_generation(
     Args:
         prompt: 用户提示词。
         image_path: 可选的参考图路径（已过 PathGuard）。
+        fail_closed_on_clip_missing: CLIP 缺失时是否拦截（None=跟随单例当前配置）。
 
     Returns:
         (is_safe, reason): 通过=True/原因="OK"；拦截=False/原因=违规详情。
     """
-    cf = get_content_filter()
+    cf = get_content_filter(fail_closed_on_clip_missing=fail_closed_on_clip_missing)
 
     # 检查提示词
     prompt_result = cf.check_prompt(prompt)

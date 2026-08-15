@@ -7,7 +7,12 @@ routes/generate_routes.py — POST /api/generate + 批量
 
 from __future__ import annotations
 
+import asyncio
+import base64
+import io
 import logging
+import uuid
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -66,6 +71,9 @@ class GenerateRequest(BaseModel):
     output_prefix: str = ""
     # 引擎
     engine_name: str | None = None
+    # 参考图（可选，用于生成前 CLIP 安全检测；二选一，均可为空，为空则跳过图检）
+    reference_image_path: str | None = None  # 服务端图片路径（须在 PathGuard 白名单内）
+    reference_image_b64: str | None = None   # Base64 图片数据（含或不含 data: 前缀）
 
 
 class GenerateResponse(BaseModel):
@@ -74,6 +82,73 @@ class GenerateResponse(BaseModel):
     estimated_time_s: float | None = None
     estimated_vram_gb: float | None = None
     warning: str | None = None
+
+
+def _resolve_reference_image(req: GenerateRequest, cfg: Any) -> str | None:
+    """解析请求中的参考图，返回可供 CLIP 检测的本地文件路径。
+
+    无参考图（两个字段均为空）→ None，跳过 CLIP 图检（保持原有行为）。
+    reference_image_path → PathGuard 校验 + 存在性检查（对齐 /api/safety/check-image）。
+    reference_image_b64 → 解码 + 魔数校验 + PIL verify 后落盘到 uploads 缓存目录。
+
+    Raises:
+        HTTPException: 字段冲突(400) / 路径不安全(403) / 文件不存在(404) / 解码失败(400)。
+    """
+    if req.reference_image_path and req.reference_image_b64:
+        raise HTTPException(
+            400,
+            detail="Provide either reference_image_path or reference_image_b64, not both",
+        )
+
+    if req.reference_image_path:
+        from ..security.path_guard import PathGuard, PathGuardError
+
+        guard = PathGuard(cfg.security.allowed_base_dirs, cfg.project_root)
+        try:
+            safe_path = guard.resolve(req.reference_image_path)
+        except PathGuardError:
+            raise HTTPException(
+                403,
+                detail=get_error_message("path_traversal", path=req.reference_image_path),
+            )
+        if not safe_path.exists():
+            raise HTTPException(
+                404,
+                detail=get_error_message("file_not_found", path=req.reference_image_path),
+            )
+        return str(safe_path)
+
+    if req.reference_image_b64:
+        b64 = req.reference_image_b64
+        if b64.startswith("data:") and "," in b64:
+            b64 = b64.split(",", 1)[1]
+        try:
+            img_data = base64.b64decode(b64)
+        except Exception as e:
+            raise HTTPException(400, detail=f"Reference image decode failed: {e}")
+
+        # SECURITY: 魔数校验（对齐 preprocess_routes），阻断伪装/非图片数据
+        from ..security.magic_check import validate_image_magic
+
+        is_magic, _detected_type, error = validate_image_magic(img_data)
+        if not is_magic:
+            raise HTTPException(400, detail=f"Reference image decode failed: {error}")
+
+        try:
+            from PIL import Image
+
+            img = Image.open(io.BytesIO(img_data))
+            img.verify()  # 校验内容完整性（防"伪图片头但损坏内容"）
+            img = Image.open(io.BytesIO(img_data))
+            cache_dir = Path(cfg.project_root) / cfg.output.uploads.cache_dir
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            safe_path = cache_dir / f"refcheck_{uuid.uuid4().hex}.png"
+            img.convert("RGB").save(str(safe_path), format="PNG")
+            return str(safe_path)
+        except Exception as e:
+            raise HTTPException(400, detail=f"Reference image decode failed: {e}")
+
+    return None
 
 
 @router.post("/generate", response_model=GenerateResponse)
@@ -92,10 +167,19 @@ async def generate(req: GenerateRequest, request: Request) -> GenerateResponse:
     if req.batch_size < 1 or req.batch_size > 9999:
         raise HTTPException(400, detail=get_error_message("batch_too_large"))
 
-    # 内容安全过滤（P0 任务1: CLIP 安全检测集成）
+    # 内容安全过滤（P0 任务1: CLIP 安全检测集成；参考图可选，有则生成前 CLIP 图检）
     from ..security.content_filter import filter_image_generation
 
-    is_safe, reason = filter_image_generation(req.positive_prompt)
+    ref_image_path = _resolve_reference_image(req, cfg)
+    # CLIP 检测为同步阻塞（首次加载 2-5s，后续每张百 ms 级）：
+    # 放入默认线程池执行，避免阻塞事件循环（对齐 task_queue/native engine 的 run_in_executor 风格）
+    is_safe, reason = await asyncio.get_running_loop().run_in_executor(
+        None,
+        filter_image_generation,
+        req.positive_prompt,
+        ref_image_path,
+        cfg.security.content_filter.fail_closed_on_clip_missing,
+    )
     if not is_safe:
         raise HTTPException(400, detail=get_error_message("content_blocked", reason=reason))
 
@@ -215,6 +299,15 @@ async def generate_batch(req: BatchGenerateRequest, request: Request) -> dict[st
     cfg = get_config()
     engine_name = req.base_config.engine_name or cfg.models.default_engine
 
+
+    # 引擎存在性校验（与单图 /generate 对齐）
+    if engine_name not in cfg.models.engines:
+        raise HTTPException(404, detail=get_error_message("engine_not_found", name=engine_name))
+
+    # batch_size 校验（与单图 /generate 对齐）
+    if req.base_config.batch_size < 1 or req.base_config.batch_size > 9999:
+        raise HTTPException(400, detail=get_error_message("batch_too_large"))
+
     # 生成组合
     prompts = req.prompts
     if req.prompt_file:
@@ -235,6 +328,23 @@ async def generate_batch(req: BatchGenerateRequest, request: Request) -> dict[st
     # 笛卡尔积
     import itertools
     grid_combos = list(itertools.product(*grid_values)) if grid_values else [()]
+
+    # 内容安全过滤（与单图 /generate 对齐：逐条过滤，任一命中即拒绝；
+    # 参考图（若有）CLIP 图检一次，作用于整批）
+    from ..security.content_filter import filter_image_generation
+    ref_image_path = _resolve_reference_image(req.base_config, cfg)
+    # CLIP 检测为同步阻塞（首次加载 2-5s，后续每张百 ms 级）：
+    # 放入默认线程池执行，避免阻塞事件循环（对齐 task_queue/native engine 的 run_in_executor 风格）
+    for p in prompts:
+        is_safe, reason = await asyncio.get_running_loop().run_in_executor(
+            None,
+            filter_image_generation,
+            p,
+            ref_image_path,
+            cfg.security.content_filter.fail_closed_on_clip_missing,
+        )
+        if not is_safe:
+            raise HTTPException(400, detail=get_error_message("content_blocked", reason=reason))
 
     # 计算总任务数
     total = len(prompts) * len(grid_combos)
@@ -261,7 +371,7 @@ async def generate_batch(req: BatchGenerateRequest, request: Request) -> dict[st
             task = Task(
                 task_id=task_id,
                 engine=engine_name,
-                config=gen_config.model_dump(),
+                config=gen_config.model_dump(exclude={"reference_image_path", "reference_image_b64"}),
                 mode="batch",
                 batch_id=batch_id,
             )
@@ -270,7 +380,7 @@ async def generate_batch(req: BatchGenerateRequest, request: Request) -> dict[st
                 engine=engine_name,
                 mode="batch",
                 prompt=prompt,
-                generation_config=gen_config.model_dump(),
+                generation_config=gen_config.model_dump(exclude={"reference_image_path", "reference_image_b64"}),
             )
             await task_queue.submit(task)
             task_ids.append(task_id)
