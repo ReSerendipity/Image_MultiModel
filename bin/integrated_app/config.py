@@ -19,6 +19,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
+import re
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -91,6 +92,26 @@ def _resolve_path(config_path: str | None) -> Path:
     return get_project_root() / "config.yaml"
 
 
+_ENV_PATTERN = re.compile(r"^\$\{([A-Za-z_][A-Za-z0-9_]*):(.*)\}$")
+
+
+def _expand_env_value(value: Any) -> Any:
+    """递归展开 `` 占位符（仅完整匹配的字符串）。
+
+    支持 config.yaml 中的环境变量注入写法，例如 ``：
+    环境变量存在时取其值，否则用 `:` 后的默认值。
+    """
+    if isinstance(value, str):
+        m = _ENV_PATTERN.match(value)
+        if m:
+            return os.environ.get(m.group(1), m.group(2))
+        return value
+    if isinstance(value, dict):
+        return {k: _expand_env_value(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_expand_env_value(v) for v in value]
+    return value
+
 # ── P0-2: 配置加载回退机制（来源：Seedvr2） ──────────────────
 
 
@@ -120,6 +141,7 @@ def load_validated_config(config_path: str | None = None) -> AppConfig:
     _config_path = p
     with open(p, encoding="utf-8") as f:
         raw = yaml.safe_load(f) or {}
+        raw = _expand_env_value(raw)
 
     project_root = str(p.parent.resolve())
     _config = AppConfig.from_yaml(raw, project_root=project_root)
@@ -160,6 +182,7 @@ def load_config(config_path: str | None = None) -> AppConfig:
             _config_path = p
             with open(p, encoding="utf-8") as f:
                 raw = yaml.safe_load(f) or {}
+                raw = _expand_env_value(raw)
 
             project_root = str(p.parent.resolve())
             # 逐 section 过滤：只保留 AppConfig 认识的字段

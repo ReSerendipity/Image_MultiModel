@@ -40,28 +40,79 @@ router = APIRouter(prefix="/api", tags=["system"])
 
 
 @router.get("/health")
-async def health_check() -> dict[str, Any]:
+async def health_check(request: Request) -> dict[str, Any]:
     """
-    GET /api/health — 后端/引擎/队列状态摘要
+    GET /api/health — 后端/引擎/队列/资源状态摘要（真实数据源）
     """
     cfg = get_config()
 
-    # 获取队列状态（如果已初始化）
+    # 队列状态（来自 app.state.task_queue 实时统计）
     queue_status: dict[str, Any] = {}
-    # queue 实例由 app_server 注入到 request.app.state
+    task_queue = getattr(request.app.state, "task_queue", None)
+    if task_queue is not None:
+        tasks = task_queue.list_tasks()
+        from ..task_queue import TaskStatus
+        status_count = {
+            "pending": 0, "processing": 0, "completed": 0,
+            "failed": 0, "cancelled": 0,
+        }
+        for t in tasks:
+            key = t.status.value if hasattr(t.status, "value") else str(t.status)
+            if key in status_count:
+                status_count[key] += 1
+        queue_status = {
+            "total": len(tasks),
+            "pending": status_count["pending"],
+            "processing": status_count["processing"],
+            "completed": status_count["completed"],
+            "failed": status_count["failed"],
+            "cancelled": status_count["cancelled"],
+        }
 
     # GPU 状态
     gpu = get_gpu_info()
 
-    # 引擎状态
+    # 系统内存（psutil，requirements 已声明）
+    memory_info: dict[str, Any] = {}
+    try:
+        import psutil
+        vm = psutil.virtual_memory()
+        memory_info = {
+            "total_gb": round(vm.total / (1024**3), 1),
+            "used_gb": round(vm.used / (1024**3), 1),
+            "free_gb": round(vm.available / (1024**3), 1),
+            "percent": vm.percent,
+        }
+    except Exception as e:
+        logger.warning(f"Memory info unavailable: {e}")
+        memory_info = {"total_gb": 0, "used_gb": 0, "free_gb": 0, "percent": 0}
+
+    # 引擎状态（model_manager 真实加载状态）
     engines: list = []
-    for eng_name, eng_cfg in cfg.models.engines.items():
-        engines.append({
-            "name": eng_name,
-            "display_name": eng_cfg.display_name,
-            "ready": False,  # M0 阶段无引擎加载
-            "active": eng_name == cfg.models.default_engine,
-        })
+    try:
+        from ..model_manager import get_model_manager
+        from ..engine_interface import get_registry
+        registry = get_registry()
+        model_mgr = get_model_manager()
+        for eng_name, eng_cfg in cfg.models.engines.items():
+            state = model_mgr.get_state(eng_name).value
+            engines.append({
+                "name": eng_name,
+                "display_name": eng_cfg.display_name,
+                "ready": state == "loaded",
+                "state": state,
+                "active": eng_name == registry.active_engine_name,
+            })
+    except Exception as e:
+        logger.warning(f"Engine state unavailable: {e}")
+        for eng_name, eng_cfg in cfg.models.engines.items():
+            engines.append({
+                "name": eng_name,
+                "display_name": eng_cfg.display_name,
+                "ready": False,
+                "state": "unknown",
+                "active": eng_name == registry.active_engine_name,
+            })
 
     return {
         "status": "ok",
@@ -75,8 +126,10 @@ async def health_check() -> dict[str, Any]:
             "name": gpu.gpu_name,
             "backend": gpu.backend,
             "total_vram_gb": gpu.total_vram_gb,
+            "used_vram_gb": gpu.used_vram_gb,
             "free_vram_gb": gpu.free_vram_gb,
         },
+        "memory": memory_info,
         "disk": _disk_info(),
         "engines": engines,
         "queue": queue_status,

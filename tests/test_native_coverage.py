@@ -12,7 +12,7 @@ from integrated_app.native import executor, lora, seedvr, source, vram
 from integrated_app.native.engine import NativeEngine, _map_phase
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-COMFY_ROOT = PROJECT_ROOT / "references" / "ComfyUI"
+COMFY_ROOT = PROJECT_ROOT / "comfy_kernel"
 
 def _fake_comfy_submodule(name):
     """构造 fake comfy 包 + 子模块，避免命中真实已导入的 comfy 包。"""
@@ -43,8 +43,9 @@ def test_encode_conditioning():
 
 def test_vae_decode():
     class _Vae:
+        # executor._vae_decode 直接把 latent 张量传给 vae.decode（对齐 Z-Image VAE 接口）
         def decode(self, payload):
-            return payload["samples"]
+            return payload
     latent = torch.zeros(1, 2, 2, 3)
     assert executor._vae_decode(_Vae(), latent) is latent
 
@@ -160,7 +161,10 @@ def test_save_outputs_full_flow(monkeypatch, tmp_path):
     gcfg = GenerationConfig(workflow_sha256="a" * 64)
     saved = eng._save_outputs(images, gcfg)
     assert len(saved) == 1
-    assert Path(saved[0]).exists()
+    # 返回值应为相对 outputs/ 目录的路径（供前端 /api/outputs/<rel> 直接访问）
+    assert ".." not in saved[0]
+    assert not Path(saved[0]).is_absolute()
+    assert (tmp_path / "outputs" / saved[0]).exists()
     thumbs = list((tmp_path / "data" / "cache" / "thumbs").glob("*_thumb.png"))
     assert len(thumbs) == 1
 

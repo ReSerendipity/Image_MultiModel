@@ -68,8 +68,20 @@ def _decode_b64_image(image_b64: str) -> np.ndarray:
             image_b64 = image_b64.split(",", 1)[1]
 
         img_data = base64.b64decode(image_b64)
+
+        # SECURITY: 显式魔数校验（对齐 SeedVR2），阻断伪装/非图片数据
+        from bin.integrated_app.security.magic_check import validate_image_magic
+        is_magic, detected_type, error = validate_image_magic(img_data)
+        if not is_magic:
+            raise HTTPException(400, detail=f"Image decode failed: {error}")
+
+        img = Image.open(io.BytesIO(img_data))
+        # 校验图片内容完整性（防"伪图片头但损坏内容"）
+        img.verify()
         img = Image.open(io.BytesIO(img_data))
         return np.array(img.convert("RGB"))
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(400, detail=f"Image decode failed: {e}")
 

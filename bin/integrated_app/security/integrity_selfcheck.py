@@ -41,6 +41,7 @@ _CORE_MODULES = [
     "watermark.py",
     "checkpoint.py",
     "security/path_guard.py",
+    "security/magic_check.py",
     "security/integrity_selfcheck.py",
     "middleware/csrf.py",
     "middleware/rate_limit.py",

@@ -16,15 +16,15 @@ from integrated_app.native import executor
 
 
 def test_latent_shape_batch() -> None:
-    """batch_size>1 时 latent 首维为 batch。"""
-    assert executor.latent_shape(4, 1024, 1024) == [4, 4, 128, 128]
-    assert executor.latent_shape(2, 512, 256) == [2, 4, 32, 64]
+    """batch_size>1 时 latent 首维为 batch；Z-Image DiT latent 为 16 通道。"""
+    assert executor.latent_shape(4, 1024, 1024) == [4, 16, 128, 128]
+    assert executor.latent_shape(2, 512, 256) == [2, 16, 32, 64]
 
 
 def test_build_latent_batch_shape() -> None:
     """build_latent 对 batch 返回正确形状（Batch latent 一次出多图）。"""
     latent = executor.build_latent(3, 1024, 1024)
-    assert list(latent.shape) == [3, 4, 128, 128]
+    assert list(latent.shape) == [3, 16, 128, 128]
 
 
 def test_txt2img_returns_list_per_batch(monkeypatch) -> None:
@@ -57,7 +57,7 @@ def test_cancel_flag_flow_through_engine(monkeypatch) -> None:
     from integrated_app.native.engine import NativeEngine
 
     pytest.importorskip("torch")
-    source.ensure_loaded(comfy_root=__import__("pathlib").Path(__file__).resolve().parent.parent / "references" / "ComfyUI")
+    source.ensure_loaded(comfy_root=__import__("pathlib").Path(__file__).resolve().parent.parent / "comfy_kernel")
 
     eng = NativeEngine(name="z_image_turbo")
     async def scenario() -> bool:

@@ -46,7 +46,7 @@ def test_publish_preview_event_format() -> None:
     import asyncio
 
     asyncio.run(preview.publish_preview(_Bus(), "abc", width=256, fmt="jpg", task_id="t1"))
-    assert captured["event"] == "comfy_preview"
+    assert captured["event"] == "preview"
     assert captured["data"]["b64"] == "abc"
     assert captured["data"]["format"] == "jpg"
     assert captured["data"]["width"] == 256
@@ -66,7 +66,7 @@ def test_publish_preview_tensor_combines() -> None:
 
     img = torch.zeros(1, 16, 16, 3)
     asyncio.run(preview.publish_preview_tensor(_Bus(), img, max_width=8, task_id="t2"))
-    assert captured["event"] == "comfy_preview"
+    assert captured["event"] == "preview"
     assert captured["data"]["format"] == "jpg"
     assert captured["data"]["width"] == 8
     # b64 可解码

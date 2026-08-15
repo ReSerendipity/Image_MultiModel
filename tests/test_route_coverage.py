@@ -56,9 +56,6 @@ class TestEngineRoutes:
         r = client.post("/api/engine/unload")
         assert r.status_code in (200, 400, 404, 500)
 
-    def test_free_vram(self, client):
-        r = client.post("/api/engine/free")
-        assert r.status_code in (200, 400, 404, 500)
 
     def test_load_engine_missing_body(self, client):
         r = client.post("/api/engine/load", json={})

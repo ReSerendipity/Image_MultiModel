@@ -135,6 +135,14 @@ def _image_bytes_to_tensor(image_bytes: bytes) -> torch.Tensor:
     import numpy as np
     from PIL import Image
 
+    # SECURITY: 显式魔数校验（对齐 SeedVR2），阻断伪装/非图片数据
+    from bin.integrated_app.security.magic_check import validate_image_magic
+    is_magic, _, error = validate_image_magic(image_bytes)
+    if not is_magic:
+        raise ValueError(f"Invalid image magic: {error}")
+
+    img = Image.open(io.BytesIO(image_bytes))
+    img.verify()
     img = Image.open(io.BytesIO(image_bytes))
     if img.mode != "RGB":
         img = img.convert("RGB")

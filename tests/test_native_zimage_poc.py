@@ -18,20 +18,20 @@ from integrated_app.native import executor, source
 from integrated_app.native.engine import NativeEngine
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-COMFY_ROOT = PROJECT_ROOT / "references" / "ComfyUI"
+COMFY_ROOT = PROJECT_ROOT / "comfy_kernel"
 
 
 # ── 纯逻辑测试（不依赖 torch / Comfy）────────────────────────
 def test_latent_shape_defaults() -> None:
     """空 latent 形状：[batch, 4, height//8, width//8]。"""
-    assert executor.latent_shape(1, 1024, 1024) == [1, 4, 128, 128]
-    assert executor.latent_shape(2, 512, 256) == [2, 4, 32, 64]
+    assert executor.latent_shape(1, 1024, 1024) == [1, 16, 128, 128]
+    assert executor.latent_shape(2, 512, 256) == [2, 16, 32, 64]
 
 
 def test_build_latent_zeros() -> None:
     """build_latent 返回全零且形状正确。"""
     latent = executor.build_latent(1, 1024, 1024)
-    assert list(latent.shape) == [1, 4, 128, 128]
+    assert list(latent.shape) == [1, 16, 128, 128]
     assert (latent == 0).all()
 
 

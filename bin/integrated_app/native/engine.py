@@ -199,7 +199,10 @@ class NativeEngine:
             if thumb_enabled and thumb_dir is not None:
                 self._make_thumbnail(path, thumb_dir, f"{task_id[:16]}_{idx}_thumb.png", thumb_max_side)
 
-            saved.append(str(path).replace("\\", "/"))
+            # 存相对路径（相对 outputs/ 目录），供前端 /api/outputs/<rel> 直接访问
+            base = (Path(cfg.project_root) / cfg.output.base_dir).resolve()
+            rel = str(path.relative_to(base)).replace("\\", "/")
+            saved.append(rel)
         return saved
 
     @staticmethod

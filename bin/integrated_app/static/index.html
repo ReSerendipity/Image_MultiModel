@@ -314,11 +314,6 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
 .sb-click{cursor:pointer}
 .sb-click:hover{color:var(--accent)}
 /* 批量（底抽屉内） */
-.tabs{display:flex;gap:4px;border-bottom:1px solid var(--wire);margin-bottom:12px}
-.tab{padding:7px 14px;border:none;background:none;font-size:12px;color:var(--ink-soft);border-bottom:2px solid transparent}
-.tab.active{color:var(--accent-strong);border-bottom-color:var(--accent);font-weight:600}
-.tabpane{display:none}
-.tabpane.active{display:block}
 .dropzone{border:2px dashed var(--wire-strong);border-radius:var(--radius);padding:20px;text-align:center;color:var(--ink-soft);background:var(--surface);margin-bottom:10px;cursor:pointer;transition:all .15s}
 .dropzone:hover{border-color:var(--accent);color:var(--accent)}
 .dropzone b{font-size:12px}
@@ -455,7 +450,7 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
     <span class="ico-wrap" data-component="Engine Menu">
       <button class="icon-btn" id="engIcon" title="切换模型" type="button">◈<span class="btn-label">模型</span></button>
       <div class="ico-pop" id="engMenu">
-        <button class="ip-item on" data-v="z_image_turbo_native" type="button">Z-Image Turbo（原生）</button>
+        <button class="ip-item on" data-v="z_image_turbo_native" type="button">加载中…</button>
       </div>
     </span>
     <span class="ico-wrap" data-component="Language Menu">
@@ -469,7 +464,7 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
       </div>
     </span>
     <select id="engineSelect" style="display:none" aria-label="引擎">
-      <option value="z_image_turbo_native">Z-Image Turbo（原生）</option>
+      <option value="z_image_turbo_native">加载中…</option>
     </select>
     <select id="langSelect" style="display:none" aria-label="语言">
       <option value="zh-CN">简体中文</option>
@@ -506,20 +501,20 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
     <div class="gen-row" data-component="Actions Row">
       <button class="btn-gen" id="genBtn" type="button" data-i18n="btn_generate">▶ 生成</button>
       <div class="snap-row" data-component="Param Snapshot">
-        <span class="snap">引擎 <b id="snapEngine">Z-Image Turbo</b></span>
+        <span class="snap">引擎 <b id="snapEngine">—</b></span>
         <span class="snap">分辨率 <b id="snapRes">1024 × 1024</b></span>
         <span class="snap">steps <b id="snapSteps">8</b></span>
         <span class="snap">cfg <b id="snapCfg">1.0</b></span>
-        <span class="snap">预计 <b id="snapOut">3</b> 张</span>
+        <span class="snap">预计 <b id="snapOut">1</b> 张</span>
       </div>
     </div>
 
-    <div class="est-line" id="estLine" data-component="Estimate Line">预计生成 <b>3</b> 张 = 1 Prompt × 1 batch × (SeedVR2×2 + Eses×1)</div>
+    <div class="est-line" id="estLine" data-component="Estimate Line">预计生成 <b>1</b> 张 = 1 Prompt × 1 batch</div>
     <div class="warn-box yellow" id="warn500" data-component="Batch Warning">⚠ 超过 500 张：建议夜间生成，预计约 40min（RTX 4090 估算）</div>
     <div class="warn-box red" id="warn5000" data-component="Batch Warning">⚠ 超过 5000 张：自动断点续跑（每 100 张 checkpoint），点击「生成」需二次确认（倒计时 5s）</div>
 
     <div class="gen-progress" id="genProgress" data-component="Generation Progress">
-      <div class="phase-line"><span id="phaseText">空闲 · 引擎已就绪（Z-Image Turbo）</span><span>chunk 0/0</span></div>
+      <div class="phase-line"><span id="phaseText">空闲</span><span></span></div>
       <div class="progress"><i id="progFill"></i></div>
     </div>
 
@@ -569,21 +564,21 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
         <div class="acc-body">
           <div class="hint" style="margin-bottom:8px">顺序 = 工作流 LoraLoaderModelOnly id=16→21（UNETLoader → CFGGuider），不得乱序；选「— 禁用 —」自动跳过该层并重连链路。</div>
           <div id="loraStack">
-            <div class="lora-row"><span class="lora-badge">L1</span><select class="lora-name"><option>— 禁用 —</option><option>.safetensors</option><option>人像风格LoRA.safetensors</option></select><div class="lora-off-hint">⚠ 该层已禁用（mode=4 跳过，MODEL 链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="1.0"><span class="range-val">1.00</span></div></div>
-            <div class="lora-row"><span class="lora-badge">L2</span><select class="lora-name"><option>— 禁用 —</option><option>人像风格LoRA.safetensors</option></select><div class="lora-off-hint">⚠ 该层已禁用（mode=4 跳过，MODEL 链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="0.7"><span class="range-val">0.70</span></div></div>
-            <div class="lora-row"><span class="lora-badge">L3</span><select class="lora-name"><option>— 禁用 —</option><option>人像风格LoRA.safetensors</option></select><div class="lora-off-hint">⚠ 该层已禁用（mode=4 跳过，MODEL 链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="0.5"><span class="range-val">0.50</span></div></div>
-            <div class="lora-row"><span class="lora-badge">L4</span><select class="lora-name"><option>— 禁用 —</option><option>人像风格LoRA.safetensors</option></select><div class="lora-off-hint">⚠ 该层已禁用（mode=4 跳过，MODEL 链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="0.4"><span class="range-val">0.40</span></div></div>
-            <div class="lora-row"><span class="lora-badge">L5</span><select class="lora-name"><option>— 禁用 —</option><option>人像风格LoRA.safetensors</option></select><div class="lora-off-hint">⚠ 该层已禁用（mode=4 跳过，MODEL 链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="0.3"><span class="range-val">0.30</span></div></div>
-            <div class="lora-row"><span class="lora-badge">L6</span><select class="lora-name"><option>— 禁用 —</option><option>.safetensors</option></select><div class="lora-off-hint">⚠ 该层已禁用（mode=4 跳过，MODEL 链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="0.2"><span class="range-val">0.20</span></div></div>
+            <div class="lora-row"><span class="lora-badge">L1</span><select class="lora-name" disabled><option>— 禁用 —</option></select><div class="lora-off-hint">⚠ 该层已禁用（mode=4 跳过，MODEL 链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="1.0"><span class="range-val">1.00</span></div></div>
+            <div class="lora-row"><span class="lora-badge">L2</span><select class="lora-name" disabled><option>— 禁用 —</option></select><div class="lora-off-hint">⚠ 该层已禁用（mode=4 跳过，MODEL 链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="0.7"><span class="range-val">0.70</span></div></div>
+            <div class="lora-row"><span class="lora-badge">L3</span><select class="lora-name" disabled><option>— 禁用 —</option></select><div class="lora-off-hint">⚠ 该层已禁用（mode=4 跳过，MODEL 链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="0.5"><span class="range-val">0.50</span></div></div>
+            <div class="lora-row"><span class="lora-badge">L4</span><select class="lora-name" disabled><option>— 禁用 —</option></select><div class="lora-off-hint">⚠ 该层已禁用（mode=4 跳过，MODEL 链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="0.4"><span class="range-val">0.40</span></div></div>
+            <div class="lora-row"><span class="lora-badge">L5</span><select class="lora-name" disabled><option>— 禁用 —</option></select><div class="lora-off-hint">⚠ 该层已禁用（mode=4 跳过，MODEL 链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="0.3"><span class="range-val">0.30</span></div></div>
+            <div class="lora-row"><span class="lora-badge">L6</span><select class="lora-name" disabled><option>— 禁用 —</option></select><div class="lora-off-hint">⚠ 该层已禁用（mode=4 跳过，MODEL 链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="0.2"><span class="range-val">0.20</span></div></div>
           </div>
           <div class="warn-box yellow show">⚠ 默认 LoRA 已在磁盘找到；缺失将自动 _disabled + 黄提示。</div>
         </div>
       </div>
       <div class="acc open" data-component="Param Group SeedVR2">
-        <button class="acc-head" type="button"><span class="acc-num">04</span><span>SeedVR2 超分</span><span class="acc-badge">on</span><span class="acc-chev">▾</span></button>
+        <button class="acc-head" type="button"><span class="acc-num">04</span><span>SeedVR2 超分</span><span class="acc-badge">待接入</span><span class="acc-chev">▾</span></button>
         <div class="acc-body">
           <div class="fgrid">
-            <div class="fgroup full"><label>启用 SeedVR2 超分（ema_vae + 3B DiT）</label><label class="switch"><input type="checkbox" id="seedvr2Toggle" checked><span class="sl"></span></label></div>
+            <div class="fgroup full"><label>启用 SeedVR2 超分（后端未接入，暂不生效）</label><label class="switch"><input type="checkbox" id="seedvr2Toggle"><span class="sl"></span></label></div>
             <div class="fgroup"><label>超分分辨率（最短边）</label><select id="upscaleRes"><option>1024</option><option>1536</option><option selected>2048</option><option>3072</option><option>4096</option></select></div>
             <div class="fgroup"><label>色彩校正</label><select id="colorCorr"><option>off</option><option selected>lab</option><option>adain</option><option>none</option></select></div>
             <div class="fgroup"><label>upscale_seed（独立）</label><div class="frow"><div class="stepper wide" data-min="-1" data-max="9007199254740991" data-step="1"><button class="st-dec" type="button">−</button><input id="upscaleSeed" value="-1"><button class="st-inc" type="button">+</button></div><button class="btn btn-sm dice" data-target="upscaleSeed" type="button">⚄</button></div></div>
@@ -594,7 +589,7 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
         <button class="acc-head" type="button"><span class="acc-num">05</span><span>对比 + 显存预留</span><span class="acc-chev">▾</span></button>
         <div class="acc-body">
           <div class="fgrid">
-            <div class="fgroup"><label>Eses 双图对比</label><label class="switch"><input type="checkbox" id="esesToggle" checked><span class="sl"></span></label><div class="frow" style="margin-top:6px"><label class="hint">轴</label><label style="font-size:11px"><input type="radio" name="axis" value="horizontal" checked> h</label><label style="font-size:11px"><input type="radio" name="axis" value="vertical"> v</label><label style="font-size:11px"><input type="radio" name="axis" value="slider"> s</label></div></div>
+            <div class="fgroup"><label>Eses 双图对比（后端未接入，暂不生效）</label><label class="switch"><input type="checkbox" id="esesToggle"><span class="sl"></span></label><div class="frow" style="margin-top:6px"><label class="hint">轴</label><label style="font-size:11px"><input type="radio" name="axis" value="horizontal" checked> h</label><label style="font-size:11px"><input type="radio" name="axis" value="vertical"> v</label><label style="font-size:11px"><input type="radio" name="axis" value="slider"> s</label></div></div>
             <div class="fgroup"><label>ReservedVRAM 显存预留</label><label class="switch"><input type="checkbox" id="vramToggle" checked><span class="sl"></span></label><div class="frow" style="margin-top:6px;gap:6px"><input type="number" id="vramGb" value="0.6" min="0" max="10" step="0.05" style="width:70px"><span class="hint">GB</span></div><div class="frow" style="margin-top:6px;gap:6px"><select id="vramMode" style="width:86px"><option selected>auto</option><option>manual</option></select><div class="stepper wide" data-min="-1" data-max="9007199254740991" data-step="1"><button class="st-dec" type="button">−</button><input id="vramSeed" value="-1"><button class="st-inc" type="button">+</button></div><button class="btn btn-sm dice" data-target="vramSeed" type="button">⚄</button></div></div>
           </div>
         </div>
@@ -684,51 +679,6 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
   </div>
 </aside>
 
-<!-- ========== 批量（底抽屉） ========== -->
-<aside class="batch-drawer" id="batchDrawer" data-component="Batch Drawer">
-  <div class="ov-head"><span><span class="no">/</span>批量模式<span class="hint">底抽屉 · Prompt 文件 / 参数网格</span></span><button class="icon-btn" id="batchClose" type="button">✕</button></div>
-  <div class="ov-body">
-    <div class="tabs">
-      <button class="tab active" data-t="bpane-file" type="button" data-i18n="batch_prompt_file">Prompt 文件</button>
-      <button class="tab" data-t="bpane-grid" type="button" data-i18n="batch_param_grid">参数网格</button>
-    </div>
-    <section class="tabpane active" id="bpane-file">
-      <div class="dropzone" id="dropzone"><b>拖拽或点击上传 Prompt 文件</b><p>支持 .txt / .csv · 每行一个 Prompt</p></div>
-      <div class="file-list">
-        <div class="f-row"><span class="nm">prompts_portrait.txt</span><span class="sz">2.1 KB · 20 行</span><span class="st ok">解析完成</span></div>
-        <div class="f-row"><span class="nm">prompts_cyberpunk.csv</span><span class="sz">3.4 KB · 32 行</span><span class="st ok">解析完成</span></div>
-      </div>
-      <div class="cfg-row">
-        <span class="lbl">每行 batch</span><select style="width:104px"><option>1</option><option>2</option><option>4</option></select>
-        <span class="lbl">覆盖策略</span><select style="width:130px"><option>存在则跳过（默认）</option><option>覆盖同名输出</option></select>
-      </div>
-    </section>
-    <section class="tabpane" id="bpane-grid">
-      <div class="dims">
-        <div class="dim"><input type="checkbox" id="gW" checked><div class="dim-name">width<small>16 倍数</small></div><div class="vals"><label class="checked"><input type="checkbox" checked>512</label><label class="checked"><input type="checkbox" checked>768</label><label><input type="checkbox">1024</label></div></div>
-        <div class="dim"><input type="checkbox" id="gH" checked><div class="dim-name">height<small>16 倍数</small></div><div class="vals"><label class="checked"><input type="checkbox" checked>512</label><label class="checked"><input type="checkbox" checked>768</label><label><input type="checkbox">1024</label></div></div>
-        <div class="dim"><input type="checkbox" id="gS" checked><div class="dim-name">steps</div><div class="vals"><label class="checked"><input type="checkbox" checked>4</label><label class="checked"><input type="checkbox" checked>8</label><label><input type="checkbox">16</label></div></div>
-        <div class="dim"><input type="checkbox" id="gC"><div class="dim-name">cfg</div><div class="vals"><label><input type="checkbox">1.0</label><label><input type="checkbox">2.0</label></div></div>
-      </div>
-    </section>
-    <div class="b-grid">
-      <div class="b-panel" data-component="Batch Summary">
-        <h3>批次估算</h3>
-        <div class="kv"><span>Prompt 文件</span><b>2 个 · 52 行</b></div>
-        <div class="kv"><span>参数网格组合</span><b id="gridCombo">2×2×2 = 8 组</b></div>
-        <div class="big-est" id="bEst">预计生成 <b>180</b> 张 = (52 + 8) × 1 × 3</div>
-        <div class="warn-box yellow" id="bWarn500">⚠ 超过 500 张：建议夜间生成</div>
-        <div class="warn-box red" id="bWarn5000">⚠ 超过 5000 张：断点续跑 + 二次确认</div>
-        <div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-primary" style="flex:1" type="button" data-i18n="btn_generate_batch">▶ 生成批次</button><button class="btn btn-ghost" type="button" data-i18n="btn_cancel">取消</button></div>
-      </div>
-      <div class="b-panel" data-component="Batch Queue">
-        <h3>任务队列</h3>
-        <div class="queue-item"><div class="qi-main"><div class="qi-title">b4f2 · prompts_portrait × 20</div><div class="qi-sub">chunk 12/20 · 进行中</div></div><span style="font-size:10px;font-weight:600;color:var(--accent-strong)">60%</span></div>
-        <div class="queue-item"><div class="qi-main"><div class="qi-title">b4f1 · 网格 8 组 × 4</div><div class="qi-sub">排队中</div></div><span style="font-size:10px;color:var(--ink-faint)">—</span></div>
-      </div>
-    </div>
-  </div>
-</aside>
 
 <!-- ========== 设置（底抽屉） ========== -->
 <div class="scrim2" id="setScrim" data-component="Scrim"></div>
@@ -756,20 +706,66 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
   </div>
 </aside>
 
+<!-- ========== 批量（底抽屉） ========== -->
+<aside class="batch-drawer" id="batchDrawer" data-component="Batch Drawer">
+  <div class="ov-head"><span><span class="no">/</span>批量模式<span class="hint">底抽屉 · Prompt 文件 / 参数网格</span></span><button class="icon-btn" id="batchClose" type="button">?</button></div>
+  <div class="ov-body">
+    <div class="tabs">
+      <button class="tab active" data-t="bpane-file" type="button" data-i18n="batch_prompt_file">Prompt 文件</button>
+      <button class="tab" data-t="bpane-grid" type="button" data-i18n="batch_param_grid">参数网格</button>
+    </div>
+    <section class="tabpane active" id="bpane-file">
+      <input type="file" id="bFileInput" accept=".txt,.csv,text/plain,text/csv" multiple style="display:none">
+      <div class="dropzone" id="bDropzone"><b>拖拽或点击上传 Prompt 文件</b><p>支持 .txt / .csv · 每行一个 Prompt · 空行自动过滤 · 跨文件去重</p></div>
+      <div class="file-list" id="bFileList"><p style="text-align:center;color:var(--ink-faint);font-size:10px;padding:8px 0">未添加文件</p></div>
+      <div class="cfg-row">
+        <span class="lbl">每行 batch</span>
+        <select id="bBatchSize" style="width:110px"><option value="1">batch_size 1</option><option value="2">batch_size 2</option><option value="4">batch_size 4</option></select>
+      </div>
+    </section>
+    <section class="tabpane" id="bpane-grid">
+      <div class="dims">
+        <div class="dim"><input type="checkbox" id="gW" checked><div class="dim-name">width<small>16 倍数</small></div><div class="vals"><label class="checked"><input type="checkbox" checked>512</label><label class="checked"><input type="checkbox" checked>768</label><label><input type="checkbox">1024</label><label><input type="checkbox">1536</label></div></div>
+        <div class="dim"><input type="checkbox" id="gH" checked><div class="dim-name">height<small>16 倍数</small></div><div class="vals"><label class="checked"><input type="checkbox" checked>512</label><label class="checked"><input type="checkbox" checked>768</label><label><input type="checkbox">1024</label><label><input type="checkbox">1536</label></div></div>
+        <div class="dim"><input type="checkbox" id="gS" checked><div class="dim-name">steps</div><div class="vals"><label class="checked"><input type="checkbox" checked>4</label><label class="checked"><input type="checkbox" checked>8</label><label><input type="checkbox">16</label></div></div>
+        <div class="dim"><input type="checkbox" id="gC"><div class="dim-name">cfg</div><div class="vals"><label><input type="checkbox">1.0</label><label><input type="checkbox">2.0</label><label><input type="checkbox">4.0</label></div></div>
+      </div>
+      <div class="hint" style="margin-top:6px">勾选的参数值做笛卡尔积展开为参数组合；提交时随 base_config 一起发送给后端。</div>
+    </section>
+    <div class="b-grid">
+      <div class="b-panel" data-component="Batch Summary">
+        <h3>批次估算</h3>
+        <div class="kv"><span>Prompt 文件</span><b id="bFileStat">0 个 · 0 行</b></div>
+        <div class="kv"><span>参数网格组合</span><b id="gridCombo">—</b></div>
+        <div class="kv"><span>每行 batch</span><b id="bBatchStat">1</b></div>
+        <div class="big-est" id="bEst">预计生成 <b>0</b> 张 = 0 行 × 0 组 × batch 1</div>
+        <div class="warn-box yellow" id="bWarn500">? 超过 500 张：建议夜间生成</div>
+        <div class="warn-box red" id="bWarn5000">? 超过 5000 张：断点续跑 + 二次确认</div>
+        <div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-primary" style="flex:1" id="bSubmit" type="button" data-i18n="btn_generate_batch">? 生成批次</button><button class="btn btn-ghost" id="bCancel" type="button" data-i18n="btn_cancel">取消</button></div>
+      </div>
+      <div class="b-panel" data-component="Batch Queue">
+        <h3>任务队列</h3>
+        <div id="bQueueList"><p style="text-align:center;color:var(--ink-faint);font-size:10px;padding:10px 0">加载中…</p></div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- ========== 状态（顶抽屉） ========== -->
 <!-- ========== 状态（顶抽屉） ========== -->
 <aside class="stat-drawer" id="statDrawer" data-component="Status Drawer">
-  <div class="ov-head"><span><span class="no">/</span>系统状态<span class="hint">顶抽屉 · 点击底栏状态区展开</span></span><button class="icon-btn" id="statClose" type="button">✕</button></div>
+  <div class="ov-head"><span><span class="no">/</span>系统状态<span class="hint">顶抽屉 · 点击底栏状态区展开</span></span><button class="icon-btn" id="statClose" type="button">?</button></div>
   <div class="ov-body">
     <div class="stat-bars">
-      <div class="stat-bar"><div class="k"><span>GPU 显存</span><span>42%</span></div><div class="v">16.2 / 24 GB</div><div class="bar"><i style="width:67%"></i></div></div>
-      <div class="stat-bar"><div class="k"><span>系统内存</span><span>18%</span></div><div class="v">11.8 / 64 GB</div><div class="bar"><i style="width:18%"></i></div></div>
-      <div class="stat-bar"><div class="k"><span>磁盘 outputs/</span><span>3%</span></div><div class="v">12.6 / 480 GB</div><div class="bar"><i style="width:3%"></i></div></div>
+      <div class="stat-bar"><div class="k"><span>GPU 显存</span><span id="statGpuPct">—</span></div><div class="v" id="statGpu">—</div><div class="bar"><i id="statGpuBar" style="width:0%"></i></div></div>
+      <div class="stat-bar"><div class="k"><span>系统内存</span><span id="statMemPct">—</span></div><div class="v" id="statMem">—</div><div class="bar"><i id="statMemBar" style="width:0%"></i></div></div>
+      <div class="stat-bar"><div class="k"><span>磁盘 outputs/</span><span id="statDiskPct">—</span></div><div class="v" id="statDisk">—</div><div class="bar"><i id="statDiskBar" style="width:0%"></i></div></div>
     </div>
     <div class="ov-sec"><h4>引擎与资源</h4>
-      <div class="back-row"><b>Z-Image-Turbo（原生）</b><span style="color:var(--ink-faint)">进程内引擎 · bf16</span><span class="chip ok">就绪</span></div>
-      <div class="back-row"><b>LoRA 资源</b><span style="color:var(--ink-faint)">loras/ · 23 个文件</span><span class="chip ok">就绪</span></div>
+      <div id="statEngines"><div class="back-row"><b>加载中…</b></div></div>
+      <div class="back-row"><b>LoRA 资源</b><span style="color:var(--ink-faint)" id="statLoras">—</span><span class="chip" id="statLorasChip">—</span></div>
     </div>
-    <div style="display:flex;gap:8px;margin-top:4px"><button class="btn" type="button">刷新状态</button></div>
+    <div style="display:flex;gap:8px;margin-top:4px"><button class="btn" id="statRefresh" type="button">刷新状态</button></div>
   </div>
 </aside>
 
@@ -784,7 +780,7 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
       <p class="desc">面向本地 AI 图像生成的工作台：Z-Image-Turbo 原生引擎进程内推理，LoRA 六层叠加、SeedVR2 超分、Eses 双图对比与显存预留，以对话式主界面屏蔽工作流复杂度。</p>
       <div class="kv3">
         <div class="it"><b>作者</b><span>ReSerendipity</span></div>
-        <div class="it"><b>当前版本</b><span>v1.0.0</span></div>
+        <div class="it"><b>当前版本</b><span id="aboutVersion">—</span></div>
         <div class="it"><b>协议</b><span>Apache 2.0</span></div>
       </div>
       <div class="about-links">
@@ -825,7 +821,7 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
 </div>
 
 <!-- ========== 队列悬浮球 ========== -->
-<div class="queue-pill" id="queuePill" data-component="Queue Pill"><span class="qd" id="qpDot"></span><span id="qpText">队列 1·0</span><span class="pct" id="qpPct" style="display:none"></span></div>
+<div class="queue-pill" id="queuePill" data-component="Queue Pill"><span class="qd" id="qpDot"></span><span id="qpText">队列 —</span><span class="pct" id="qpPct" style="display:none"></span></div>
 <div class="queue-pop" id="queuePop" data-component="Queue Popover">
   <div class="qp-head"><span>任务队列</span><button class="icon-btn" id="qpClose" style="width:20px;height:20px;font-size:10px" type="button">✕</button></div>
   <div id="queueItems"><p style="text-align:center;color:var(--ink-faint);font-size:10px;padding:10px">加载中…</p></div>
@@ -834,11 +830,10 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
 
 <!-- ========== 底栏 ========== -->
 <footer class="statusbar" data-component="Statusbar">
-  <div class="sb-item sb-click" id="sbConn"><span class="dot green"></span>ENGINE: Z-IMAGE TURBO</div>
-  <div class="sb-item sb-click" id="sbQueue">QUEUE 1·0</div>
+  <div class="sb-item sb-click" id="sbConn"><span class="dot" id="sbConnDot"></span><span id="sbConnText">连接中…</span></div>
+  <div class="sb-item sb-click" id="sbQueue">QUEUE —</div>
   <div class="sb-right">
-    <div class="sb-item sb-gpu">GPU 16.2/24GB</div>
-    <div class="sb-item">ENGINE: Z-IMAGE TURBO</div>
+    <div class="sb-item sb-gpu">GPU —</div>
     <span class="zoom"><button class="z-btn" id="zOut" type="button" aria-label="缩小">−</button><span class="z-val" id="zVal">100%</span><button class="z-btn" id="zIn" type="button" aria-label="放大">＋</button></span>
   </div>
 </footer>
@@ -894,7 +889,7 @@ function openGalleryD(){closeRight();closeBottom();closeTop();closeHist();docume
 document.getElementById('openGallery').addEventListener('click',openGalleryD);
 document.getElementById('openHistory').addEventListener('click',openHistD);
 document.getElementById('openPresets').addEventListener('click',function(){openRight('presets');showPList();});
-document.getElementById('openBatch').addEventListener('click',function(){closeRight();closeTop();closeHist();closeGalleryD();document.getElementById('batchDrawer').classList.add('open');});
+document.getElementById('openBatch').addEventListener('click',function(){closeRight();closeTop();closeHist();closeGalleryD();document.getElementById('batchDrawer').classList.add('open');renderBatchQueue();});
 document.getElementById('histClose').addEventListener('click',closeHist);
 document.getElementById('galleryClose').addEventListener('click',closeGalleryD);
 /* ---------- 底部/顶部抽屉 ---------- */
@@ -939,9 +934,9 @@ document.getElementById('b10').addEventListener('click',function(){var e=documen
 document.getElementById('b100').addEventListener('click',function(){var e=document.getElementById('batchSize');e.value=Math.min(9999,(+e.value||0)+100);e.dispatchEvent(new Event('input'));});
 document.getElementById('restoreBtn').addEventListener('click',function(){resetToDefaults();});
 /* ---------- 估算 + 快照 ---------- */
-function estCount(){var n=+document.getElementById('batchSize').value||1;var coef=(document.getElementById('seedvr2Toggle').checked?2:1)+(document.getElementById('esesToggle').checked?1:0);return {n:n,coef:coef,total:n*coef};}
+function estCount(){var n=+document.getElementById('batchSize').value||1;return {n:n,coef:1,total:n};}
 function syncChips(){document.getElementById('snapRes').textContent=document.getElementById('width').value+' × '+document.getElementById('height').value;document.getElementById('snapSteps').textContent=document.getElementById('steps').value;document.getElementById('snapCfg').textContent=document.getElementById('cfg').value;document.getElementById('snapOut').textContent=estCount().total;var es=document.getElementById('engineSelect');document.getElementById('snapEngine').textContent=(window.ENGINES&&ENGINES[es.value])||(es.selectedOptions&&es.selectedOptions[0]&&es.selectedOptions[0].textContent)||'—';}
-function updateEst(){var e=estCount(),line=document.getElementById('estLine');document.getElementById('bsWarn').style.display=e.n>500?'':'none';document.getElementById('bsWarn').style.color=e.n>5000?'var(--red)':'var(--amber)';line.innerHTML='预计生成 <b>'+e.total+'</b> 张 = 1 Prompt × '+e.n+' batch × (SeedVR2'+(e.coef===3?'×2':'')+' + Eses'+(e.coef===3?'×1':'')+')';line.className='est-line'+(e.total>=5000?' red':(e.total>=500?' yellow':''));document.getElementById('warn500').classList.toggle('show',e.total>=500&&e.total<5000);document.getElementById('warn5000').classList.toggle('show',e.total>=5000);syncChips();}
+function updateEst(){var e=estCount(),line=document.getElementById('estLine');document.getElementById('bsWarn').style.display=e.n>500?'':'none';document.getElementById('bsWarn').style.color=e.n>5000?'var(--red)':'var(--amber)';line.innerHTML='预计生成 <b>'+e.total+'</b> 张 = 1 Prompt × '+e.n+' batch';line.className='est-line'+(e.total>=5000?' red':(e.total>=500?' yellow':''));document.getElementById('warn500').classList.toggle('show',e.total>=500&&e.total<5000);document.getElementById('warn5000').classList.toggle('show',e.total>=5000);syncChips();}
 ['batchSize','seedvr2Toggle','esesToggle','width','height','steps','cfg'].forEach(function(id){var el=document.getElementById(id);el.addEventListener('input',updateEst);el.addEventListener('change',updateEst);});
 document.getElementById('engineSelect').addEventListener('change',function(){syncEngMenu();if(_CFG&&_CFG.models&&_CFG.models.engines){var ec=_CFG.models.engines[this.value];if(ec){var w=document.getElementById('width'),h=document.getElementById('height');if(!w.dataset.touched)w.value=ec.default_width||w.value;if(!h.dataset.touched)h.value=ec.default_height||h.value;}}syncChips();updateEst();});
 updateEst();
@@ -987,14 +982,99 @@ document.getElementById('pBack').addEventListener('click',showPList);
 document.getElementById('pCancel').addEventListener('click',showPList);
 document.getElementById('pNew').addEventListener('click',function(){_editPresetId=null;document.getElementById('pName').value='';document.getElementById('pDesc').value='';showPEdit();});
 document.querySelectorAll('#pList .fav').forEach(function(b){b.addEventListener('click',function(){this.classList.toggle('on');this.textContent=this.classList.contains('on')?'★':'☆';});});
-document.querySelectorAll('#pList .acts .btn-sm').forEach(function(b){b.addEventListener('click',function(){if(b.classList.contains('ed')){document.getElementById('pName').value=b.closest('.p-card').querySelector('.nm').textContent;showPEdit();}else{window.alert('已应用预设（模拟）');}});});
 /* pSave 真实逻辑由 F5 节接管 */
 /* ---------- 批量（底抽屉内） ---------- */
-document.querySelectorAll('.tabs .tab').forEach(function(t){t.addEventListener('click',function(){document.querySelectorAll('.tabs .tab').forEach(function(x){x.classList.remove('active');});document.querySelectorAll('.tabpane').forEach(function(x){x.classList.remove('active');});t.classList.add('active');document.getElementById(t.dataset.t).classList.add('active');});});
-document.getElementById('dropzone').addEventListener('click',function(){this.style.borderColor='var(--accent)';setTimeout(function(){dropzone.style.borderColor='';},600);});
+/* ---------- 批量底抽屉：真实文件上传 + 动态估算 ---------- */
+var B_FILES=[];
+function fmtSize(b){return b<1024?b+' B':(b/1024).toFixed(1)+' KB';}
+function readBatchFiles(fileList){
+  var files=Array.prototype.slice.call(fileList||[]);
+  if(!files.length)return;
+  var pending=files.length;
+  files.forEach(function(file){
+    var reader=new FileReader();
+    reader.onload=function(){
+      var text=String(reader.result||'');
+      var raw=text.split(/\r?\n/).map(function(s){return s.trim();}).filter(Boolean);
+      if(raw.length)B_FILES.push({name:file.name,size:file.size,lines:raw});
+      pending--;
+      if(pending===0){renderBFileList();calcBEst();}
+    };
+    reader.readAsText(file,'utf-8');
+  });
+}
+function renderBFileList(){
+  var box=document.getElementById('bFileList');
+  if(!box)return;
+  if(!B_FILES.length){box.innerHTML='<p style="text-align:center;color:var(--ink-faint);font-size:10px;padding:8px 0">未添加文件</p>';return;}
+  box.innerHTML='';
+  B_FILES.forEach(function(f,idx){
+    var d=document.createElement('div');d.className='f-row';
+    d.innerHTML='<span class="nm">'+f.name.replace(/</g,'&lt;')+'</span><span class="sz">'+fmtSize(f.size)+' · '+f.lines.length+' 行</span><span class="st ok">已解析</span><button class="btn btn-sm" type="button" style="height:22px;padding:2px 8px;font-size:10px">移除</button>';
+    d.querySelector('button').addEventListener('click',function(){B_FILES.splice(idx,1);renderBFileList();calcBEst();});
+    box.appendChild(d);
+  });
+}
+function bPrompts(){
+  var seen={},out=[];
+  B_FILES.forEach(function(f){f.lines.forEach(function(l){if(!seen[l]){seen[l]=1;out.push(l);}});});
+  return out;
+}
+function bGridCombos(){
+  var n=1;
+  document.querySelectorAll('#bpane-grid .dim>input[type=checkbox]:checked').forEach(function(c){
+    var vals=c.parentElement.querySelectorAll('.vals label.checked');
+    n*=Math.max(1,vals.length);
+  });
+  return n;
+}
+function bGridDims(){
+  var grid={};
+  document.querySelectorAll('#bpane-grid .dim').forEach(function(dim){
+    var key=dim.querySelector('.dim-name').textContent.trim().split(/\s+/)[0];
+    var checked=dim.querySelector('input[type=checkbox]').checked;
+    if(checked){
+      var vals=[];
+      dim.querySelectorAll('.vals label.checked').forEach(function(l){
+        var v=l.textContent.trim();
+        if(key==='steps'||key==='width'||key==='height')vals.push(parseInt(v,10));
+        else if(key==='cfg')vals.push(parseFloat(v));
+        else vals.push(v);
+      });
+      if(vals.length)grid[key]=vals;
+    }
+  });
+  return grid;
+}
+function calcBEst(){
+  var lines=bPrompts().length;
+  var groups=bGridCombos();
+  var batch=+(document.getElementById('bBatchSize')||{value:1}).value||1;
+  var total=lines*groups*batch;
+  document.getElementById('bFileStat').textContent=B_FILES.length+' 个 · '+lines+' 行';
+  document.getElementById('gridCombo').textContent=groups+' 组';
+  document.getElementById('bBatchStat').textContent=batch;
+  var e=document.getElementById('bEst');
+  e.innerHTML='预计生成 <b>'+total+'</b> 张 = '+lines+' 行 × '+groups+' 组 × batch '+batch;
+  e.className='big-est'+(total>=5000?' red':(total>=500?' yellow':''));
+  document.getElementById('bWarn500').classList.toggle('show',total>=500&&total<5000);
+  document.getElementById('bWarn5000').classList.toggle('show',total>=5000);
+}
+var bDrop=document.getElementById('bDropzone'),bInput=document.getElementById('bFileInput');
+if(bDrop&&bInput){
+  bDrop.addEventListener('click',function(){bInput.click();});
+  bInput.addEventListener('change',function(){readBatchFiles(bInput.files);bInput.value='';});
+  ['dragover','dragenter'].forEach(function(ev){bDrop.addEventListener(ev,function(e){e.preventDefault();e.stopPropagation();bDrop.style.borderColor='var(--accent)';});});
+  ['dragleave','drop'].forEach(function(ev){bDrop.addEventListener(ev,function(e){e.preventDefault();e.stopPropagation();bDrop.style.borderColor='';});});
+  bDrop.addEventListener('drop',function(e){readBatchFiles(e.dataTransfer.files);});
+}
 document.querySelectorAll('#bpane-grid .vals label').forEach(function(l){l.addEventListener('click',function(){l.classList.toggle('checked');calcBEst();});});
 document.querySelectorAll('#bpane-grid .dim>input[type=checkbox]').forEach(function(c){c.addEventListener('change',function(){var vals=c.parentElement.querySelectorAll('.vals label');vals.forEach(function(l){l.classList.toggle('checked',c.checked);});calcBEst();});});
-function calcBEst(){var grid=1;document.querySelectorAll('#bpane-grid .dim>input[type=checkbox]:checked').forEach(function(c){var n=c.parentElement.querySelectorAll('.vals label.checked').length;grid*=Math.max(1,n);});document.getElementById('gridCombo').textContent='2×2×2 = '+grid+' 组';var total=(52+grid)*3;var e=document.getElementById('bEst');e.innerHTML='预计生成 <b>'+total+'</b> 张 = (52 + '+grid+') × 3';e.className='big-est'+(total>=5000?' red':(total>=500?' yellow':''));document.getElementById('bWarn500').classList.toggle('show',total>=500&&total<5000);document.getElementById('bWarn5000').classList.toggle('show',total>=5000);}
+var bBatchSel=document.getElementById('bBatchSize');
+if(bBatchSel)bBatchSel.addEventListener('change',calcBEst);
+calcBEst();
+document.querySelectorAll('.tabs .tab').forEach(function(t){t.addEventListener('click',function(){document.querySelectorAll('.tabs .tab').forEach(function(x){x.classList.remove('active');});document.querySelectorAll('.tabpane').forEach(function(x){x.classList.remove('active');});t.classList.add('active');document.getElementById(t.dataset.t).classList.add('active');});});
+
 calcBEst();
 /* ---------- 缩放控件 ---------- */
 var zooms=[50,75,100,125,150,200],zi=2;var zVal=document.getElementById('zVal');
@@ -1089,7 +1169,7 @@ evt.addEventListener('task_status',function(e){
   }catch(err){console.warn('[SSE] parse error',err);}
 });
 evt.addEventListener('heartbeat',function(e){console.log('[SSE] heartbeat');});
-evt.addEventListener('comfy_preview',function(e){
+evt.addEventListener('preview',function(e){
   try{
     var d=JSON.parse(e.data);
     if(d.b64){
@@ -1105,9 +1185,83 @@ evt.addEventListener('gpu_status',function(e){
   try{
     var d=JSON.parse(e.data);
     var sb=document.querySelector('.sb-gpu');
-    if(sb&&d.free_vram_gb!==undefined){sb.textContent='VRAM: '+d.free_vram_gb.toFixed(1)+'GB free';}
+    if(sb&&d.free_vram_gb!==undefined){sb.textContent='VRAM: '+d.free_vram_gb.toFixed(1)+'GB free';}if(d.total_vram_gb){setBar('statGpu',(d.used_vram_gb||0).toFixed(1)+' / '+d.total_vram_gb+' GB',d.total_vram_gb?Math.round((d.used_vram_gb||0)/d.total_vram_gb*100):0);}
   }catch(err){}
 });
+
+/* ---------- 系统状态：真实 health / GPU / 资源 ---------- */
+function loadHealth(){
+  fetch('/api/health').then(function(r){return r.json();}).then(function(h){
+    if(!h||h.status!=='ok'){setConn(false);return;}
+    setConn(true);
+    var av=document.getElementById('aboutVersion');if(av)av.textContent=h.version||'—';
+    // 状态栏：队列 + 引擎
+    var q=h.queue||{};
+    var sbq=document.getElementById('sbQueue');
+    if(sbq)sbq.textContent='QUEUE '+(q.processing||0)+'·'+(q.pending||0);
+    // 状态栏：GPU（SSE 也会更新）
+    var g=h.gpu||{};
+    var sbg=document.querySelector('.sb-gpu');
+    if(sbg&&g.total_vram_gb)sbg.textContent='GPU '+(g.free_vram_gb!=null?(g.free_vram_gb.toFixed(1)+'/'+g.total_vram_gb+'GB free'):(g.total_vram_gb+'GB'));
+    renderStatusBars(h);
+    renderStatEngines(h.engines||[]);
+    renderStatLoras();
+  }).catch(function(){setConn(false);});
+}
+function setConn(ok){
+  var dot=document.getElementById('sbConnDot'),txt=document.getElementById('sbConnText');
+  if(!dot||!txt)return;
+  dot.className='dot '+(ok?'green':'red');
+  txt.textContent=ok?'CONN: OK':'CONN: 离线';
+}
+function renderStatusBars(h){
+  // GPU
+  var g=h.gpu||{};
+  if(g.total_vram_gb){
+    var used=((g.used_vram_gb!=null?g.used_vram_gb:(g.total_vram_gb-(g.free_vram_gb||0)))||0);
+    var pct=g.total_vram_gb?Math.round(used/g.total_vram_gb*100):0;
+    setBar('statGpu',used.toFixed(1)+' / '+g.total_vram_gb+' GB',pct);
+  }else{setBar('statGpu','无 GPU 信息',0);}
+  // 内存
+  var m=h.memory||{};
+  if(m.total_gb){setBar('statMem',m.used_gb+' / '+m.total_gb+' GB',Math.round(m.percent||0));}
+  else{setBar('statMem','—',0);}
+  // 磁盘
+  var d=h.disk||{};
+  if(d.total_gb){setBar('statDisk',d.used_gb+' / '+d.total_gb+' GB',d.total_gb?Math.round(d.used_gb/d.total_gb*100):0);}
+  else{setBar('statDisk','—',0);}
+}
+function setBar(id,text,pct){
+  var v=document.getElementById(id),b=document.getElementById(id+'Bar'),p=document.getElementById(id+'Pct');
+  if(v)v.textContent=text;
+  if(b)b.style.width=Math.max(0,Math.min(100,pct||0))+'%';
+  if(p)p.textContent=(pct||0)+'%';
+}
+function renderStatEngines(engines){
+  var box=document.getElementById('statEngines');
+  if(!box)return;
+  if(!engines||!engines.length){box.innerHTML='<div class="back-row"><b>无引擎配置</b></div>';return;}
+  box.innerHTML='';
+  engines.forEach(function(e){
+    var d=document.createElement('div');d.className='back-row';
+    var st=e.state||(e.ready?'loaded':'unknown');
+    var chipTxt=st==='loaded'?'就绪':(st==='loading'?'加载中':(st==='error'?'错误':'未加载'));
+    var chipCls=st==='loaded'?'chip ok':(st==='loading'?'chip':'chip red');
+    d.innerHTML='<b>'+e.display_name+'</b><span style="color:var(--ink-faint)">'+st+'</span><span class="'+chipCls+'">'+chipTxt+'</span>';
+    box.appendChild(d);
+  });
+}
+function renderStatLoras(){
+  var el=document.getElementById('statLoras'),chip=document.getElementById('statLorasChip');
+  if(!el)return;
+  fetch('/api/config/loras').then(function(r){return r.json();}).then(function(d){
+    var n=(d.loras||[]).length;
+    el.textContent='loras/ · '+n+' 个文件';
+    if(chip){chip.textContent=n>0?'就绪':'空';chip.className='chip '+(n>0?'ok':'red');}
+  }).catch(function(){el.textContent='加载失败';if(chip){chip.textContent='—';}});
+}
+var statRefreshBtn=document.getElementById('statRefresh');
+if(statRefreshBtn)statRefreshBtn.addEventListener('click',function(){loadHealth();});
 
 /* ---------- F1: 生成 + 进度 + 队列球 ---------- */
 // 覆盖 startGen → POST /api/generate
@@ -1186,7 +1340,7 @@ function renderOutReal(imgPaths){
   outGrid.innerHTML='';
   if(!imgPaths||!imgPaths.length){outGrid.innerHTML='<p style="padding:20px;text-align:center;color:var(--ink-faint)">无输出</p>';return;}
   imgPaths.forEach(function(path,i){
-    var types=['原直通图','SeedVR2 超分','Eses 对比图'];
+    var types=['原图'];
     var c=document.createElement('div');c.className='r-card';c.style.setProperty('--ar','1/1');
     c.innerHTML='<div class="ph-img"><img src="/api/outputs/'+path+'" style="max-width:100%;max-height:300px;object-fit:contain"><div class="r-actions"><button class="btn btn-sm" type="button" onclick="window.open(\'/api/outputs/'+path+'\',\'_blank\')">下载</button><button class="btn btn-sm" type="button">收藏</button><button class="btn btn-sm" type="button" onclick="redrawTask(\''+currentTaskId+'\')">重绘</button></div></div><div class="r-meta"><b>'+(types[i]||'输出 '+(i+1))+'</b><span>'+path.split('/').pop()+'</span></div>';
     outGrid.appendChild(c);
@@ -1198,7 +1352,7 @@ function redrawTask(taskId){if(!taskId)return;API.post('/tasks/'+taskId+'/redraw
 genBtn.removeEventListener('click',function(){}); // 移除旧监听
 genBtn.onclick=function(){
   var e=estCount();
-  if(e.total>=5000){if(!window.confirm('⚠ 将生成 '+e.total+' 张（batch='+e.n+'，开 SeedVR2 chunk=4）。预计 '+Math.ceil(e.total/3000)+' 小时，确认？'))return;}
+  if(e.total>=5000){if(!window.confirm('⚠ 将生成 '+e.total+' 张（batch='+e.n+'）。预计 '+Math.ceil(e.total/3000)+' 小时，确认？'))return;}
   else if(e.total>=500){if(!window.confirm('⚠ 将生成 '+e.total+' 张，预计 '+(e.total*1.5/60).toFixed(0)+' 分钟，确认？'))return;}
   startGenReal();
 };
@@ -1512,34 +1666,67 @@ openStat=function(){
   }).catch(function(e){console.warn('[Health] failed:',e);});
 };
 
-/* ---------- F8: 批量底抽屉 ---------- */
-// 批量提交按钮 → POST /api/generate/batch
-var batchSubmitBtn=document.getElementById('bSubmit');
-if(batchSubmitBtn){
-  batchSubmitBtn.addEventListener('click',function(){
-    var prompts=[];
-    document.querySelectorAll('#bpane-list .prompt-item').forEach(function(p){if(p.textContent.trim())prompts.push(p.textContent.trim());});
-    if(!prompts.length){window.alert('请先添加 Prompt');return;}
-    var grid={};
-    document.querySelectorAll('#bpane-grid .dim').forEach(function(dim){
-      var key=dim.querySelector('label').textContent.trim();
-      var checked=dim.querySelector('input[type=checkbox]').checked;
-      if(checked){var vals=[];dim.querySelectorAll('.vals label.checked').forEach(function(l){vals.push(l.textContent.trim());});if(vals.length)grid[key]=vals;}
-    });
-    var baseCfg={
-      positive_prompt:posPrompt.value||'',
-      cfg:+document.getElementById('cfg').value||1.0,steps:+document.getElementById('steps').value||8,
-      width:+document.getElementById('width').value||1024,height:+document.getElementById('height').value||1024,
-      seed:-1,batch_size:1,
-      seedvr2_enable:document.getElementById('seedvr2Toggle').checked,
-      eses_enable:document.getElementById('esesToggle').checked,
-      engine_name:document.getElementById('engineSelect').value
-    };
-    API.post('/generate/batch',{prompts:prompts,grid_dimensions:grid,base_config:baseCfg}).then(function(r){
-      if(r.batch_id){window.alert('批量任务已提交: '+r.total_tasks+' 个任务 (batch_id='+r.batch_id.substring(0,8)+')');}
-    }).catch(function(e){window.alert('批量提交失败: '+e);});
+/* ---------- F8: 批量提交 + 进度轮询（真实 API） ---------- */
+function collectBaseConfig(){
+  return {
+    positive_prompt:document.getElementById('posPrompt').value||'',
+    negative_prompt:document.getElementById('negPrompt').value||'',
+    cfg:+document.getElementById('cfg').value||1.0,
+    steps:+document.getElementById('steps').value||8,
+    width:+document.getElementById('width').value||1024,
+    height:+document.getElementById('height').value||1024,
+    seed:-1,
+    batch_size:+(document.getElementById('bBatchSize')||{value:1}).value||1,
+    seedvr2_enable:document.getElementById('seedvr2Toggle').checked,
+    seedvr2_resolution:+(document.getElementById('upscaleRes')||{value:2048}).value||2048,
+    eses_enable:document.getElementById('esesToggle').checked,
+    vram_enable:document.getElementById('vramToggle').checked,
+    vram_reserved_gb:+(document.getElementById('vramGb')||{value:0.6}).value||0.6,
+    engine_name:document.getElementById('engineSelect').value
+  };
+}
+var bSubmitBtn=document.getElementById('bSubmit');
+if(bSubmitBtn){
+  bSubmitBtn.addEventListener('click',function(){
+    var prompts=bPrompts();
+    if(!prompts.length){window.alert('请先添加 Prompt 文件');return;}
+    var grid=bGridDims();
+    bSubmitBtn.disabled=true;
+    API.post('/generate/batch',{prompts:prompts,grid_dimensions:grid,base_config:collectBaseConfig()}).then(function(r){
+      if(r.batch_id){
+        try{localStorage.setItem('imm_last_batch',r.batch_id);}catch(e){}
+        window.alert('批量任务已提交: '+r.total_tasks+' 个任务 (batch_id='+r.batch_id.substring(0,8)+')');
+        renderBatchQueue(r.batch_id);
+      }else{
+        window.alert('批量提交失败: '+((r.error&&r.error.message)||r.detail||'未知错误'));
+      }
+    }).catch(function(e){window.alert('批量提交失败: '+e);}).then(function(){bSubmitBtn.disabled=false;});
   });
 }
+var bCancelBtn=document.getElementById('bCancel');
+if(bCancelBtn)bCancelBtn.addEventListener('click',function(){document.getElementById('batchDrawer').classList.remove('open');});
+var B_BATCH_POLL=null;
+function renderBatchQueue(batchId){
+  var box=document.getElementById('bQueueList');
+  if(!box)return;
+  var bid=batchId||null;
+  if(!bid){try{bid=localStorage.getItem('imm_last_batch')||null;}catch(e){}}
+  if(!bid){box.innerHTML='<p style="text-align:center;color:var(--ink-faint);font-size:10px;padding:10px 0">暂无批量任务</p>';return;}
+  box.innerHTML='<p style="text-align:center;color:var(--ink-faint);font-size:10px;padding:10px 0">查询批次 '+bid.substring(0,8)+'…</p>';
+  API.get('/tasks/batch/'+bid).then(function(r){
+    if(r.batch_id){
+      var pct=r.progress_pct||0;
+      var done=(r.completed+r.failed+r.cancelled)>=r.total;
+      box.innerHTML='<div class="qi-main"><div class="qi-title">batch '+bid.substring(0,8)+' · 共 '+r.total+' 任务</div><div class="qi-sub">'+r.completed+' 完成 · '+r.processing+' 进行中 · '+r.pending+' 排队 · '+r.failed+' 失败 · '+r.cancelled+' 取消</div><div class="progress"><i style="width:'+pct+'%"></i></div><div style="font-size:10px;color:var(--ink-faint);margin-top:2px">'+pct+'%</div></div>';
+      if(!done){clearTimeout(B_BATCH_POLL);B_BATCH_POLL=setTimeout(function(){renderBatchQueue(bid);},2000);}
+      else{loadRecent();}
+    }else{
+      box.innerHTML='<p style="text-align:center;color:var(--ink-faint);font-size:10px;padding:10px 0">'+(r.detail||'批次不存在或已过期')+'</p>';
+      try{localStorage.removeItem('imm_last_batch');}catch(e){}
+    }
+  }).catch(function(){box.innerHTML='<p style="text-align:center;color:var(--ink-faint);font-size:10px;padding:10px 0">查询失败</p>';});
+}
+
 
 /* ---------- F3: LoRA 下拉从后端资源扫描填充 ---------- */
 // 页面加载时从 /api/config 获取 LoRA 列表
@@ -1720,8 +1907,8 @@ function initDefaults(){
 function resetToDefaults(){
   if(!_CFG){window.alert('配置尚未加载，请稍后重试');return;}
   initDefaults();
-  document.getElementById('seedvr2Toggle').checked=true;
-  document.getElementById('esesToggle').checked=true;
+  document.getElementById('seedvr2Toggle').checked=false;
+  document.getElementById('esesToggle').checked=false;
   document.getElementById('vramToggle').checked=true;
   document.getElementById('vramGb').value=0.6;
   document.getElementById('upscaleSeed').value=-1;
@@ -1783,6 +1970,9 @@ loadConfig().then(function(cfg){
   updateEst();
   loadRecent();
   loadQueueSummary();
+  loadHealth();
+  setInterval(loadHealth,15000);
+  setInterval(loadQueueSummary,5000);
   var he=document.getElementById('histEngine');
   if(he){he.innerHTML='<option value="">引擎</option>';Object.keys(ENGINES).forEach(function(k){var o=document.createElement('option');o.value=k;o.textContent=ENGINES[k];he.appendChild(o);});}
 });

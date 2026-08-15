@@ -13,7 +13,7 @@ models:
   model_source_mode: portable
   default_engine: z_image_turbo_native
   shared:
-    comfy_models_dir: C:/Users/Doro/APP/ComfyUI-aki-v3/ComfyUI/models
+    comfy_models_dir: ''
     mount_map:
       text: text_encoders
       unet: unet
@@ -71,7 +71,7 @@ models:
       - native
       - low-vram
 inference:
-  default_steps: 8
+  default_steps: 10
   default_cfg: 1.0
   default_sampler: dpmpp_3m_sde_gpu
   default_scheduler: sgm_uniform

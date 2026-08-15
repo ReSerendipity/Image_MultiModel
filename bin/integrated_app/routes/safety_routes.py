@@ -10,6 +10,7 @@ routes/safety_routes.py — 内容安全检测 API 路由
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -88,7 +89,13 @@ async def check_image(req: CheckImageRequest, request: Request) -> CheckImageRes
         raise HTTPException(404, detail=get_error_message("file_not_found", path=req.image_path))
 
     cf = get_content_filter()
-    result = cf.check_image(str(safe_path))
+    # CLIP 检测为同步阻塞（首次加载 2-5s，后续每张百 ms 级）：
+    # 放入默认线程池执行，避免阻塞事件循环（对齐 task_queue/native engine 的 run_in_executor 风格）
+    result = await asyncio.get_running_loop().run_in_executor(
+        None,
+        cf.check_image,
+        str(safe_path),
+    )
     return CheckImageResponse(
         is_safe=result.is_safe,
         violation_type=result.violation_type,
