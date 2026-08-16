@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-08-15T14:03:27.823948",
+  "generated_at": "2026-08-15T22:56:58.845130",
   "generator": "scripts/generate_integrity_manifest.py",
   "description": "核心安全模块 SHA256 完整性清单，用于启动时自检",
   "files": {
-    "app_server.py": "19cc048738ea78a14f7afa5d5ca09358e268025981edcb9e23ab483dffffc77a",
+    "app_server.py": "6bc2afb40ff901812e93995574a0741d7ee6a3b1046c6935d545e2eb7487a71b",
     "config.py": "90fecf5a9ca510879d38222db0acd100e79b1b6d008c951bad95d7ef2d63b969",
-    "config_models.py": "d7ed045b6a0cff90ba5cb2af3a573e6fe22d8fd2cac8863befd0d143085359ca",
+    "config_models.py": "4889ab399e38b6af598f3c0e5091ca97f494b93d40fb94a4972f5986ea5ef2b8",
     "engine_interface.py": "d24cc2f230471cd0550cf94565bd53b03ce22c105575f68d0578f6ef25b336c4",
     "model_manager.py": "df95cabeb0048517928adc3156c8f57afdb3624655a9788546ce9a31fc1a66e6",
     "model_registry.py": "dca1b029270c9b14dbd48f61327f69b7fe4eb9470010701fadda6936c1886a2b",
@@ -23,7 +23,7 @@
     "middleware/request_id.py": "32442c252888d6f9e602460faef6855875776ef9e473f28a40e9d3852d10a13c",
     "routes/config_routes.py": "747ec95b40190e2a4ae545c2f0d5b72fdc3db56c2884686cf2906ab11abc802a",
     "routes/system_routes.py": "3dd9e3e06e4dff8050838a5dedb9aa11ce7ed6217a001df7576260491290f168",
-    "routes/generate_routes.py": "306dc16658becf6a4176ad4b8ab4df71ab6980c0474d82d2b2705dd5efc22055",
+    "routes/generate_routes.py": "8f539216421f705261cf29201472f260a3a8104cd94988ecaa81da28cb514f5b",
     "routes/task_routes.py": "eb8d2cc96e3a09d27fad5f5a02a8e246186facfc93e302d9ef2fa60b50b6d1a3",
     "routes/output_routes.py": "e9d8c2431a0bcbc9f4495306c848411c14c2f7e46ce9d5ab8a5545ce7e06398c",
     "routes/preset_routes.py": "0c416ccb7c299ea5f37bd0e329d56b0e60c6e627362fc938661823ea4d81e53c",
