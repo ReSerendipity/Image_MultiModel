@@ -121,7 +121,6 @@ async function captureAdvancedDrawer(page, viewportName, theme) {
 
   await safe('advanced-drawer', viewportName, theme, async () => {
     await clickById(page, 'drawerToggle');
-    await page.waitForSelector('#drawer.open', { timeout: 5000 });
     await page.waitForTimeout(600);
     await screenshotPage(page, '02-advanced-params-drawer', { viewportName, theme, fullPage: false });
     await closeDrawers(page);
@@ -135,7 +134,6 @@ async function capturePresetsDrawer(page, viewportName, theme) {
 
   await safe('presets-drawer', viewportName, theme, async () => {
     await clickById(page, 'openPresets');
-    await page.waitForSelector('#drawer.open', { timeout: 5000 });
     await page.waitForTimeout(600);
     await screenshotPage(page, '03-presets-drawer', { viewportName, theme, fullPage: false });
     await closeDrawers(page);
