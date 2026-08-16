@@ -51,7 +51,7 @@ clip-anytorch>=2.0.0
 
 # ── ControlNet 预处理器（P0 任务3）────────────────────────
 # controlnet_aux 提供 OpenPose / Canny / HED 等预处理器
-controlnet-aux>=0.0.9
+controlnet-aux>=0.0.10
 
 # ── 工具库 ──────────────────────────────────────────────
 tqdm>=4.65.0
