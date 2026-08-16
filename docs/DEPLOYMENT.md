@@ -295,6 +295,7 @@ sudo certbot renew --dry-run
 | Rate Limit (推理) | `config.yaml` → `security.rate_limit.infer_per_minute` | 30 | 防止单用户滥用 |
 | Rate Limit (上传) | `config.yaml` → `security.rate_limit.upload_per_minute` | 10 | |
 | Rate Limit (全局) | `config.yaml` → `security.rate_limit.global_per_minute` | 600 | |
+| 内容过滤 fail-closed | `config.yaml` → `security.content_filter.fail_closed_on_clip_missing` | false | true=CLIP 模型缺失时拒绝生成（fail-closed），推荐生产启用 |
 | ComfyUI 队列 | ComfyUI 启动参数 `--queue-size` | 10 | ComfyUI 内部队列深度 |
 
 ### 用户隔离（多租户思路）
