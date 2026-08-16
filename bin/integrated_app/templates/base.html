@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="{{ lang or 'zh-CN' }}" data-theme="{{ theme or 'light' }}" data-lang="{{ lang or 'zh-CN' }}">
+<head>
+<script>/* 主题防闪烁 — 在 CSS 渲染前同步设置主题（默认浅色） */(function(){var t=localStorage.getItem('imm_theme')||'light';var l=localStorage.getItem('imm_lang')||'zh-CN';document.documentElement.setAttribute('data-theme',t);document.documentElement.setAttribute('data-lang',l);})();</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Image MultiModel{% endblock %}</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23e8822a'/%3E%3Ccircle cx='22.5' cy='10.5' r='2.9' fill='%23fff' fill-opacity='.95'/%3E%3Cpath d='M4.5 23.5 12 15l5 5.5L21 16l6.5 7.5' stroke='%23fff' stroke-width='2.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M4.5 23.5h23' stroke='%23fff' stroke-opacity='.9' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;500;600;700&family=ZCOOL+XiaoWei&family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/seed.css">
+{% block head_extra %}{% endblock %}
+</head>
+<body>
+{% block content %}{% endblock %}
+{% block scripts %}<script src="/static/js/app.js"></script>{% endblock %}
+</body>
+</html>

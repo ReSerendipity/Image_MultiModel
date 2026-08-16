@@ -18,10 +18,12 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
 from .checkpoint import TaskCheckpoint
 from .config import get_config, load_config
@@ -450,33 +452,57 @@ def create_app() -> FastAPI:
     from .middleware.error_handler import register_error_handlers
     register_error_handlers(app)
 
-    # ── 静态文件托管（单页 HTML） ─────────────────────────────
+    # ── Jinja2 模板引擎 + 静态文件托管 ──────────────────────
+    templates_dir = Path(__file__).parent / "templates"
     static_dir = Path(__file__).parent / "static"
+
+    # 模板上下文辅助函数
+    def _locale_for(lang: str) -> str:
+        """把 BCP-47 语言代码映射到 locales 目录下的文件名（zh-CN -> zh）。"""
+        return lang.split("-")[0].lower()
+
+    # 静态文件托管（Jinja2 模板引用的 CSS/JS/图片）
     if static_dir.exists():
-        # 挂载静态文件（差异化缓存：HTML/JS/CSS 不缓存，改文件刷新即变）
-        app.mount("/static", VersionedStaticFiles(directory=str(static_dir)), name="static")
+        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-        def _no_cache(resp: Response) -> Response:
-            """HTML/JS/CSS 响应禁用缓存，保证改文件后刷新浏览器即生效。"""
-            resp.headers["Cache-Control"] = "no-cache, must-revalidate"
-            resp.headers["Pragma"] = "no-cache"
-            return resp
+    # 页面路由（服务端渲染）
+    if templates_dir.exists():
+        from jinja2 import Environment, FileSystemLoader, select_autoescape
+        from .i18n import t as _i18n_t
 
-        # 根路径 → index.html（唯一前端入口）
+        templates = Jinja2Templates(
+            env=Environment(
+                loader=FileSystemLoader(str(templates_dir)),
+                autoescape=select_autoescape(["html"]),
+            ),
+        )
+        # 模板内提供 _() 翻译函数（回退到当前语言）
+        templates.env.globals["_"] = lambda key, **kw: _i18n_t(key, lang="zh", default=key, **kw)
+        logger.info(f"Jinja2 templates loaded from: {templates_dir}")
+
+        def _page_ctx(request: Request) -> dict:
+            """构造模板渲染上下文（从 cookie 读取主题/语言，与前端 localStorage 保持一致）。"""
+            config = get_config()
+            return {
+                "request": request,
+                "config": config,
+                "version": config.version,
+                "lang": request.cookies.get("imm_lang", "zh-CN"),
+                "theme": request.cookies.get("imm_theme", "dark"),
+                "locale_file": _locale_for(request.cookies.get("imm_lang", "zh-CN")),
+            }
+
         @app.get("/", include_in_schema=False)
-        async def index():
-            return _no_cache(FileResponse(str(static_dir / "index.html")))
+        async def index(request: Request):
+            return templates.TemplateResponse(request, "index.html", _page_ctx(request))
 
         @app.get("/{full_path:path}", include_in_schema=False)
-        async def catch_all(full_path: str):
-            # 其他静态资源
-            file = static_dir / full_path
-            if file.exists() and file.is_file():
-                if full_path.endswith((".html", ".js", ".css", ".json")):
-                    return _no_cache(FileResponse(str(file)))
-                return FileResponse(str(file))
-            # SPA fallback
-            return _no_cache(FileResponse(str(static_dir / "index.html")))
+        async def catch_all(request: Request, full_path: str):
+            # 静态资源（css/js/images/其他）已由 /static mount 接管，这里不重复处理
+            if full_path.startswith(("css/", "js/", "images/", "static/")):
+                raise HTTPException(status_code=404, detail="Not Found")
+            # 其余路径回退到首页模板（前端路由 / 局部刷新）
+            return templates.TemplateResponse(request, "index.html", _page_ctx(request))
 
     return app
 

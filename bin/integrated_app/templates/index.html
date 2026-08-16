@@ -1,0 +1,422 @@
+{% extends "base.html" %}
+
+{% block title %}Image MultiModel · 生图工作台{% endblock %}
+
+{% block content %}
+
+<!-- 顶部栏 -->
+<header class="topbar" data-component="Topbar">
+  <div class="logo"><svg class="brand-logo" width="20" height="20" viewBox="0 0 32 32" fill="none" aria-hidden="true"><rect width="32" height="32" rx="9" fill="var(--seed-primary)"/><circle cx="22.5" cy="10.5" r="2.9" fill="#fff" fill-opacity=".95"/><path d="M4.5 23.5 12 15l5 5.5L21 16l6.5 7.5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.5 23.5h23" stroke="#fff" stroke-opacity=".9" stroke-width="2.2" stroke-linecap="round"/></svg><span class="logo-text">Image MultiModel <i>/ 生图工作台</i></span></div>
+  <div class="topbar-right">
+    <button class="icon-btn" id="themeToggle" title="主题切换" type="button">◐<span class="btn-label">主题</span></button>
+    <span class="ico-wrap" data-component="Accent Menu">
+      <button class="icon-btn" id="palBtn" title="切换主题色" type="button"><span class="pal-dot" id="palDot"></span><span class="btn-label">颜色</span></button>
+      <div class="ico-pop pal-pop" id="palPop">
+        <div class="pal-grid" id="palGrid"></div>
+        <div class="pal-row"><input type="color" id="palCustom" value="#e8822a" aria-label="自定义颜色"><span class="hint">自定义任意颜色</span></div>
+        <p class="hint" style="padding:6px 2px 0">共 24 种预设 + 自定义，选择会自动保存</p>
+      </div>
+    </span>
+    <span class="ico-wrap" data-component="Font Menu">
+      <button class="icon-btn" id="fontBtn" title="切换标题字体" type="button" style="font-weight:700;font-style:italic;font-size:16px">Aa<span class="btn-label">字体</span></button>
+      <div class="ico-pop" id="fontPop" style="width:216px;padding:6px">
+        <div class="font-list" id="fontList"></div>
+      </div>
+    </span>
+    <button class="icon-btn" id="aboutBtn" title="关于：查看版本、技术栈与系统状态" type="button">ⓘ<span class="btn-label">关于</span></button>
+    <button class="icon-btn" id="setOpen" title="设置" type="button">⚙︎<span class="btn-label">设置</span></button>
+    <span class="ico-wrap" data-component="Engine Menu">
+      <button class="icon-btn" id="engIcon" title="切换模型" type="button">◈<span class="btn-label">模型</span></button>
+      <div class="ico-pop" id="engMenu">
+        <button class="ip-item on" data-v="z_image_turbo_native" type="button">加载中…</button>
+      </div>
+    </span>
+    <span class="ico-wrap" data-component="Language Menu">
+      <button class="icon-btn" id="langIcon" title="切换语言" type="button">文<span class="btn-label">语言</span></button>
+      <div class="ico-pop" id="langMenu">
+        <button class="ip-item on" data-l="zh-CN" type="button">简体中文</button>
+        <button class="ip-item" data-l="zh-TW" type="button">繁體中文</button>
+        <button class="ip-item" data-l="en-US" type="button">English</button>
+        <button class="ip-item" data-l="ja-JP" type="button">日本語</button>
+        <button class="ip-item" data-l="ko-KR" type="button">한국어</button>
+      </div>
+    </span>
+    <select id="engineSelect" style="display:none" aria-label="引擎">
+      <option value="z_image_turbo_native">加载中…</option>
+    </select>
+    <select id="langSelect" style="display:none" aria-label="语言">
+      <option value="zh-CN">简体中文</option>
+      <option value="zh-TW">繁體中文</option>
+      <option value="en-US">English</option>
+      <option value="ja-JP">日本語</option>
+      <option value="ko-KR">한국어</option>
+    </select>
+    <button class="share-btn" type="button" data-i18n="btn_share">分享</button>
+    <span class="avatar"></span>
+  </div>
+</header>
+
+<div class="layout">
+  <main class="stage" data-component="Stage">
+    <div class="big-title">让每一句心语，<em>化作光影</em></div>
+    <div style="width:48px;height:2px;background:var(--accent);margin:8px auto 12px;border-radius:2px"></div>
+    <p class="sub">输入你的创意描述，AI 将为你生成独一无二的图像</p>
+
+    <div class="prompt-card" data-component="Prompt Input">
+      <textarea id="posPrompt" placeholder="描述你想生成的画面，例如：一位亚洲女性肖像，柔和自然光，浅景深，胶片质感…">一位亚洲女性肖像，柔和自然光，浅景深，胶片质感，细节丰富</textarea>
+      <div class="meta"><span class="ln" id="posMeta">28 字符 · ≈42 token</span><span><button class="btn btn-sm" id="clearPos" type="button" data-i18n="btn_clear">清空</button> <button class="btn btn-sm" id="copyPos" type="button" data-i18n="btn_copy">复制</button></span></div>
+      <button class="neg-toggle" id="negToggle" type="button" data-i18n="neg_add">＋ 负向提示词</button>
+      <div class="neg-box" id="negBox" data-component="Negative Prompt">
+        <textarea id="negPrompt" placeholder="不希望出现的内容，例如：低质量、模糊、变形…（可为空）"></textarea>
+        <div class="meta"><span class="ln" id="negMeta">0 字符</span><span><button class="btn btn-sm" type="button">清空</button> <button class="btn btn-sm" type="button">复制</button></span></div>
+      </div>
+      <div class="examples" data-component="Prompt Examples">
+        <button class="ex-chip" type="button">赛博朋克城市夜景，雨夜，霓虹灯反射，电影感</button>
+        <button class="ex-chip" type="button">日本庭院枯山水，禅意，清晨薄雾，柔光</button>
+        <button class="ex-chip" type="button">韩式女团舞台照，聚光灯，动感，高对比</button>
+        <button class="ex-chip" type="button">老式胶片相机静物，暖调，复古海报风</button>
+      </div>
+    </div>
+
+    <div class="gen-row" data-component="Actions Row">
+      <button class="btn-gen" id="genBtn" type="button" data-i18n="btn_generate">▶ 生成</button>
+      <div class="snap-row" data-component="Param Snapshot">
+        <span class="snap">引擎 <b id="snapEngine">—</b></span>
+        <span class="snap">分辨率 <b id="snapRes">1024 × 1024</b></span>
+        <span class="snap">steps <b id="snapSteps">8</b></span>
+        <span class="snap">cfg <b id="snapCfg">1.0</b></span>
+        <span class="snap">预计 <b id="snapOut">1</b> 张</span>
+      </div>
+    </div>
+
+    <div class="est-line" id="estLine" data-component="Estimate Line">预计生成 <b>1</b> 张 = 1 Prompt × 1 batch</div>
+    <div class="warn-box yellow" id="warn500" data-component="Batch Warning">⚠ 超过 500 张：建议夜间生成，预计约 40min（RTX 4090 估算）</div>
+    <div class="warn-box red" id="warn5000" data-component="Batch Warning">⚠ 超过 5000 张：自动断点续跑（每 100 张 checkpoint），点击「生成」需二次确认（倒计时 5s）</div>
+
+    <div class="gen-progress" id="genProgress" data-component="Generation Progress">
+      <div class="phase-line"><span id="phaseText">空闲</span><span></span></div>
+      <div class="progress"><i id="progFill"></i></div>
+    </div>
+
+    <!-- 模块入口 -->
+    <div class="mod-row" data-component="Module Launcher">
+      <span class="lbl">模块</span>
+      <button class="mod-btn" id="drawerToggle" type="button" data-i18n="btn_advanced">⚙ 高级参数</button>
+      <button class="mod-btn" id="openGallery" type="button" data-i18n="btn_gallery">▦ 图片展示</button>
+      <button class="mod-btn" id="openHistory" type="button" data-i18n="btn_history">◷ 历史记录</button>
+      <button class="mod-btn" id="openBatch" type="button" data-i18n="btn_batch">▤ 批量模式</button>
+      <button class="mod-btn" id="openPresets" type="button" data-i18n="btn_presets">▣ 预设管理</button>
+    </div>
+
+    <section class="results" data-component="Results">
+      <div class="r-title"><span data-i18n="recent">最近生成</span><span class="bar"></span></div>
+      <div class="masonry" id="outGrid">
+        <p style="grid-column:1/-1;text-align:center;color:var(--ink-faint);font-size:11px;padding:16px 0">加载最近生成…</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ========== 右侧模块抽屉（高级参数 / 图片展示 / 历史 / 预设） ========== -->
+<div class="scrim" id="scrim" data-component="Scrim"></div>
+<aside class="drawer" id="drawer" data-component="Module Drawer">
+  <div class="drawer-head"><span><span class="no">/</span><span id="mTitle">高级参数</span><span class="hint" id="mHint">22 项 · 改动即时生效</span></span><button class="icon-btn" id="drawerClose" type="button">✕</button></div>
+  <div class="drawer-body">
+
+    <!-- 高级参数 -->
+    <section class="drawer-sec active" id="sec-adv" data-component="Advanced Params">
+      <div class="acc open" data-component="Param Group Basic">
+        <button class="acc-head" type="button"><span class="acc-num">02</span><span>基础参数</span><span class="acc-badge">8 项</span><span class="acc-chev">▾</span></button>
+        <div class="acc-body">
+          <div class="fgrid">
+            <div class="fgroup"><label>cfg（蒸馏推荐 1.0）</label><div class="frow"><input type="number" id="cfg" value="1.0" min="1.0" max="20.0" step="0.1" style="width:82px"><span class="hint">[1.0,20.0]</span></div></div>
+            <div class="fgroup"><label>steps</label><div class="stepper" data-min="1" data-max="50" data-step="1"><button class="st-dec" type="button">−</button><input id="steps" value="8"><button class="st-inc" type="button">+</button></div></div>
+            <div class="fgroup"><label>width（16 倍数）</label><div class="frow"><div class="stepper" data-min="256" data-max="2048" data-step="16"><button class="st-dec" type="button">−</button><input id="width" value="1024"><button class="st-inc" type="button">+</button></div><div class="quick-sz"><button type="button">512</button><button type="button">768</button><button class="on" type="button">1024</button><button type="button">1536</button></div></div></div>
+            <div class="fgroup"><label>height（16 倍数）</label><div class="frow"><div class="stepper" data-min="256" data-max="2048" data-step="16"><button class="st-dec" type="button">−</button><input id="height" value="1024"><button class="st-inc" type="button">+</button></div><div class="quick-sz"><button type="button">512</button><button type="button">768</button><button class="on" type="button">1024</button><button type="button">1536</button></div></div></div>
+            <div class="fgroup"><label>seed（-1 = 随机）</label><div class="frow"><div class="stepper wide" data-min="-1" data-max="9007199254740991" data-step="1"><button class="st-dec" type="button">−</button><input id="seed" value="-1"><button class="st-inc" type="button">+</button></div><button class="btn btn-sm dice" data-target="seed" type="button">⚄</button><button class="btn btn-sm" id="reuseSeed" type="button">↻</button></div><div class="hint" id="seedHint">随机模式：实际 seed 提交时生成</div></div>
+            <div class="fgroup"><label>batch_size <span class="hint">[1,9999]</span></label><div class="frow"><div class="stepper wide" data-min="1" data-max="9999" data-step="1"><button class="st-dec" type="button">−</button><input id="batchSize" value="1"><button class="st-inc" type="button">+</button></div><button class="btn btn-sm" id="b10" type="button">+10</button><button class="btn btn-sm" id="b100" type="button">+100</button><span id="bsWarn" style="display:none">⚠</span></div></div>
+          </div>
+          <div class="hint" style="margin-top:8px">估算与阈值警告显示在主界面操作行下方</div>
+        </div>
+      </div>
+      <div class="acc open" data-component="Param Group LoRA">
+        <button class="acc-head" type="button"><span class="acc-num">03</span><span>LoRA 叠加</span><span class="acc-badge">6 层串联</span><span class="acc-chev">▾</span></button>
+        <div class="acc-body">
+          <div class="hint" style="margin-bottom:8px">顺序 = 工作流 LoraLoaderModelOnly id=16→21（UNETLoader → CFGGuider），不得乱序；选「— 禁用 —」自动跳过该层并重连链路。</div>
+          <div id="loraStack">
+            <div class="lora-row"><span class="lora-badge">L1</span><select class="lora-name" disabled><option>— 禁用 —</option></select><div class="lora-off-hint">⚠ 该层已禁用（mode=4 跳过，MODEL 链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="1.0"><span class="range-val">1.00</span></div></div>
+            <div class="lora-row"><span class="lora-badge">L2</span><select class="lora-name" disabled><option>— 禁用 —</option></select><div class="lora-off-hint">⚠ 该层已禁用（mode=4 跳过，MODEL 链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="0.7"><span class="range-val">0.70</span></div></div>
+            <div class="lora-row"><span class="lora-badge">L3</span><select class="lora-name" disabled><option>— 禁用 —</option></select><div class="lora-off-hint">⚠ 该层已禁用（mode=4 跳过，MODEL 链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="0.5"><span class="range-val">0.50</span></div></div>
+            <div class="lora-row"><span class="lora-badge">L4</span><select class="lora-name" disabled><option>— 禁用 —</option></select><div class="lora-off-hint">⚠ 该层已禁用（mode=4 跳过，MODEL 链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="0.4"><span class="range-val">0.40</span></div></div>
+            <div class="lora-row"><span class="lora-badge">L5</span><select class="lora-name" disabled><option>— 禁用 —</option></select><div class="lora-off-hint">⚠ 该层已禁用（mode=4 跳过，MODEL 链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="0.3"><span class="range-val">0.30</span></div></div>
+            <div class="lora-row"><span class="lora-badge">L6</span><select class="lora-name" disabled><option>— 禁用 —</option></select><div class="lora-off-hint">⚠ 该层已禁用（mode=4 跳过，MODEL 链路自动重连）</div><div class="r2"><label>强度</label><input type="range" min="-2" max="2" step="0.05" value="0.2"><span class="range-val">0.20</span></div></div>
+          </div>
+          <div class="warn-box yellow show">⚠ 默认 LoRA 已在磁盘找到；缺失将自动 _disabled + 黄提示。</div>
+        </div>
+      </div>
+      <div class="acc open" data-component="Param Group SeedVR2">
+        <button class="acc-head" type="button"><span class="acc-num">04</span><span>SeedVR2 超分</span><span class="acc-badge">待接入</span><span class="acc-chev">▾</span></button>
+        <div class="acc-body">
+          <div class="fgrid">
+            <div class="fgroup full"><label>启用 SeedVR2 超分（后端未接入，暂不生效）</label><label class="switch"><input type="checkbox" id="seedvr2Toggle"><span class="sl"></span></label></div>
+            <div class="fgroup"><label>超分分辨率（最短边）</label><select id="upscaleRes"><option>1024</option><option>1536</option><option selected>2048</option><option>3072</option><option>4096</option></select></div>
+            <div class="fgroup"><label>色彩校正</label><select id="colorCorr"><option>off</option><option selected>lab</option><option>adain</option><option>none</option></select></div>
+            <div class="fgroup"><label>upscale_seed（独立）</label><div class="frow"><div class="stepper wide" data-min="-1" data-max="9007199254740991" data-step="1"><button class="st-dec" type="button">−</button><input id="upscaleSeed" value="-1"><button class="st-inc" type="button">+</button></div><button class="btn btn-sm dice" data-target="upscaleSeed" type="button">⚄</button></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="acc open" data-component="Param Group Compare">
+        <button class="acc-head" type="button"><span class="acc-num">05</span><span>对比 + 显存预留</span><span class="acc-chev">▾</span></button>
+        <div class="acc-body">
+          <div class="fgrid">
+            <div class="fgroup"><label>Eses 双图对比（后端未接入，暂不生效）</label><label class="switch"><input type="checkbox" id="esesToggle"><span class="sl"></span></label><div class="frow" style="margin-top:6px"><label class="hint">轴</label><label style="font-size:11px"><input type="radio" name="axis" value="horizontal" checked> h</label><label style="font-size:11px"><input type="radio" name="axis" value="vertical"> v</label><label style="font-size:11px"><input type="radio" name="axis" value="slider"> s</label></div></div>
+            <div class="fgroup"><label>ReservedVRAM 显存预留</label><label class="switch"><input type="checkbox" id="vramToggle" checked><span class="sl"></span></label><div class="frow" style="margin-top:6px;gap:6px"><input type="number" id="vramGb" value="0.6" min="0" max="10" step="0.05" style="width:70px"><span class="hint">GB</span></div><div class="frow" style="margin-top:6px;gap:6px"><select id="vramMode" style="width:86px"><option selected>auto</option><option>manual</option></select><div class="stepper wide" data-min="-1" data-max="9007199254740991" data-step="1"><button class="st-dec" type="button">−</button><input id="vramSeed" value="-1"><button class="st-inc" type="button">+</button></div><button class="btn btn-sm dice" data-target="vramSeed" type="button">⚄</button></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="acc open" data-component="Param Group Output">
+        <button class="acc-head" type="button"><span class="acc-num">06</span><span>输出设置</span><span class="acc-chev">▾</span></button>
+        <div class="acc-body">
+          <div class="fgrid">
+            <div class="fgroup"><label>输出格式</label><select disabled><option>png（固定）</option></select></div>
+            <div class="fgroup"><label>文件名前缀模板</label><input id="outputPrefix" value="{engine}" maxlength="80"><div class="hint">{date}/{engine}/{seed}/{task_id} · ≤80</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 预设管理 -->
+    <section class="drawer-sec" id="sec-presets" data-component="Presets">
+      <div class="p-list" id="pList">
+        <p style="grid-column:1/-1;text-align:center;color:var(--ink-faint);font-size:11px;padding:14px">加载预设…</p>
+      </div>
+      <div class="ed-sec" id="pEdit">
+        <button class="btn btn-sm" id="pBack" type="button">← 返回列表</button>
+        <h3 style="font-size:10.5px;font-weight:700;color:var(--ink-faint);margin:11px 0 8px">编辑预设</h3>
+        <div class="fgroup" style="margin-bottom:9px"><label>名称</label><input id="pName" value=""></div>
+        <div class="fgroup" style="margin-bottom:9px"><label>描述</label><textarea id="pDesc" style="height:52px"></textarea></div>
+        <div class="fgroup" style="margin-bottom:9px"><label>引擎</label><select id="pEngine"><option>Z-Image-Turbo（原生）</option></select></div>
+        <div style="display:flex;gap:7px;margin-top:6px"><button class="btn" id="pCancel" type="button">取消</button><button class="btn btn-primary" id="pSave" type="button">保存预设</button></div>
+      </div>
+      <div style="margin-top:9px"><button class="btn" id="pNew" type="button">＋ 新建预设</button></div>
+    </section>
+
+  </div>
+  <div class="drawer-foot" id="drawerFoot">
+    <button class="btn btn-ghost" id="restoreBtn" type="button" data-i18n="btn_restore_default">恢复默认</button>
+    <button class="btn btn-primary" id="drawerDone" type="button" data-i18n="btn_done">完成</button>
+  </div>
+</aside>
+
+<!-- ========== 历史（左抽屉） ========== -->
+<aside class="l-drawer" id="histDrawer" data-component="History Drawer">
+  <div class="drawer-head"><span><span class="no">/</span>历史记录<span class="hint" id="histTotal">加载中…</span></span><button class="icon-btn" id="histClose" type="button">✕</button></div>
+  <div class="drawer-body">
+    <div class="hist-sec" id="histList">
+      <div class="hist-toolbar">
+        <div class="search"><span>⌕</span><input id="histSearch" placeholder="搜索 Prompt / seed…" aria-label="搜索" data-i18n-ph="search_placeholder"></div>
+        <select id="histStatus" aria-label="状态筛选" style="min-width:92px"><option value="">状态</option><option value="completed">成功</option><option value="failed">失败</option><option value="processing">进行中</option><option value="pending">排队中</option></select>
+        <select id="histEngine" aria-label="引擎筛选" style="min-width:92px"><option value="">引擎</option></select>
+        <span style="margin-left:auto;display:flex;gap:5px">
+          <button class="btn btn-sm" id="histPurge" type="button" title="批量删除失败 / 排队中 / 进行中 / 已取消的记录">批量删除</button>
+          <button class="btn btn-sm" id="histClear" type="button" style="color:var(--red)" title="清空全部历史记录（含成功记录）">清除</button>
+        </span>
+      </div>
+      <table class="tbl">
+        <thead><tr><th style="width:44px">预览</th><th class="pro">Prompt</th><th>状态</th><th style="width:86px">操作</th></tr></thead>
+        <tbody id="histRows">
+          <tr><td colspan="4" style="text-align:center;padding:20px;color:var(--ink-faint)">加载中…</td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top:9px;display:flex;justify-content:space-between;align-items:center;font-size:9.5px;color:var(--ink-faint)"><span id="histCount">…</span><span id="histNav"><button class="btn btn-sm" id="histPrev" type="button">‹ 上一页</button> <button class="btn btn-sm" id="histNext" type="button">下一页 ›</button></span></div>
+    </div>
+    <div class="detail-sec" id="histDetail">
+      <button class="btn btn-sm" id="histBack" type="button">← 返回列表</button>
+      <h3>任务详情</h3>
+      <div class="d-tags" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"><span class="chip eng" id="ddEngine">—</span><span class="chip" id="ddStatus">—</span><span class="chip" id="ddMode">—</span></div>
+      <div id="ddThumbs" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:10px"><div class="th" style="width:100%;height:56px">无预览</div></div>
+      <div class="kv"><span>prompt</span><b id="ddPrompt">…</b></div>
+      <div class="kv"><span>尺寸 · seed</span><b id="ddDim">…</b></div>
+      <div class="kv"><span>耗时 · 时间</span><b id="ddTime">…</b></div>
+      <div class="kv"><span>cfg · steps</span><b id="ddCfgSteps">…</b></div>
+      <div class="kv"><span>LoRA / SeedVR2 / Eses</span><b id="ddLora">…</b></div>
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" id="ddRedraw" type="button">用相同参数重绘</button><button class="btn btn-sm" id="ddSavePreset" type="button">保存为预设</button><button class="btn btn-sm" id="ddZip" type="button">下载 ZIP</button></div>
+    </div>
+  </div>
+</aside>
+
+<!-- ========== 图片展示（顶抽屉） ========== -->
+<aside class="g-drawer" id="galleryDrawer" data-component="Gallery Drawer">
+  <div class="ov-head"><span><span class="no">/</span>图片展示<span class="hint">顶抽屉 · 点击卡片弹出悬浮查看器</span></span><button class="icon-btn" id="galleryClose" type="button">✕</button></div>
+  <div class="g-body">
+    <div class="filter-row">
+      <button class="f-chip on" data-f="全部" type="button">全部</button>
+      <button class="f-chip" data-f="原图" type="button">原图</button>
+      <button class="f-chip" data-f="超分" type="button">超分</button>
+      <button class="f-chip" data-f="对比图" type="button">对比图</button>
+    </div>
+    <div class="g-masonry g4" id="gMasonry"></div>
+  </div>
+</aside>
+
+
+<!-- ========== 设置（底抽屉） ========== -->
+<div class="scrim2" id="setScrim" data-component="Scrim"></div>
+<aside class="stat-drawer" id="setDrawer" data-component="Settings Drawer">
+  <div class="ov-head"><span><span class="no">/</span>设置<span class="hint">顶抽屉 · 全局配置</span></span><button class="icon-btn" id="setClose" type="button">✕</button></div>
+  <div class="ov-body">
+    <div class="ov-sec"><h4>引擎与模型</h4>
+      <div class="sg"><span class="lbl">默认引擎</span><select id="setEngine"><option value="">加载中…</option></select></div>
+      <div class="sg"><span class="lbl">工作流目录</span><input type="text" id="setWorkflowDir" value=""></div>
+      <div class="sg"><span class="lbl">模型源模式</span><input type="text" id="setModelMode" value=""></div>
+      <div class="sg"><span class="lbl">SeedVR2 模型</span><input type="text" id="setSeedvr2Dir" value=""></div>
+      <div class="sg"><span class="lbl"></span><button class="btn" id="scanBtn" type="button">完整资源扫描</button><span class="hint" id="scanHint" style="align-self:center">待扫描</span></div>
+    </div>
+    <div class="ov-sec"><h4>运行</h4>
+      <div class="sg"><span class="lbl">心跳轮询</span><select id="setHeartbeat"><option value="30">每 30s</option><option value="60">每 60s</option></select></div>
+      <div class="sg"><span class="lbl">自动拉起后端</span><select id="setSpawn"><option value="true">on（auto_spawn_if_dead）</option><option value="false">off</option></select></div>
+      <div class="sg"><span class="lbl">负载均衡</span><select id="setLb"><option value="prefer_local">prefer_local</option><option value="round_robin">轮询</option><option value="least_conn">最少连接</option></select></div>
+    </div>
+    <div class="ov-sec"><h4>保留策略</h4>
+      <div class="sg"><span class="lbl">历史保留</span><select id="setRetention"><option>90 天 / 100 GB</option><option>30 天 / 50 GB</option><option>永久</option></select><span class="hint" style="align-self:center" id="retentionHint"></span></div>
+    </div>
+    <div class="ov-sec"><h4>配置</h4>
+      <div class="sg"><span class="lbl"></span><button class="btn" type="button">导出配置 JSON</button><button class="btn" type="button">导入配置 JSON</button><span class="hint" style="align-self:center">config.yaml</span></div>
+    </div>
+  </div>
+</aside>
+
+<!-- ========== 批量（底抽屉） ========== -->
+<aside class="batch-drawer" id="batchDrawer" data-component="Batch Drawer">
+  <div class="ov-head"><span><span class="no">/</span>批量模式<span class="hint">底抽屉 · Prompt 文件 / 参数网格</span></span><button class="icon-btn" id="batchClose" type="button">?</button></div>
+  <div class="ov-body">
+    <div class="tabs">
+      <button class="tab active" data-t="bpane-file" type="button" data-i18n="batch_prompt_file">Prompt 文件</button>
+      <button class="tab" data-t="bpane-grid" type="button" data-i18n="batch_param_grid">参数网格</button>
+    </div>
+    <section class="tabpane active" id="bpane-file">
+      <input type="file" id="bFileInput" accept=".txt,.csv,text/plain,text/csv" multiple style="display:none">
+      <div class="dropzone" id="bDropzone"><b>拖拽或点击上传 Prompt 文件</b><p>支持 .txt / .csv · 每行一个 Prompt · 空行自动过滤 · 跨文件去重</p></div>
+      <div class="file-list" id="bFileList"><p style="text-align:center;color:var(--ink-faint);font-size:10px;padding:8px 0">未添加文件</p></div>
+      <div class="cfg-row">
+        <span class="lbl">每行 batch</span>
+        <select id="bBatchSize" style="width:110px"><option value="1">batch_size 1</option><option value="2">batch_size 2</option><option value="4">batch_size 4</option></select>
+      </div>
+    </section>
+    <section class="tabpane" id="bpane-grid">
+      <div class="dims">
+        <div class="dim"><input type="checkbox" id="gW" checked><div class="dim-name">width<small>16 倍数</small></div><div class="vals"><label class="checked"><input type="checkbox" checked>512</label><label class="checked"><input type="checkbox" checked>768</label><label><input type="checkbox">1024</label><label><input type="checkbox">1536</label></div></div>
+        <div class="dim"><input type="checkbox" id="gH" checked><div class="dim-name">height<small>16 倍数</small></div><div class="vals"><label class="checked"><input type="checkbox" checked>512</label><label class="checked"><input type="checkbox" checked>768</label><label><input type="checkbox">1024</label><label><input type="checkbox">1536</label></div></div>
+        <div class="dim"><input type="checkbox" id="gS" checked><div class="dim-name">steps</div><div class="vals"><label class="checked"><input type="checkbox" checked>4</label><label class="checked"><input type="checkbox" checked>8</label><label><input type="checkbox">16</label></div></div>
+        <div class="dim"><input type="checkbox" id="gC"><div class="dim-name">cfg</div><div class="vals"><label><input type="checkbox">1.0</label><label><input type="checkbox">2.0</label><label><input type="checkbox">4.0</label></div></div>
+      </div>
+      <div class="hint" style="margin-top:6px">勾选的参数值做笛卡尔积展开为参数组合；提交时随 base_config 一起发送给后端。</div>
+    </section>
+    <div class="b-grid">
+      <div class="b-panel" data-component="Batch Summary">
+        <h3>批次估算</h3>
+        <div class="kv"><span>Prompt 文件</span><b id="bFileStat">0 个 · 0 行</b></div>
+        <div class="kv"><span>参数网格组合</span><b id="gridCombo">—</b></div>
+        <div class="kv"><span>每行 batch</span><b id="bBatchStat">1</b></div>
+        <div class="big-est" id="bEst">预计生成 <b>0</b> 张 = 0 行 × 0 组 × batch 1</div>
+        <div class="warn-box yellow" id="bWarn500">? 超过 500 张：建议夜间生成</div>
+        <div class="warn-box red" id="bWarn5000">? 超过 5000 张：断点续跑 + 二次确认</div>
+        <div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-primary" style="flex:1" id="bSubmit" type="button" data-i18n="btn_generate_batch">? 生成批次</button><button class="btn btn-ghost" id="bCancel" type="button" data-i18n="btn_cancel">取消</button></div>
+      </div>
+      <div class="b-panel" data-component="Batch Queue">
+        <h3>任务队列</h3>
+        <div id="bQueueList"><p style="text-align:center;color:var(--ink-faint);font-size:10px;padding:10px 0">加载中…</p></div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- ========== 状态（顶抽屉） ========== -->
+<!-- ========== 状态（顶抽屉） ========== -->
+<aside class="stat-drawer" id="statDrawer" data-component="Status Drawer">
+  <div class="ov-head"><span><span class="no">/</span>系统状态<span class="hint">顶抽屉 · 点击底栏状态区展开</span></span><button class="icon-btn" id="statClose" type="button">?</button></div>
+  <div class="ov-body">
+    <div class="stat-bars">
+      <div class="stat-bar"><div class="k"><span>GPU 显存</span><span id="statGpuPct">—</span></div><div class="v" id="statGpu">—</div><div class="bar"><i id="statGpuBar" style="width:0%"></i></div></div>
+      <div class="stat-bar"><div class="k"><span>系统内存</span><span id="statMemPct">—</span></div><div class="v" id="statMem">—</div><div class="bar"><i id="statMemBar" style="width:0%"></i></div></div>
+      <div class="stat-bar"><div class="k"><span>磁盘 outputs/</span><span id="statDiskPct">—</span></div><div class="v" id="statDisk">—</div><div class="bar"><i id="statDiskBar" style="width:0%"></i></div></div>
+    </div>
+    <div class="ov-sec"><h4>引擎与资源</h4>
+      <div id="statEngines"><div class="back-row"><b>加载中…</b></div></div>
+      <div class="back-row"><b>LoRA 资源</b><span style="color:var(--ink-faint)" id="statLoras">—</span><span class="chip" id="statLorasChip">—</span></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px"><button class="btn" id="statRefresh" type="button">刷新状态</button></div>
+  </div>
+</aside>
+
+<!-- ========== 关于（底抽屉） ========== -->
+<aside class="stat-drawer" id="aboutDrawer" data-component="About Drawer">
+  <div class="ov-head"><span><span class="no">/</span>关于 · 项目介绍<span class="hint">顶抽屉 · 应用内板块</span></span><button class="icon-btn" id="aboutClose" type="button">✕</button></div>
+  <div class="ov-body">
+    <div class="about-card" data-component="Project Card">
+      <span class="about-lg"><svg class="brand-logo" width="28" height="28" viewBox="0 0 32 32" fill="none" aria-hidden="true"><rect width="32" height="32" rx="9" fill="var(--seed-primary)"/><circle cx="22.5" cy="10.5" r="2.9" fill="#fff" fill-opacity=".95"/><path d="M4.5 23.5 12 15l5 5.5L21 16l6.5 7.5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.5 23.5h23" stroke="#fff" stroke-opacity=".9" stroke-width="2.2" stroke-linecap="round"/></svg></span>
+      <div class="nm">Image MultiModel</div>
+      <div class="sub">Z-Image Turbo 图像生成平台</div>
+      <p class="desc">面向本地 AI 图像生成的工作台：Z-Image-Turbo 原生引擎进程内推理，LoRA 六层叠加、SeedVR2 超分、Eses 双图对比与显存预留，以对话式主界面屏蔽工作流复杂度。</p>
+      <div class="kv3">
+        <div class="it"><b>作者</b><span>ReSerendipity</span></div>
+        <div class="it"><b>当前版本</b><span id="aboutVersion">—</span></div>
+        <div class="it"><b>协议</b><span>Apache 2.0</span></div>
+      </div>
+      <div class="about-links">
+        <a class="btn" href="https://github.com/ReSerendipity/Image_MultiModel" target="_blank" rel="noopener" title="GitHub 仓库">GitHub 仓库</a>
+        <button class="soc" type="button" title="小红书 · 账号待补充">红</button>
+        <button class="soc" type="button" title="抖音 · 账号待补充">抖</button>
+        <button class="soc" type="button" title="快手 · 账号待补充">快</button>
+        <button class="soc" type="button" title="B站 · 账号待补充">B</button>
+      </div>
+    </div>
+    <div style="margin-top:12px" class="feat2" data-component="Feature Grid">
+      <div class="it"><b><span class="ic">▦</span>原生引擎</b><span>Z-Image-Turbo，进程内推理</span></div>
+      <div class="it"><b><span class="ic">▥</span>六层 LoRA</b><span>串联叠加 id=16→21，禁用自动重连</span></div>
+      <div class="it"><b><span class="ic">◔</span>SeedVR2 超分</b><span>ema_vae + 3B DiT，多档最短边</span></div>
+      <div class="it"><b><span class="ic">◫</span>双图对比</b><span>Eses h/v/s 拼接，直观比对</span></div>
+      <div class="it"><b><span class="ic">◳</span>显存预留</b><span>ReservedVRAM 保护生成稳定</span></div>
+      <div class="it"><b><span class="ic">◧</span>本地运行</b><span>进程内原生引擎，数据不出机器</span></div>
+    </div>
+    <p class="db-note" style="margin-top:10px">© 2024-2026 ReSerendipity · Apache 2.0 开源 · 项目仓库与社交账号尚未上线，后续补充。</p>
+  </div>
+</aside>
+
+<!-- ========== 悬浮查看器 ========== -->
+<div class="viewer" id="viewer" data-component="Floating Viewer">
+  <div class="v-head" id="vHead">
+    <b id="vTitle">图片查看</b><span class="seed" id="vSeed">—</span><span class="sp"></span>
+    <span class="v-tools">
+      <button id="vCompare" title="对比模式" aria-label="对比模式" type="button">⇄</button>
+      <button id="vZoomOut" title="缩小" aria-label="缩小" type="button">−</button>
+      <span style="font-size:10px;align-self:center;min-width:32px;text-align:center" id="vZoomVal">100%</span>
+      <button id="vZoomIn" title="放大" aria-label="放大" type="button">＋</button>
+      <button id="vFav" title="收藏" aria-label="收藏" type="button">☆</button>
+      <button id="vClose" title="关闭" aria-label="关闭" type="button">✕</button>
+    </span>
+  </div>
+  <div class="v-body"><div class="v-img" id="vImg"><span id="vImgLabel">PREVIEW</span></div></div>
+  <div class="v-foot"><span id="vMeta">Z-Image Turbo · 1024²</span><span><button class="btn btn-sm" type="button">下载</button> <button class="btn btn-sm" type="button">重绘</button></span></div>
+</div>
+
+<!-- ========== 队列悬浮球 ========== -->
+<div class="queue-pill" id="queuePill" data-component="Queue Pill"><span class="qd" id="qpDot"></span><span id="qpText">队列 —</span><span class="pct" id="qpPct" style="display:none"></span></div>
+<div class="queue-pop" id="queuePop" data-component="Queue Popover">
+  <div class="qp-head"><span>任务队列</span><button class="icon-btn" id="qpClose" style="width:20px;height:20px;font-size:10px" type="button">✕</button></div>
+  <div id="queueItems"><p style="text-align:center;color:var(--ink-faint);font-size:10px;padding:10px">加载中…</p></div>
+  <div style="margin-top:8px;text-align:right"><button class="btn btn-sm" id="qCancelBtn" type="button">取消当前</button></div>
+</div>
+
+<!-- ========== 底栏 ========== -->
+<footer class="statusbar" data-component="Statusbar">
+  <div class="sb-item sb-click" id="sbConn"><span class="dot" id="sbConnDot"></span><span id="sbConnText">连接中…</span></div>
+  <div class="sb-item sb-click" id="sbQueue">QUEUE —</div>
+  <div class="sb-right">
+    <div class="sb-item sb-gpu">GPU —</div>
+    <span class="zoom"><button class="z-btn" id="zOut" type="button" aria-label="缩小">−</button><span class="z-val" id="zVal">100%</span><button class="z-btn" id="zIn" type="button" aria-label="放大">＋</button></span>
+  </div>
+</footer>
+
+<script>
+{% endblock %}

@@ -148,6 +148,36 @@ def check_winpython():
     return wpy_path
 
 
+def find_available_port(start_port: int, host: str = "127.0.0.1", max_attempts: int = 200) -> int:
+    """从 start_port 向上查找第一个可用的端口（bind 探测）。
+
+    对齐 TTS_MultiModel / Seedvr2 的自动换端口策略：默认端口被占用时
+    向上顺延，避免启动直接报 [Errno 10048] address already in use。
+
+    Args:
+        start_port: 起始端口号（含）。
+        host: 绑定主机，默认 127.0.0.1。
+        max_attempts: 最大尝试次数，默认 200（最多尝试到 start_port+199）。
+
+    Returns:
+        int: 找到的第一个可用端口。
+
+    Raises:
+        OSError: 指定范围内未找到可用端口。
+    """
+    import socket
+
+    for offset in range(max_attempts):
+        candidate = start_port + offset
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind((host, candidate))
+                return candidate
+            except OSError:
+                continue
+    raise OSError(f"在 {start_port}~{start_port + max_attempts} 范围内未找到可用端口")
+
+
 def launch():
     """启动应用"""
     print("\n" + "=" * 60)
@@ -178,6 +208,12 @@ def launch():
     from integrated_app.config import load_config
     cfg = load_config()
 
+    # 端口被占用时自动向上顺延，避免启动失败（对齐 TTS_MultiModel / Seedvr2）
+    host = cfg.server.host
+    actual_port = find_available_port(cfg.server.port, host)
+    if actual_port != cfg.server.port:
+        print(f"[INFO] 端口 {cfg.server.port} 已被占用，自动切换到可用端口 {actual_port}")
+
     # 根据配置自动打开浏览器
     auto_open = getattr(cfg.server, "auto_open_browser", False)
     if auto_open:
@@ -200,15 +236,15 @@ def launch():
 
         threading.Thread(
             target=_auto_open_browser,
-            args=(cfg.server.host, cfg.server.port),
+            args=(host, actual_port),
             daemon=True,
             name="auto-open-browser",
         ).start()
 
     uvicorn.run(
         "integrated_app.app_server:app",
-        host=cfg.server.host,
-        port=cfg.server.port,
+        host=host,
+        port=actual_port,
         workers=cfg.server.workers,
         reload=False,
     )
