@@ -78,7 +78,7 @@ einops>=0.7.0
 omegaconf>=2.3.0
 pynvml>=11.5.0
 sentencepiece>=0.1.99
-transformers>=4.40.0
+transformers>=5.15.0
 accelerate>=0.29.0
 
 # ── diffusers 原生引擎（M8: backend: diffusers）─────────────
