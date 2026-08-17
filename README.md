@@ -36,7 +36,6 @@
 | **批量任务队列** | 异步任务队列 + SSE 实时推送，支持批量生成、任务取消、断点恢复 |
 | **预设管理** | 可保存常用参数组合为预设，一键加载复用 |
 | **历史记录** | SQLite 历史数据库，支持搜索、筛选、分页、结果预览 |
-| **DCT 数字水印** | 输出图像自动嵌入频域水印，包含 product_id + task_id + timestamp，可溯源 |
 | **安全加固** | PathGuard 路径防护、CSRF 中间件、Rate Limit 限流、任务签名完整性校验 |
 | **多语言界面** | 内置中文、繁体中文、英文、日文、韩文五种语言 |
 
@@ -154,7 +153,6 @@ Image_MultiModel/
 │       ├── middleware/          # CSRF、限流、Request ID 中间件
 │       ├── security/            # PathGuard 路径防护 + integrity 完整性
 │       ├── locales/             # i18n 多语言（zh / zh-tw / en / ja / ko）
-│       ├── watermark.py         # DCT 频域不可感知数字水印
 │       ├── gpu_utils.py         # GPU VRAM 预检 + 精度 / chunk 推荐
 │       ├── history_db.py        # SQLite 历史记录
 │       └── task_queue.py        # 异步任务队列（SSE 推送）
@@ -184,7 +182,7 @@ Image_MultiModel/
 | Web 框架 | FastAPI + Uvicorn |
 | 前端 | 单页应用（SPA，静态托管）+ SSE 实时推送 |
 | 数据 | SQLite（历史）、YAML（配置）、JSON（工作流） |
-| 安全 | PathGuard + CSRF + Rate Limit + Integrity Check + DCT Watermark |
+| 安全 | PathGuard + CSRF + Rate Limit + Integrity Check |
 | 工具链 | pytest + Hypothesis + factory-boy、ruff、coverage |
 
 ---
@@ -208,7 +206,6 @@ Image_MultiModel/
 - **网络绑定**：默认仅绑定 `127.0.0.1`，如需局域网访问请配置反向代理 + Basic Auth
 - **路径防护**：PathGuard 对文件路径做规范化校验，防止 `../` 路径穿越读取任意文件
 - **完整性**：`integrity_manifest.json` 对关键安全模块做 SHA256 校验
-- **水印溯源**：所有输出图像自动嵌入 DCT 频域水印，可追溯 `product_id | task_id | timestamp`
 - **CSRF**：表单提交 / POST 路由统一启用 CSRF Token 校验
 
 ---
@@ -228,11 +225,6 @@ data/checkpoints/{task_id}.json
 
 `config.yaml` 中 `output.history.cleanup_cron` 配置 cron 表达式（默认 `0 3 * * *` = 每天凌晨 3 点），`keep_days` 设置保留天数。启动时自动调度定时清理任务。
 
-### 水印验证
-
-```bash
-# 验证输出图像中的水印
-python scripts/verify_watermark.py outputs/z_image_turbo_native/20260814/xxx_original.png
 ```
 
 ---

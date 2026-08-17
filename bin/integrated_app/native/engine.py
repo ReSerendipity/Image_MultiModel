@@ -236,7 +236,7 @@ class NativeEngine:
             path.write_bytes(buf.getvalue())
             logger.debug("Watermark embedded: %s", path.name)
         except Exception as e:
-            logger.warning("Watermark embedding failed for %s: %s", path.name, e)
+            logger.debug("Watermark embedding failed for %s: %s", path.name, e)
 
     @staticmethod
     def _make_thumbnail(src: Path, thumb_dir: Path, name: str, max_side: int) -> None:

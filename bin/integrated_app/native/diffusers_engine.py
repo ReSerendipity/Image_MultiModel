@@ -541,7 +541,7 @@ class ZImageDiffusersEngine:
             path.write_bytes(buf.getvalue())
             logger.debug(f"Watermark embedded: {path.name}")
         except Exception as e:
-            logger.warning(f"Watermark embedding failed for {path.name}: {e}")
+            logger.debug(f"Watermark embedding failed for {path.name}: {e}")
 
     @staticmethod
     def _make_thumbnail(src: Path, thumb_dir: Path, name: str, max_side: int) -> None:

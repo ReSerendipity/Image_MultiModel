@@ -26,5 +26,4 @@
 - **CSRF 中间件**：表单 / POST 路由统一 Token 校验
 - **Rate Limit**：API 限流防滥用
 - **完整性自检**：关键安全模块 SHA256 校验（integrity_manifest.json）
-- **DCT 数字水印**：输出图像嵌入可溯源水印（product_id / task_id / timestamp）
 - **默认仅绑定 127.0.0.1**：局域网部署请配置反向代理 + Basic Auth
