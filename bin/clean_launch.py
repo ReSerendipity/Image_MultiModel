@@ -33,7 +33,7 @@ def find_winpython():
         if py.exists():
             return str(py)
     # 2. 参考项目 Seedvr2 的 WinPython
-    ref_wpy = Path(r"C:\Users\Doro\Seedvr2\WPy64-312101\python\python.exe")
+    ref_wpy = Path(r"C:\Users\Doro\SeedVR2-lite\WPy64-312101\python\python.exe")
     if ref_wpy.exists():
         return str(ref_wpy)
     # 3. 参考项目 TTS_MultiModel 的 WinPython
