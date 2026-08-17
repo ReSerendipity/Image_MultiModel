@@ -63,13 +63,6 @@ bin/key.pem
 *.txt
 !requirements.txt
 !requirements-lock.txt
-!examples/prompts.txt
-!PRD.md
-!MASTER_PLAN.md
-!WEBAPP_GUIDE.md
-!TEST_AUDIT_REPORT.md
-!AUDIT_REPORT_2.0.md
-!REMAINING_TASKS_REPORT.md
 .trash/
 pytest_out*.txt
 gen*.txt
