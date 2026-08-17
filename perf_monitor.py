@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Image_MultiModel 性能监控脚本
 测量：图像生成 API 响应时间
@@ -18,7 +18,7 @@ def benchmark():
     print("\n🔧 Image_MultiModel 性能基准测试")
     print("="*50)
     
-    health_url = "http://127.0.0.1:8080/api/system/health"
+    health_url = "http://127.0.0.1:8288/api/system/health"
     
     try:
         response = requests.get(health_url, timeout=3)
@@ -49,7 +49,7 @@ def benchmark():
             
     except requests.exceptions.ConnectionError:
         print("[Image_MultiModel] ⚠️ 服务未运行")
-        print("请先启动：python -m uvicorn bin.integrated_app.app_server:app --host 127.0.0.1 --port 8080")
+        print("请先启动：python -m uvicorn bin.integrated_app.app_server:app --host 127.0.0.1 --port 8288")
         return {"error": "Service not running"}
     except Exception as e:
         print(f"[Image_MultiModel] ❌ 异常：{e}")

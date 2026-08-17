@@ -106,7 +106,7 @@
 
 ```bash
 docker build -t image-multimodel .
-docker run --gpus all -p 8080:8080 \
+docker run --gpus all -p 8288:8288 \
   -v ./pretrained_models:/app/pretrained_models \
   -v ./outputs:/app/outputs \
   image-multimodel
