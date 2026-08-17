@@ -7,6 +7,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.0] - 2026-08-17
+
+### Added
+
+- **M9: 三项性能/功能改进**（对应计划中"DCT 水印性能优化、SeedVR2 超分集成、EsEs 对比图 UI"）：
+
+  1. **DCT 水印 GPU 加速**（watermark_gpu.py + watermark.py 入口检测 cupy）：
+     - 新增 `bin/integrated_app/watermark_gpu.py`（cupy 批量向量化 DCT 实现，~150 行）
+     - `watermark.py` 的 `embed_watermark()` 入口自动检测 cupy，可用时走 GPU 路径，否则回退 CPU（完全向后兼容）
+     - 预期性能：单次图片水印嵌入从 ~50ms 降到 ~5ms（cuBLAS 批量 matmul）
+     - **可选依赖**：requirements.txt 追加 `cupy-cuda12x>=13.0.0`（不安装不影响功能）
+
+  2. **SeedVR2 超分集成**（services/seedvr2_service.py + diffusers_engine 接入）：
+     - 新增 `bin/integrated_app/services/seedvr2_service.py`（SeedVR2Service 懒加载管理器，~150 行）
+     - `diffusers_engine.py` 的 `_apply_seedvr2_upscale()` 重构为调用服务层 API，支持自动卸载显存
+     - 生命周期管理：首次调用时才加载模型（不影响冷启动），推理完成后自动清理 GPU 缓存
+     - **用户操作**：下载模型权重到 `pretrained_models/SeedVR2/{3b|7b}/`，之后引擎自动生成时按需加载
+
+  3. **EsEs 双图对比 UI**（后端合成 + 前端 viewer 双图对比）：
+     - 后端：`diffusers_engine._generate_ese_compare()` 新增静态方法，支持 horizontal/vertical/slider 三种对比轴；batch > 1 且启用 EsEs 时自动生成对比图并保存到 outputs
+     - 前端：`app.js` renderImg() 替换静态 "BEFORE" 文本为真实双图对比布局（Original + Compare 标签），CSS 新增 `.v-img.split-view` 样式类
+
+### Changed
+
+- **版本号三处同步至 1.4.0**：config.yaml / __init__.py / CHANGELOG.md
+- **requirements.txt**：追加可选依赖 cupy-cuda12x>=13.0.0（GPU 加速水印）
+
+### Security
+
+- 无新增安全漏洞风险
+
+---
+
+## [1.3.0] - 2026-08-17
+
+### Added
+
+- **M8: diffusers 原生引擎**（HuggingFace ZImagePipeline）：新增 `bin/integrated_app/native/diffusers_engine.py`（ZImageDiffusersEngine），实现 `ImageEngine` Protocol，消除 GPL-3.0 许可依赖；支持 LoRA 栈注入（PEFT 接口）、SeedVR2 后处理超分、bf16/fp8 精度选择
+- **声明式引擎注册表**（对齐 TTS_MultiModel 模式）：重构 `config_models.py` 新增 `DiffusersEngineConfig`，`model_registry.py` 实现 `InMemoryEngineRegistry` + `create_engine_instance()` 工厂方法（按 backend 分发 native/diffusers）
+- **app_server.py worker 使用工厂方法**：TaskQueue Worker 不再硬编码 `NativeEngine`，改为 `registry.create_engine_instance()` 按引擎配置的 backend 字段自动分发
+
+### Changed
+
+- **default_engine → z_image_turbo_diffusers**：默认引擎从旧版 native 切换到新 diffusers 引擎（需用户自备 diffusers-format 模型目录 `pretrained_models/Tongyi-MAI--Z-Image-Turbo/`）
+- **i18n phase keys**：5 语言 JSON 新增 4 个推理阶段 key（phase_loading_model / phase_encoding / phase_decoding / phase_postprocessing）以对齐 diffusers 引擎进度提示
+
+### Security
+
+- **许可合规清零**：diffusers 引擎使用 Apache-2.0 官方管线，与项目主许可同源，彻底消除 GPL-3.0 分发边界争议
+
+### Deprecated
+
+- **z_image_turbo_native（comfy_kernel 复用）**：保留作为回滚路径（backend: native），但不再推荐；未来版本将删除
+
+---
+
+## [1.2.3] - 2026-08-16
+
+### Added
+
+- **第三方许可合规文档**：新增 `docs/THIRD_PARTY_NOTICES.md`（ComfyUI GPL-3.0 边界 + 关键依赖清单）与 `comfy_kernel/COMPLIANCE-README.md`（内核来源、版本、许可与分发边界）
+- **`.dockerignore`**：构建镜像时排除 `comfy_kernel/`（ComfyUI，GPL-3.0），避免镜像捆绑 GPL 代码
+
+### Changed
+
+- **Docker 运行时挂载内核**：`docker-compose.yml` 新增 `./comfy_kernel:/app/comfy_kernel:ro` 只读挂载，ComfyUI 内核不再进入镜像
+- **便携包打包许可提示**：`scripts/pack_portable.ps1` STEP 4 / STEP 6 增加提示——捆绑 `comfy_kernel/` 分发时须随附 GPL-3.0 全文（`comfy_kernel/LICENSE`）并在发布说明披露 GPL 约束
+- **README 许可证说明**：补充第三方内核许可边界
+
+---
+
 ## [1.2.2] - 2026-08-14
 
 ### Fixed

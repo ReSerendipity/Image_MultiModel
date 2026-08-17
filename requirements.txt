@@ -80,3 +80,13 @@ pynvml>=11.5.0
 sentencepiece>=0.1.99
 transformers>=4.40.0
 accelerate>=0.29.0
+
+# ── diffusers 原生引擎（M8: backend: diffusers）─────────────
+# 注：diffusers 版本锁定为 0.39.0（已验证 ZImagePipeline 可用）
+diffusers==0.39.0
+
+# ── 可选：DCT 水印 GPU 加速（M9）───────────────────────────
+# 注：cupy 提供 GPU 加速的水印嵌入（cuBLAS 批量 matmul），
+#     未安装时自动回退到 CPU 实现（功能完全兼容）
+#     CUDA 12.x 环境使用 cupy-cuda12x；CUDA 11.x 使用 cupy-cuda11x
+# cupy-cuda12x>=13.0.0

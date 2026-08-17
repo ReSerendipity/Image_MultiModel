@@ -120,3 +120,7 @@ references/
 
 # Vendored Comfy inference kernel (独立内核项目源码，维持为其独立 git 仓库，不并入本仓库)
 comfy_kernel/
+
+# IDE/editor state & node test deps (audit 2026-08-17)
+tests/node_modules/
+.zcode/

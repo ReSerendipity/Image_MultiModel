@@ -213,6 +213,19 @@ Image_MultiModel/
 
 **总计 ≈ 16 周**（与 PRD 一致）；前端因单页化省去多页模板开发，余量用于 5 语言与 batch=9999 稳定性。
 
+### M8 · diffusers 原生引擎迁移 + TTS_MultiModel 架构对齐（已完成，v1.3.0）
+
+- **目标**：将 `z_image_turbo_native` 引擎从 comfy_kernel 复用（GPL-3.0）迁移到 HuggingFace diffusers ZImagePipeline（Apache-2.0），消除许可依赖；同时架构对齐 TTS_MultiModel 的"声明式引擎注册表 + 懒导入工厂模式"。
+- **核心改动**：
+  - `bin/integrated_app/native/diffusers_engine.py`（新）：`ZImageDiffusersEngine` 实现 `ImageEngine` Protocol，基于 `ZImagePipeline.from_pretrained()` 加载本地模型目录，支持 bf16/fp8 精度选择、LoRA 栈注入（PEFT）、SeedVR2 后处理超分。
+  - `config_models.py`（增）：新增 `DiffusersEngineConfig` 数据类（model_id / local_model_dir / precision）。
+  - `model_registry.py`（重构）：引入 `InMemoryEngineRegistry`（懒导入+RLock+metadata 缓存）+ `create_engine_instance()` 工厂方法（按 backend 分发 native/diffusers）。
+  - `app_server.py` worker：使用工厂方法创建引擎实例，不再硬编码 `NativeEngine`。
+  - `config.yaml`：新增 `z_image_turbo_diffusers` 条目（backend: diffusers），设为 default_engine；旧 `z_image_turbo_native` 标记为 deprecated（保留回滚）。
+  - i18n：5 语言 JSON 新增 4 个推理阶段 key（phase_loading_model / phase_encoding / phase_decoding / phase_postprocessing）。
+- **测试**：API contract 测试 29 例全绿，i18n coverage 测试全绿，config/model_registry 单元测试通过。
+- **验收**：diffusers 引擎端到端连通（需用户自备 diffusers-format 模型目录 `pretrained_models/Tongyi-MAI--Z-Image-Turbo/`）；许可合规清零（Apache-2.0 同源）；版本号三处同步至 v1.3.0；AGENTS.md 修订记录追加 v1.9。
+
 ---
 
 ## 10. 风险与注意点（合并）

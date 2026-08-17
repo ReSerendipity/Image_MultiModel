@@ -794,11 +794,25 @@ function renderImgReal(out){_curViewer=out;renderImg();}
 /* 覆盖原 mock renderImg：缩放/对比等控件全部渲染真实图片 */
 renderImg=function(){
   vImg.style.transform='scale('+(zoom/100)+')';
-  vImg.className='v-img'+(compare?' compare':'');
-  vZoomVal.textContent=zoom+'%';
   var out=_curViewer;
-  if(compare){vImg.innerHTML='<div class="half">BEFORE</div><div class="half">'+(out?'<img src="/api/outputs/'+out.path+'" style="max-width:100%;max-height:100%;object-fit:contain">':'—')+'</div>';}
-  else{vImg.innerHTML=out?'<img src="/api/outputs/'+out.path+'" style="max-width:100%;max-height:100%;object-fit:contain">':'<span>PREVIEW</span>';}
+  // M9: 对比模式显示双图（左侧原图 + 右侧对比图）
+  if(compare&&out){
+    vImg.className='v-img split-view';
+    // 从原始路径推导对比图路径（{taskid}_{seed}_{idx}.png → {taskid}_{seed}_{idx}_compare.png）
+    var basePath=out.path;
+    var comparePath=basePath.replace(/\.png$/i,'_compare.png');
+    vImg.innerHTML=
+      '<div class="half left"><span class="label">Original</span>'+
+      '<img src="/api/outputs/'+basePath+'" style="max-width:100%;max-height:calc(100vh - 150px);object-fit:contain"></div>'+
+      '<div class="divider"></div>'+
+      '<div class="half right"><span class="label">Compare</span>'+
+      '<img src="/api/outputs/'+comparePath+'" style="max-width:100%;max-height:calc(100vh - 150px);object-fit:contain" onerror="this.parentNode.style.display=none;"></div>';
+  }else if(compare){vImg.innerHTML='<div class="half">无对比数据</div>';}
+  else{
+    vImg.className='v-img';
+    vImg.innerHTML=out?'<img src="/api/outputs/'+out.path+'" style="max-width:100%;max-height:calc(100vh - 150px);object-fit:contain">':'<span>PREVIEW</span>';
+  }
+  vZoomVal.textContent=zoom+'%';
   document.getElementById('vCompare').classList.toggle('on',compare);
 };
 

@@ -52,9 +52,12 @@
   "config_saved": "設定を保存しました",
   "config_save_failed": "設定の保存に失敗",
   "engine_not_ready": "エンジンの準備ができていません",
-  "comfy_not_reachable": "ComfyUIバックエンドに接続できません",
   "phase_connecting": "接続中",
   "phase_loading_workflow": "ワークフロー読み込み中",
+  "phase_loading_model": "モデル読み込み中",
+  "phase_encoding": "プロンプト暗号化中",
+  "phase_decoding": "潜空間デコード中",
+  "phase_postprocessing": "後処理中",
   "phase_engine_ready": "エンジン準備完了",
   "phase_patching": "パッチ適用中",
   "phase_queuing": "キューに追加中",
@@ -64,7 +67,7 @@
   "phase_completed": "完了",
   "phase_cancelling": "キャンセル中",
   "backend_mode": "バックエンドモード",
-  "backend_mode_comfyui": "ComfyUI",
+  "backend_mode_local_comfy": "ローカル Comfy",
   "backend_mode_native": "ネイティブ",
   "engine_load_native_failed": "ネイティブエンジンの読み込みに失敗しました",
   "engine_native_ready": "ネイティブエンジン準備完了",
@@ -82,10 +85,8 @@
     "batch_too_large": "バッチサイズが制限を超えています（最大 9999）",
     "seed_must_be_int": "シードは整数または -1（ランダム）である必要があります",
     "resolution_too_large": "解像度が大きすぎます。2048×2048 以下を推奨",
-    "comfy_not_reachable": "ComfyUIバックエンドに接続できません: {url}",
-    "comfy_ws_error": "ComfyUI WebSocketエラー: {detail}",
-    "comfy_workflow_error": "ワークフロー実行エラー: {detail}",
-    "comfy_node_not_found": "ワークフローノードが見つかりません: {node_id}",
+    "inference_error_workflow": "ワークフロー実行エラー: {detail}",
+    "inference_error_node_not_found": "ワークフローノードが見つかりません: {node_id}",
     "vram_insufficient": "VRAM不足（必要 {need}GB、利用可能 {avail}GB）",
     "vram_preflight_failed": "VRAM事前チェック失敗: {detail}",
     "path_traversal": "安全でないパス: {path}",
@@ -105,6 +106,9 @@
     "preprocess_pose_success": "姿勢検出完了",
     "preprocess_failed": "前処理失敗: {detail}",
     "preprocess_not_available": "プリプロセッサが利用できません: {name}",
-    "unknown_error": "不明なエラー: {detail}"
-  }
+    "unknown_error": "不明なエラー: {detail}",
+    "inference_error_backend_unreachable_url": "ComfyUIバックエンドに接続できません: {url}",
+    "inference_error_ws_error": "ComfyUI WebSocketエラー: {detail}"
+  },
+  "inference_error_backend_unreachable": "ComfyUIバックエンドに接続できません"
 }

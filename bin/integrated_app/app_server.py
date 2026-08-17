@@ -34,7 +34,6 @@ from .middleware.csrf import CSRFMiddleware
 from .middleware.rate_limit import RateLimitMiddleware
 from .middleware.request_id import RequestIDMiddleware
 from .model_registry import get_model_registry
-from .native.engine import NativeEngine
 from .sse import get_sse_bus
 from .task_queue import Task, TaskQueue
 
@@ -285,7 +284,7 @@ async def lifespan(app: FastAPI):
         logger.info(f"Found {len(pending_checkpoints)} pending checkpoints for recovery")
     app.state.checkpoint_mgr = checkpoint_mgr
 
-    # 启动 TaskQueue Worker（M2：接通 NativeEngine 原生推理）
+    # 启动 TaskQueue Worker（M8: 支持 native + diffusers 双后端）
     def worker_func(task):
         logger.info(f"Worker processing task: {task.task_id} ({task.engine})")
         started = time.time()
@@ -294,15 +293,18 @@ async def lifespan(app: FastAPI):
             ecfg = cfg.models.engines.get(task.engine)
             if not ecfg:
                 raise RuntimeError(f"Engine '{task.engine}' not found in config")
-            # 完全脱离 ComfyUI：统一走原生进程内引擎（backend 固定 native）
-            engine = NativeEngine(
-                name=task.engine,
+
+            # M8: 使用工厂方法按 backend 分发引擎
+            from .model_registry import get_model_registry
+
+            registry = get_model_registry()
+            backend = getattr(ecfg, "backend", "native")
+            engine = registry.create_engine_instance(
+                engine_name=task.engine,
                 display_name=getattr(ecfg, "display_name", task.engine),
                 display_name_en=getattr(ecfg, "display_name_en", ""),
-                config={
-                    "workflow_file": ecfg.workflow_file,
-                    "comfy_source_dir": getattr(ecfg, "comfy_source_dir", ""),
-                },
+                backend=backend,
+                config=ecfg.model_dump(),
             )
             gen = GenerationConfig(**task.config)
 

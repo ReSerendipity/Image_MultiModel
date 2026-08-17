@@ -86,20 +86,24 @@ class EngineConfig(BaseModel):
 
     backend == "native" 时，原生引擎复用本地 Comfy 源码在进程内执行，
     通过 comfy_source_dir / custom_nodes_dir 指向复用源码位置。
+    backend == "diffusers" 时，使用 HuggingFace diffusers 管线（M8 新引擎）。
     """
     name: str
     display_name: str = ""
     display_name_en: str = ""
     backend: str = "native"
+    # ── native 引擎字段（backend == "native" 时使用，deprecated）──
     workflow_file: str = ""
     parameter_schema: str = ""
-    # ── native 引擎字段（backend == "native" 时使用）──
-    comfy_source_dir: str = ""      # 复用 Comfy 核心 comfy/ 包所在目录（如 comfy_kernel）
-    custom_nodes_dir: str = ""      # 复用自定义节点源码所在目录（如 comfy_kernel/custom_nodes）
-    seedvr2_source_dir: str = ""    # SeedVR2_VideoUpscaler 自定义节点目录（可选，命中 custom_nodes_dir 全扫）
+    comfy_source_dir: str = ""
+    custom_nodes_dir: str = ""
+    seedvr2_source_dir: str = ""
     text_encoder: ModelPaths | None = None
     unet: ModelPaths | None = None
     vae: ModelPaths | None = None
+    # ── diffusers 引擎字段（backend == "diffusers" 时使用）──
+    model_id: str = ""              # HF model ID (e.g. "Tongyi-MAI/Z-Image-Turbo")
+    local_model_dir: str = ""       # 本地目录名（相对于 internal_models_dir 或 comfy_models_dir）
     vram_gb: float = 16.0
     ram_gb: float = 24.0
     default_precision: str = "fp8"
@@ -109,6 +113,29 @@ class EngineConfig(BaseModel):
     default_height: int = 1024
     image_formats: list[str] = Field(default_factory=lambda: ["png"])
     license: str = ""
+    tags: list[str] = Field(default_factory=list)
+
+
+class DiffusersEngineConfig(BaseModel):
+    """diffusers 引擎专属配置模型（M8 里程碑）
+
+    对应 config.yaml → models.engines.{name} where backend == "diffusers"
+    用于 ZImagePipeline.from_pretrained(local_dir) 加载完整模型目录。
+    """
+    name: str
+    display_name: str = ""
+    display_name_en: str = ""
+    model_id: str = ""              # HF model ID (fallback if local_model_dir not found)
+    local_model_dir: str = ""       # 本地目录名（相对于 internal_models_dir 或 comfy_models_dir）
+    vram_gb: float = 10.0
+    ram_gb: float = 16.0
+    default_precision: str = "bf16"
+    fallback_precision: str = "fp8"
+    supported_features: list[str] = Field(default_factory=list)
+    default_width: int = 1024
+    default_height: int = 1024
+    image_formats: list[str] = Field(default_factory=lambda: ["png"])
+    license: str = "Apache-2.0"
     tags: list[str] = Field(default_factory=list)
 
 

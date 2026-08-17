@@ -47,6 +47,10 @@ services:
       - ./logs:/app/logs
       # 配置文件
       - ./config.yaml:/app/config.yaml
+      # ComfyUI 内核源码（comfy_kernel/，GPL-3.0，上游 https://github.com/Comfy-Org/ComfyUI）：
+      # 不嵌入镜像（.dockerignore 已排除），运行时只读挂载本地副本。
+      # 本地无此目录时，请按 comfy_kernel/COMPLIANCE-README.md 获取并放置。
+      - ./comfy_kernel:/app/comfy_kernel:ro
 
     # 健康检查
     healthcheck:

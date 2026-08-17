@@ -295,3 +295,5 @@ python -m pytest tests/e2e -m e2e
 ## 许可证
 
 本项目采用 [Apache License 2.0](LICENSE) 开源协议。
+
+> **第三方内核许可边界（重要）**：项目内 `comfy_kernel/` 是 ComfyUI（[GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.html)，上游 <https://github.com/Comfy-Org/ComfyUI>）的本地副本，作为原生引擎的**外部运行时依赖**：它是独立 git 仓库、未纳入本仓库跟踪，**默认不随本仓库分发**；安装脚本不下载/复制它，Docker 镜像不嵌入它（运行时只读挂载），新环境须自备该目录（获取方式见 `comfy_kernel/COMPLIANCE-README.md`）。**捆绑分发时**（便携包/镜像包含 ComfyUI 内核），该发行物整体受 GPL-3.0 约束，须随附 GPL-3.0 全文并提供对应源代码。详见 [docs/THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md)。

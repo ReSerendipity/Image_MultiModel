@@ -137,7 +137,21 @@ def embed_watermark(
     将溯源水印嵌入 2D/3D 图像数组，返回新数组（不修改输入）。
 
     对 3D (H,W,C) 图像，仅嵌入到第一通道（亮度主导），其余通道不变。
+    优先尝试 GPU 加速（cupy 批量向量化 DCT），失败时自动回退 CPU。
     """
+    # 优先尝试 GPU 加速（优雅降级：cupy 不可用时回退 CPU）
+    try:
+        from .watermark_gpu import embed_watermark_gpu, is_gpu_available
+        if is_gpu_available():
+            result = embed_watermark_gpu(image, product_id, task_id, timestamp)
+            if result is not None:
+                logger.debug("Watermark embedded via GPU (cupy)")
+                return result
+            logger.debug("GPU watermark returned None, falling back to CPU")
+    except Exception as e:
+        logger.debug(f"GPU watermark failed, falling back to CPU: {e}")
+    
+    # CPU 实现（原有路径）
     ts = timestamp if timestamp is not None else time.time()
     payload = _payload_string(product_id, task_id, ts)
     key = _load_secret_key()

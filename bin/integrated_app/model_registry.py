@@ -1,8 +1,9 @@
 """
-model_registry.py — 引擎注册表桥接
+model_registry.py — 引擎注册表桥接 + 引擎工厂（M8 diffusers 迁移）
 
 对应 MASTER_PLAN §4 / 附录 A3: model_registry.py
 对应 PRD §4.2: Registry → SSE 桥接
+对应 M8: diffusers 引擎工厂方法（按 backend 分发）
 """
 
 from __future__ import annotations
@@ -10,7 +11,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from .engine_interface import get_registry
+from .engine_interface import ImageEngine, get_registry
 from .model_manager import get_model_manager
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,7 @@ class ModelRegistry:
     - 注册引擎到 InMemoryEngineRegistry
     - 注册 ModelManager 观察者 → SSE
     - 提供 list / get / activate / deactivate 接口
+    - create_engine_instance() 工厂方法（M8: 按 backend 分发）
     """
 
     def __init__(self) -> None:
@@ -50,7 +52,7 @@ class ModelRegistry:
                 "name": engine_name,
                 "display_name": engine_cfg.display_name,
                 "display_name_en": engine_cfg.display_name_en,
-                "backend": getattr(engine_cfg, "backend", "comfyui"),
+                "backend": getattr(engine_cfg, "backend", "native"),
                 "config": engine_cfg.model_dump(),
             }
 
@@ -79,6 +81,56 @@ class ModelRegistry:
 
     def get_engine_config(self, name: str) -> dict[str, Any] | None:
         return self._registry._configs.get(name)
+
+    def create_engine_instance(
+        self,
+        engine_name: str,
+        display_name: str = "",
+        display_name_en: str = "",
+        backend: str = "native",
+        config: dict[str, Any] | None = None,
+    ) -> ImageEngine:
+        """创建引擎实例（M8: 按 backend 分发）
+
+        根据 backend 类型创建对应的引擎实例：
+        - "diffusers": ZImageDiffusersEngine（M8 新引擎，Apache-2.0）
+        - "native": NativeEngine（deprecated，保留回滚）
+
+        Args:
+            engine_name: 引擎唯一标识符
+            display_name: UI 显示名称
+            display_name_en: 英文显示名称
+            backend: 后端类型（"native" / "diffusers"）
+            config: 引擎配置字典（从 EngineConfig.model_dump() 获取）
+
+        Returns:
+            ImageEngine: 实现了 ImageEngine Protocol 的引擎实例
+
+        Raises:
+            ValueError: 未知的 backend 类型
+        """
+        if backend == "diffusers":
+            from .native.diffusers_engine import ZImageDiffusersEngine
+
+            logger.info(f"Creating diffusers engine: {engine_name}")
+            return ZImageDiffusersEngine(
+                name=engine_name,
+                display_name=display_name,
+                display_name_en=display_name_en,
+                config=config or {},
+            )
+        elif backend == "native":
+            from .native.engine import NativeEngine
+
+            logger.info(f"Creating native engine: {engine_name}")
+            return NativeEngine(
+                name=engine_name,
+                display_name=display_name,
+                display_name_en=display_name_en,
+                config=config or {},
+            )
+        else:
+            raise ValueError(f"Unknown backend: {backend!r}, expected 'native' or 'diffusers'")
 
 
 # ── 全局单例 ──────────────────────────────────────────────────

@@ -57,6 +57,9 @@ Write-Host "        ⚠ 请确认 pretrained_models/seedvr2 含 ema_vae_fp16 + s
 
 # STEP 4: 内嵌 Python 与 vendored 推理内核（comfy_kernel/）
 Write-Host "[STEP 4] 人工步骤：内嵌 WinPython / comfy_kernel 推理内核（参考 PRD §10.5 STEP 4）" -ForegroundColor Yellow
+Write-Host "        许可提示：comfy_kernel/ 为 ComfyUI 内核（GPL-3.0，上游 https://github.com/Comfy-Org/ComfyUI）。" -ForegroundColor Yellow
+Write-Host "        随便携包分发时必须：① 保留 comfy_kernel/LICENSE 与 COMPLIANCE-README.md；" -ForegroundColor Yellow
+Write-Host "        ② 在发布说明披露发行物中 ComfyUI 部分受 GPL-3.0 约束；③ 提供对应源代码获取方式。" -ForegroundColor Yellow
 
 # STEP 5: 清理开发期残留
 Write-Host "[STEP 5] 清理开发残留（cache/uploads/logs/Junction/字节码）" -ForegroundColor Cyan
@@ -82,6 +85,8 @@ if ($SkipZip) {
     Write-Host "[STEP 6] 跳过打包（-SkipZip）" -ForegroundColor Yellow
 } else {
     Write-Host "[STEP 6] 7z 打包（固实压缩，可分卷）" -ForegroundColor Cyan
+    Write-Host "        注意：打包目录含 comfy_kernel/（ComfyUI，GPL-3.0）。分发前须完成 STEP 4 许可提示要求：" -ForegroundColor Yellow
+    Write-Host "        随附 comfy_kernel/LICENSE 与 COMPLIANCE-README.md，并披露发行物受 GPL-3.0 约束。" -ForegroundColor Yellow
     $sevenZip = Get-Command 7z -ErrorAction SilentlyContinue
     if ($sevenZip) {
         Push-Location (Split-Path -Parent $ProjectRoot)

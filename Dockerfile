@@ -11,6 +11,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 复制项目代码
+# 许可注记：comfy_kernel/（ComfyUI，GPL-3.0）已在 .dockerignore 中排除，不进入镜像；
+# 运行时由 docker-compose.yml 将本地 comfy_kernel/ 只读挂载到 /app/comfy_kernel。
 COPY . .
 
 # 编译检查
