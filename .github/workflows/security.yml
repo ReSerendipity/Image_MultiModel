@@ -48,13 +48,13 @@ jobs:
 
       - name: Run pip-audit
         run: |
-          # 扫描 requirements.txt 中的已知漏洞
-          pip-audit -r requirements.txt --strict || true
+          # 扫描 requirements.txt 中的已知漏洞（发现高危 CVE 时阻断 CI）
+          pip-audit -r requirements.txt --strict
 
       - name: Run pip-audit on lock file
         run: |
           if [ -f requirements-lock.txt ]; then
-            pip-audit -r requirements-lock.txt || true
+            pip-audit -r requirements-lock.txt
           fi
 
   # ── 容器镜像安全扫描 (Trivy) ──────────────────────────
@@ -74,7 +74,7 @@ jobs:
         with:
           image-ref: "image-multimodel:scan"
           format: "table"
-          exit-code: "0"
+          exit-code: "1"
           ignore-unfixed: true
           severity: "CRITICAL,HIGH"
           output: "trivy-report.txt"

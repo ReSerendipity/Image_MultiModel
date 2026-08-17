@@ -117,7 +117,7 @@ jobs:
           python -m pytest \
             tests/test_config.py \
             tests/test_path_guard_attacks.py \
-            tests/test_workflow.py \
+            tests/test_system_routes.py \
             tests/test_api_contract.py::TestBasicContract::test_health_ok \
             tests/test_api_contract.py::TestBasicContract::test_config_ok \
             -v
