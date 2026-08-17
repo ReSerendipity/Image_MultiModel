@@ -398,7 +398,7 @@ class ZImageDiffusersEngine:
 
             svr = get_seedvr2_service()
             if not svr.available:
-                logger.warning("SeedVR2-Toolkit not installed, skipping upscale")
+                logger.warning("SeedVR2-lite not installed, skipping upscale")
                 return images
 
             # 懒加载模型（首次调用时才加载）

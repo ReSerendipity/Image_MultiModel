@@ -282,7 +282,7 @@ python -m pytest tests/e2e -m e2e
 
 - 本项目为**独立开源项目**，基于阿里通义实验室（Tongyi-MAI）开源模型 **Z-Image-Turbo**（Apache-2.0）构建，与阿里巴巴集团及通义品牌**无隶属关系**，并非通义官方出品。
 - "Z-Image" 为阿里通义实验室的官方模型品牌名，本项目中仅作**描述性引用**以说明所集成的引擎，不暗示本项目的官方身份或获得官方背书。
-- 项目内置的 SeedVR2 超分组件同为第三方集成，相关归属与免责说明见 [SeedVR2 项目声明](https://github.com/ReSerendipity/SeedVR2-Toolkit)。
+- 项目内置的 SeedVR2 超分组件同为第三方集成，相关归属与免责说明见 [SeedVR2 项目声明](https://github.com/ReSerendipity/SeedVR2-lite)。
 > **接入新模型时：更新本表 + `config.yaml` 中对应引擎的 `license` 字段。**
 
 | 模型 | 引擎 key | 权重许可 | 商用 | 说明 |

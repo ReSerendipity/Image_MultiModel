@@ -2,7 +2,7 @@
 seedvr2_service.py — SeedVR2 超分服务集成
 
 对应 MASTER_PLAN M9: SeedVR2 超分集成（diffusers_engine 自动调用）
-参考 SeedVR2-Toolkit 的 SeedVR2Engine 实现（Apache-2.0，独立项目）
+参考 SeedVR2-lite 的 SeedVR2Engine 实现（Apache-2.0，独立项目）
 
 架构设计：
 - 懒加载模式：首次调用时才加载模型（不影响冷启动时间）
@@ -27,15 +27,15 @@ import torch
 
 logger = logging.getLogger(__name__)
 
-# 尝试导入 SeedVR2-Toolkit（懒导入，不安装时优雅降级）
+# 尝试导入 SeedVR2-lite（懒导入，不安装时优雅降级）
 SEEDVR2_AVAILABLE = False
 try:
-    # SeedVR2-Toolkit 的引擎类（独立项目，Apache-2.0）
+    # SeedVR2-lite 的引擎类（独立项目，Apache-2.0）
     from bin.integrated_app.engines.seedvr2_engine import SeedVR2Engine, ImageInferenceConfig
     SEEDVR2_AVAILABLE = True
-    logger.debug("SeedVR2-Toolkit available")
+    logger.debug("SeedVR2-lite available")
 except ImportError:
-    logger.debug("SeedVR2-Toolkit not installed, super-resolution disabled")
+    logger.debug("SeedVR2-lite not installed, super-resolution disabled")
     SeedVR2Engine = None  # type: ignore
     ImageInferenceConfig = None  # type: ignore
 
@@ -58,7 +58,7 @@ class SeedVR2Service:
     
     @property
     def available(self) -> bool:
-        """SeedVR2-Toolkit 是否已安装。"""
+        """SeedVR2-lite 是否已安装。"""
         return SEEDVR2_AVAILABLE
     
     @property
@@ -80,21 +80,21 @@ class SeedVR2Service:
             project_root: 项目根目录（用于解析模型路径）
         
         Raises:
-            RuntimeError: SeedVR2-Toolkit 未安装或模型文件缺失
+            RuntimeError: SeedVR2-lite 未安装或模型文件缺失
         """
         if self._loaded:
             return
         
         if not SEEDVR2_AVAILABLE:
             raise RuntimeError(
-                "SeedVR2-Toolkit not installed. "
+                "SeedVR2-lite not installed. "
                 "Please run: pip install seedvr2_toolkit "
-                "or download from https://github.com/ReSerendipity/SeedVR2-Toolkit"
+                "or download from https://github.com/ReSerendipity/SeedVR2-lite"
             )
         
         self._project_root = project_root
         
-        # 构建配置（参考 SeedVR2-Toolkit 的配置格式）
+        # 构建配置（参考 SeedVR2-lite 的配置格式）
         # 模型路径：pretrained_models/SeedVR2/{model_size}/
         if project_root:
             models_root = str(Path(project_root) / "pretrained_models" / "SeedVR2" / model_size)
