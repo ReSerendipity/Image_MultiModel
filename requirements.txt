@@ -69,7 +69,7 @@ factory-boy>=3.3.0
 beautifulsoup4>=4.12.0
 
 # ── 可选：Playwright E2E（M5 阶段）────────────────────────
-playwright>=1.40.0
+playwright>=1.62.0
 pytest-playwright>=0.4.0
 
 # ── 原生引擎复用 Comfy 源码所需依赖（backend: native）──────
