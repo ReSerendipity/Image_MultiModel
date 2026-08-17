@@ -98,7 +98,7 @@ def embed_watermark_gpu(
     capacity = n_blocks_h * n_blocks_w
     
     if capacity < n_bits:
-        logger.warning(
+        logger.debug(
             f"Image too small for watermark: need {n_bits} bits, "
             f"capacity {capacity} blocks ({h}x{w})"
         )
