@@ -10,6 +10,7 @@ from integrated_app.config_models import AppConfig
 from integrated_app.engine_interface import GenerationConfig
 from integrated_app.native import executor, lora, seedvr, source, vram
 from integrated_app.native.engine import NativeEngine, _map_phase
+from integrated_app.native import output_pipeline
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 COMFY_ROOT = PROJECT_ROOT / "comfy_kernel"
@@ -93,7 +94,7 @@ def test_map_phase():
 def test_tensor_to_png(tmp_path):
     img = torch.zeros(8, 16, 3)
     path = tmp_path / "a.png"
-    NativeEngine._tensor_to_png(img, path)
+    output_pipeline.save_png(path, img, is_tensor=True)
     assert path.exists() and path.stat().st_size > 0
 
 
@@ -101,8 +102,8 @@ def test_embed_watermark_identity(monkeypatch, tmp_path):
     import integrated_app.watermark as wm
     monkeypatch.setattr(wm, "embed_watermark", lambda arr, pid, tid, ts: arr)
     src = tmp_path / "src.png"
-    NativeEngine._tensor_to_png(torch.zeros(8, 8, 3), src)
-    NativeEngine._embed_watermark(src, "PROD", "task123")
+    output_pipeline.save_png(src, torch.zeros(8, 8, 3), is_tensor=True)
+    output_pipeline.embed_provenance(src, "PROD", "task123")
     assert src.exists() and src.stat().st_size > 0
 
 
@@ -112,24 +113,24 @@ def test_embed_watermark_error_on_error(monkeypatch, tmp_path):
         raise RuntimeError("wm fail")
     monkeypatch.setattr(wm, "embed_watermark", boom)
     src = tmp_path / "src.png"
-    NativeEngine._tensor_to_png(torch.zeros(8, 8, 3), src)
-    NativeEngine._embed_watermark(src, "PROD", "task123")
+    output_pipeline.save_png(src, torch.zeros(8, 8, 3), is_tensor=True)
+    output_pipeline.embed_provenance(src, "PROD", "task123")
     assert src.exists()
 
 
 def test_make_thumbnail_scale_and_no_scale(tmp_path):
     src = tmp_path / "src.png"
-    NativeEngine._tensor_to_png(torch.zeros(8, 16, 3), src)
+    output_pipeline.save_png(src, torch.zeros(8, 16, 3), is_tensor=True)
     thumb_dir = tmp_path / "thumbs"
     thumb_dir.mkdir()
-    NativeEngine._make_thumbnail(src, thumb_dir, "t_down.png", 8)
+    output_pipeline.make_thumbnail(src, thumb_dir, "t_down.png", 8)
     assert (thumb_dir / "t_down.png").exists()
-    NativeEngine._make_thumbnail(src, thumb_dir, "t_same.png", 128)
+    output_pipeline.make_thumbnail(src, thumb_dir, "t_same.png", 128)
     assert (thumb_dir / "t_same.png").exists()
 
 
 def test_make_thumbnail_error_handled(tmp_path):
-    NativeEngine._make_thumbnail(tmp_path / "missing.png", tmp_path, "x.png", 32)
+    output_pipeline.make_thumbnail(tmp_path / "missing.png", tmp_path, "x.png", 32)
 
 
 def test_engine_unload(monkeypatch):

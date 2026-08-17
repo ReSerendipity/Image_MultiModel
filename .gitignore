@@ -155,3 +155,38 @@ LOCAL_RULES.md
 
 # 根目录运行日志（勿提交）
 *.log
+
+# ── 统一模板 v0.1 补充段（2026-08-17，与其余三仓对齐；不含删除性修改）──────────────────
+*.whl
+*.tar.gz
+*.zip
+WPy64-*/
+WinPython*/
+python/
+pretrained_models/*.pth
+pretrained_models/*.safetensors
+pretrained_models/*.bin
+pretrained_models/*.pt
+pretrained_models/*.ckpt
+*.onnx
+data/uploads/*
+outputs/*
+logs/*
+.env.*
+secrets/
+.benchmarks/
+.ruff_cache/
+.mypy_cache/
+.pyright/
+tests/test-results/
+tests/playwright-report/
+tests/frontend/_rendered/
+.qoder/
+*.tmp
+*.bak
+Desktop.ini
+!pretrained_models/.gitkeep
+!logs/.gitkeep
+!data/uploads/.gitkeep
+!outputs/.gitkeep
+!.env.example

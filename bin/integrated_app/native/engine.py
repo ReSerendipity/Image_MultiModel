@@ -20,7 +20,7 @@ from ..config import get_config
 from ..config_models import resolve_engine_model_paths
 from ..engine_interface import GenerationConfig, ProgressCallback
 from ..security.path_guard import PathGuard
-from . import executor
+from . import executor, output_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -191,68 +191,21 @@ class NativeEngine:
             width, height = img_tensor.shape[1], img_tensor.shape[0]
             fname = f"{task_id[:16]}_{idx}.png"
             path = engine_dir / fname
-            self._tensor_to_png(img_tensor, path)
-
-            if wm_enabled:
-                self._embed_watermark(path, product_id, task_id[:16])
-
-            if thumb_enabled and thumb_dir is not None:
-                self._make_thumbnail(path, thumb_dir, f"{task_id[:16]}_{idx}_thumb.png", thumb_max_side)
+            output_pipeline.finalize_output(
+                path,
+                img_tensor,
+                is_tensor=True,
+                wm_enabled=wm_enabled,
+                product_id=product_id,
+                task_id=task_id[:16],
+                thumb_enabled=thumb_enabled,
+                thumb_dir=thumb_dir,
+                thumb_name=f"{task_id[:16]}_{idx}_thumb.png",
+                thumb_max_side=thumb_max_side,
+            )
 
             # 存相对路径（相对 outputs/ 目录），供前端 /api/outputs/<rel> 直接访问
             base = (Path(cfg.project_root) / cfg.output.base_dir).resolve()
             rel = str(path.relative_to(base)).replace("\\", "/")
             saved.append(rel)
         return saved
-
-    @staticmethod
-    def _tensor_to_png(img_tensor: Any, path: Path) -> None:
-        """把 [0,1] 范围 (H,W,3) 张量保存为 PNG。"""
-        from PIL import Image
-
-        arr = img_tensor.detach().cpu().numpy()
-        arr = (arr * 255.0).clip(0, 255).astype("uint8")
-        Image.fromarray(arr).save(path, format="PNG")
-
-    @staticmethod
-    def _embed_watermark(path: Path, product_id: str, task_id: str) -> None:
-        """对已保存的 PNG 嵌入 DCT 水印（越界裁剪回 [0,255]）。"""
-        import io
-
-        import numpy as np
-        from PIL import Image
-
-        from ..watermark import embed_watermark
-
-        try:
-            img = Image.open(path)
-            if img.mode != "RGB":
-                img = img.convert("RGB")
-            arr = np.array(img).astype(np.float64)
-            wm_arr = embed_watermark(arr, product_id, task_id, time.time())
-            wm_img = Image.fromarray(np.clip(wm_arr, 0, 255).astype(np.uint8))
-            buf = io.BytesIO()
-            wm_img.save(buf, format="PNG")
-            path.write_bytes(buf.getvalue())
-            logger.debug("Watermark embedded: %s", path.name)
-        except Exception as e:
-            logger.debug("Watermark embedding failed for %s: %s", path.name, e)
-
-    @staticmethod
-    def _make_thumbnail(src: Path, thumb_dir: Path, name: str, max_side: int) -> None:
-        """生成缩略图到 data/cache/thumbs/。"""
-        from PIL import Image
-
-        try:
-            img = Image.open(src)
-            w, h = img.size
-            scale = max_side / max(w, h)
-            if scale < 1.0:
-                thumb = img.resize(
-                    (int(w * scale), int(h * scale)), Image.Resampling.LANCZOS
-                )
-            else:
-                thumb = img
-            thumb.save(thumb_dir / name, format="PNG")
-        except Exception as e:
-            logger.warning("Thumbnail generation failed: %s", e)

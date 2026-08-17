@@ -34,6 +34,7 @@ from ..config import get_config
 from ..config_models import resolve_engine_model_paths
 from ..engine_interface import GenerationConfig, ProgressCallback
 from ..security.path_guard import PathGuard
+from . import output_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -484,13 +485,18 @@ class ZImageDiffusersEngine:
             # 命名：{taskid}_{seed}_{idx}.png
             fname = f"{task_id[:16]}_{seed}_{idx}.png"
             path = engine_dir / fname
-            img.save(path, format="PNG")
-
-            if wm_enabled:
-                self._embed_watermark(path, product_id, task_id[:16])
-
-            if thumb_enabled and thumb_dir is not None:
-                self._make_thumbnail(path, thumb_dir, f"{task_id[:16]}_{seed}_{idx}_thumb.png", thumb_max_side)
+            output_pipeline.finalize_output(
+                path,
+                img,
+                is_tensor=False,
+                wm_enabled=wm_enabled,
+                product_id=product_id,
+                task_id=task_id[:16],
+                thumb_enabled=thumb_enabled,
+                thumb_dir=thumb_dir,
+                thumb_name=f"{task_id[:16]}_{seed}_{idx}_thumb.png",
+                thumb_max_side=thumb_max_side,
+            )
 
             # 存相对路径（相对 outputs/ 目录），供前端 /api/outputs/<rel> 直接访问
             base = (Path(cfg.project_root) / cfg.output.base_dir).resolve()
@@ -505,62 +511,24 @@ class ZImageDiffusersEngine:
                 )
                 compare_fname = f"{task_id[:16]}_{seed}_{idx}_compare.png"
                 compare_path = engine_dir / compare_fname
-                compare_img.save(compare_path, format="PNG")
-
-                if wm_enabled:
-                    self._embed_watermark(compare_path, product_id, task_id[:16])
-
-                if thumb_enabled and thumb_dir is not None:
-                    self._make_thumbnail(
-                        compare_path, thumb_dir,
-                        f"{task_id[:16]}_{seed}_{idx}_compare_thumb.png",
-                        thumb_max_side,
-                    )
+                output_pipeline.finalize_output(
+                    compare_path,
+                    compare_img,
+                    is_tensor=False,
+                    wm_enabled=wm_enabled,
+                    product_id=product_id,
+                    task_id=task_id[:16],
+                    thumb_enabled=thumb_enabled,
+                    thumb_dir=thumb_dir,
+                    thumb_name=f"{task_id[:16]}_{seed}_{idx}_compare_thumb.png",
+                    thumb_max_side=thumb_max_side,
+                )
 
                 compare_rel = str(compare_path.relative_to(base)).replace("\\", "/")
                 saved.append(compare_rel)
 
         return saved
 
-    @staticmethod
-    def _embed_watermark(path: Path, product_id: str, task_id: str) -> None:
-        """对已保存的 PNG 嵌入 DCT 水印（越界裁剪回 [0,255]）。"""
-        from PIL import Image
-
-        from ..watermark import embed_watermark
-
-        try:
-            img = Image.open(path)
-            if img.mode != "RGB":
-                img = img.convert("RGB")
-            arr = np.array(img).astype(np.float64)
-            wm_arr = embed_watermark(arr, product_id, task_id, time.time())
-            wm_img = Image.fromarray(np.clip(wm_arr, 0, 255).astype(np.uint8))
-            buf = io.BytesIO()
-            wm_img.save(buf, format="PNG")
-            path.write_bytes(buf.getvalue())
-            logger.debug(f"Watermark embedded: {path.name}")
-        except Exception as e:
-            logger.debug(f"Watermark embedding failed for {path.name}: {e}")
-
-    @staticmethod
-    def _make_thumbnail(src: Path, thumb_dir: Path, name: str, max_side: int) -> None:
-        """生成缩略图到 data/cache/thumbs/。"""
-        from PIL import Image
-
-        try:
-            img = Image.open(src)
-            w, h = img.size
-            scale = max_side / max(w, h)
-            if scale < 1.0:
-                thumb = img.resize(
-                    (int(w * scale), int(h * scale)), Image.Resampling.LANCZOS
-                )
-            else:
-                thumb = img
-            thumb.save(thumb_dir / name, format="PNG")
-        except Exception as e:
-            logger.warning(f"Thumbnail generation failed: {e}")
 
     @staticmethod
     def _generate_ese_compare(img_a: Any, img_b: Any, axis: str = "horizontal") -> Any:
