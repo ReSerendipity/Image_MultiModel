@@ -506,7 +506,7 @@ class ZImageDiffusersEngine:
             # ── EsEs 双图对比（M9）──
             # 当 batch > 1 且启用 EsEs 时，生成第一张与当前张的对比图
             if config.eses_enable and len(images) > 1 and idx > 0:
-                compare_img = self._generate_ese_compare(
+                compare_img = output_pipeline.generate_compare_image(
                     images[0], img, config.eses_compare_axis,
                 )
                 compare_fname = f"{task_id[:16]}_{seed}_{idx}_compare.png"
@@ -530,57 +530,3 @@ class ZImageDiffusersEngine:
         return saved
 
 
-    @staticmethod
-    def _generate_ese_compare(img_a: Any, img_b: Any, axis: str = "horizontal") -> Any:
-        """生成 EsEs 对比图并返回 PIL.Image。
-
-        M9: 双图合成对比（侧边展示），用于 batch > 1 时的差异可视化。
-        - horizontal: 左 A / 右 B（垂直分割线在中间）
-        - vertical: 上 A / 下 B（水平分割线在中间）
-        - slider: 中间放一个拖拽滑块占位线
-
-        Args:
-            img_a: 第一张图像（PIL.Image.Image），作为"基准"
-            img_b: 另一张图像（PIL.Image.Image），与 img_a 比较
-            axis: 对比轴方向（horizontal / vertical / slider）
-
-        Returns:
-            PIL.Image.Image: 合成长方形/正方形对比图
-        """
-        from PIL import Image
-
-        # 统一尺寸：取较大宽高，resize 到相同尺寸
-        max_w = max(img_a.width, img_b.width)
-        max_h = max(img_a.height, img_b.height)
-        if img_a.size != (max_w, max_h):
-            img_a = img_a.resize((max_w, max_h), Image.Resampling.LANCZOS)
-        if img_b.size != (max_w, max_h):
-            img_b = img_b.resize((max_w, max_h), Image.Resampling.LANCZOS)
-
-        arr_a = np.array(img_a)  # [H, W, C] uint8
-        arr_b = np.array(img_b)  # [H, W, C] uint8
-
-        half_color = np.array([255, 255, 255], dtype=np.uint8)  # 白色分割线
-
-        if axis == "horizontal":
-            combined = np.hstack([arr_a, arr_b])
-            line_x = max_w // 2
-            combined[:, line_x] = half_color
-        elif axis == "vertical":
-            combined = np.vstack([arr_a, arr_b])
-            line_y = max_h // 2
-            combined[line_y, :] = half_color
-        elif axis == "slider":
-            # slider 模式：左右各半 + 中间加一条虚线标记中轴线
-            combined = np.hstack([arr_a, arr_b])
-            line_x = max_w // 2
-            # 用灰色虚线表示滑块位置
-            for dy in range(0, combined.shape[0], 4):
-                combined[dy, line_x] = [128, 128, 128]
-        else:
-            # 默认 horizontal
-            combined = np.hstack([arr_a, arr_b])
-            line_x = max_w // 2
-            combined[:, line_x] = half_color
-
-        return Image.fromarray(combined)

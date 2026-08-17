@@ -83,3 +83,41 @@ def finalize_output(
         embed_provenance(path, product_id, task_id)
     if thumb_enabled and thumb_dir is not None:
         make_thumbnail(path, thumb_dir, thumb_name, thumb_max_side)
+
+
+def generate_compare_image(img_a: Any, img_b: Any, axis: str = "horizontal") -> Any:
+    """生成 EsEs 双图对比图（M9：batch > 1 时的差异可视化）。
+
+    - horizontal: 左 A / 右 B（白色垂直分割线）
+    - vertical: 上 A / 下 B（白色水平分割线）
+    - slider: 左右各半 + 灰色虚线标记中轴
+    """
+    from PIL import Image
+
+    max_w = max(img_a.width, img_b.width)
+    max_h = max(img_a.height, img_b.height)
+    if img_a.size != (max_w, max_h):
+        img_a = img_a.resize((max_w, max_h), Image.Resampling.LANCZOS)
+    if img_b.size != (max_w, max_h):
+        img_b = img_b.resize((max_w, max_h), Image.Resampling.LANCZOS)
+
+    arr_a = np.array(img_a)
+    arr_b = np.array(img_b)
+    half_color = np.array([255, 255, 255], dtype=np.uint8)
+
+    if axis == "horizontal":
+        combined = np.hstack([arr_a, arr_b])
+        combined[:, max_w // 2] = half_color
+    elif axis == "vertical":
+        combined = np.vstack([arr_a, arr_b])
+        combined[max_h // 2, :] = half_color
+    elif axis == "slider":
+        combined = np.hstack([arr_a, arr_b])
+        line_x = max_w // 2
+        for dy in range(0, combined.shape[0], 4):
+            combined[dy, line_x] = [128, 128, 128]
+    else:
+        combined = np.hstack([arr_a, arr_b])
+        combined[:, max_w // 2] = half_color
+
+    return Image.fromarray(combined)
