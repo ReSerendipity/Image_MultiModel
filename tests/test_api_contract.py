@@ -48,7 +48,12 @@ def _valid_generate_payload() -> dict:
 @pytest.fixture(scope="module")
 def client():
     with TestClient(create_app()) as c:
+        _csrf_r = c.get('/api/health')
+        _csrf_tok = _csrf_r.headers.get('X-CSRF-Token', '')
+        if _csrf_tok:
+            c.headers['X-CSRF-Token'] = _csrf_tok
         yield c
+
 
 
 # ════════════════════════════════════════════════════════════

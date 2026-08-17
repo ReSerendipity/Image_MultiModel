@@ -16,7 +16,12 @@ from bin.integrated_app.app_server import create_app
 @pytest.fixture(scope="module")
 def client():
     with TestClient(create_app(), raise_server_exceptions=False) as c:
+        _csrf_r = c.get('/api/health')
+        _csrf_tok = _csrf_r.headers.get('X-CSRF-Token', '')
+        if _csrf_tok:
+            c.headers['X-CSRF-Token'] = _csrf_tok
         yield c
+
 
 
 class TestEngineList:

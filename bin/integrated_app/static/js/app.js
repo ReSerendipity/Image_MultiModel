@@ -944,7 +944,7 @@ function syncPalette(){
 function initAccent(){
   var saved=null;try{saved=JSON.parse(localStorage.getItem('imm_accent')||'null');}catch(e){}
   if(saved&&saved[0]){
-    var LEGACY={'#fdba74':'#e8822a','#fb923c':'#cf6e1a','#7c5fd6':'#e8822a','#6b5bb8':'#cf6e1a','#ef6d1c':'#cf6e1a'};
+    var LEGACY={'#fdba74':'#e8822a','#fb923c':'#cf6e1a','#7c5fd6':'#e8822a','#6b5bb8':'#cf6e1a','#ef6d1c':'#f98a25'};
     var s0=saved[0].toLowerCase(),s1=(saved[1]||'').toLowerCase();
     if(LEGACY[s0]){s0=LEGACY[s0];s1=LEGACY[s1]||s0;}
     applyAccent(s0,s1);
