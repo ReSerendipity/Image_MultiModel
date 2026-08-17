@@ -64,12 +64,6 @@ bin/key.pem
 !requirements.txt
 !requirements-lock.txt
 !examples/prompts.txt
-!PRD.md
-!MASTER_PLAN.md
-!WEBAPP_GUIDE.md
-!TEST_AUDIT_REPORT.md
-!AUDIT_REPORT_2.0.md
-!REMAINING_TASKS_REPORT.md
 .trash/
 pytest_out*.txt
 gen*.txt
@@ -158,3 +152,6 @@ docs/项目健康度评估报告.md
 
 # Local management rules (owner-only, not on remote)
 LOCAL_RULES.md
+
+# 根目录运行日志（勿提交）
+*.log
