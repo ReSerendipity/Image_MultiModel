@@ -909,7 +909,7 @@ function engLabel(k){return ENGINES[k]||k||'—';}
 
 /* ---------- F14: 主题色切换（24 预设 + 自定义，localStorage 持久化） ---------- */
 var ACCENTS=[
-['蜜桃橙','#f98a25','#f98a25'],['橙焰','#f97316','#ea580c'],['琥珀','#f59e0b','#d97706'],['柠檬','#eab308','#ca8a04'],
+['蜜桃橙','#e8822a','#cf6e1a'],['橙焰','#f97316','#ea580c'],['琥珀','#f59e0b','#d97706'],['柠檬','#eab308','#ca8a04'],
 ['紫罗兰','#7c5fd6','#6b5bb8'],['靛蓝','#6366f1','#4f46e5'],['宝蓝','#3b82f6','#2563eb'],['天蓝','#0ea5e9','#0284c7'],
 ['青色','#06b6d4','#0891b2'],['青绿','#14b8a6','#0d9488'],['翡翠','#10b981','#059669'],['苔绿','#84cc16','#65a30d'],
 ['森林','#22c55e','#16a34a'],['朱红','#ef4444','#dc2626'],['玫红','#f43f5e','#e11d48'],['洋红','#ec4899','#db2777'],
@@ -938,18 +938,18 @@ function applyAccent(primary,accent){
   syncPalette();
 }
 function syncPalette(){
-  var cur=(document.documentElement.style.getPropertyValue('--seed-primary')||'#f98a25').trim().toLowerCase();
+  var cur=(document.documentElement.style.getPropertyValue('--seed-primary')||'#e8822a').trim().toLowerCase();
   document.querySelectorAll('#palGrid .sw').forEach(function(b){b.classList.toggle('on',b.dataset.p.toLowerCase()===cur);});
 }
 function initAccent(){
   var saved=null;try{saved=JSON.parse(localStorage.getItem('imm_accent')||'null');}catch(e){}
   if(saved&&saved[0]){
-    var LEGACY={'#fdba74':'#e8822a','#fb923c':'#cf6e1a','#7c5fd6':'#e8822a','#6b5bb8':'#cf6e1a','#ef6d1c':'#f98a25'};
+    var LEGACY={'#fdba74':'#e8822a','#fb923c':'#cf6e1a','#7c5fd6':'#e8822a','#6b5bb8':'#cf6e1a','#ef6d1c':'#cf6e1a','#f98a25':'#e8822a'};
     var s0=saved[0].toLowerCase(),s1=(saved[1]||'').toLowerCase();
     if(LEGACY[s0]){s0=LEGACY[s0];s1=LEGACY[s1]||s0;}
     applyAccent(s0,s1);
   }
-  else{applyAccent('#f98a25','#f98a25');}
+  else{applyAccent('#e8822a','#cf6e1a');}
 }
 var palBtn=document.getElementById('palBtn'),palPop=document.getElementById('palPop');
 if(palBtn)palBtn.addEventListener('click',function(e){
