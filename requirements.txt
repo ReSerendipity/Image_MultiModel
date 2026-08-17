@@ -76,7 +76,7 @@ pytest-playwright>=0.4.0
 # 复用 references/ComfyUI/comfy/ + aki-v3 custom_nodes 源码时按 import 补齐
 einops>=0.7.0
 omegaconf>=2.3.0
-pynvml>=11.5.0
+pynvml>=13.0.1
 sentencepiece>=0.1.99
 transformers>=4.40.0
 accelerate>=0.29.0
