@@ -136,7 +136,7 @@ examples/
 perf/monitoring_plan.md
 pretrained_models/README.txt
 prototypes/
-workflows/
+/workflows/
 docs/API.md
 docs/ARCHITECTURE.md
 docs/AUDIT_REPORT_v2.md

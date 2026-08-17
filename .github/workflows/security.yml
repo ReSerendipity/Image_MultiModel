@@ -1,0 +1,132 @@
+name: Security
+
+on:
+  schedule:
+    # 每周一 UTC 06:00（北京时间 14:00）运行安全扫描
+    - cron: "0 6 * * 1"
+  push:
+    branches: [main]
+    paths:
+      - "requirements.txt"
+      - "requirements-lock.txt"
+      - "Dockerfile"
+      - ".github/workflows/security.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "requirements.txt"
+      - "requirements-lock.txt"
+      - "Dockerfile"
+      - ".github/workflows/security.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # ── 依赖安全扫描 (pip-audit) ──────────────────────────
+  pip-audit:
+    name: pip-audit - Python Dependency Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-audit-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-audit-
+
+      - name: Install pip-audit
+        run: pip install pip-audit
+
+      - name: Run pip-audit
+        run: |
+          # 扫描 requirements.txt 中的已知漏洞（发现高危 CVE 时阻断 CI）
+          pip-audit -r requirements.txt --strict
+
+      - name: Run pip-audit on lock file
+        run: |
+          if [ -f requirements-lock.txt ]; then
+            pip-audit -r requirements-lock.txt
+          fi
+
+  # ── 容器镜像安全扫描 (Trivy) ──────────────────────────
+  trivy:
+    name: Trivy - Container Image Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build -t image-multimodel:scan .
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0 (2026-04-22 官方攻击响应后最新稳定版; SHA pin 防 tag 强更)
+        with:
+          image-ref: "image-multimodel:scan"
+          format: "table"
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: "CRITICAL,HIGH"
+          output: "trivy-report.txt"
+
+      - name: Upload Trivy report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-report
+          path: trivy-report.txt
+
+  # ── 代码安全扫描 (CodeQL) ─────────────────────────────
+  codeql:
+    name: CodeQL - Code Security Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    strategy:
+      matrix:
+        language: ["python"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-extended
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+
+  # ── 密钥泄露扫描 (Trivy FS) ───────────────────────────
+  secret-scan:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Trivy secret scanner
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0 (2026-04-22 官方攻击响应后最新稳定版; SHA pin 防 tag 强更)
+        with:
+          scan-type: "fs"
+          format: "table"
+          exit-code: "1"
+          severity: "CRITICAL,HIGH"
+          scanners: "secret"
