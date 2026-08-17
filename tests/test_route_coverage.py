@@ -35,9 +35,10 @@ class TestConfigRoutes:
         assert "server" in r.json()
 
     def test_update_config_validation(self, client):
-        """PUT /api/config 缺 body 应返回 422（覆盖校验分支）"""
+        """PUT /api/config with empty body - may be accepted or rejected depending on backend logic"""
         r = client.put("/api/config", json={})
-        assert r.status_code in (200, 400, 422, 500)
+        # Backend behavior: may accept (200) or reject (400/422) based on implementation
+        assert r.status_code in (200, 400, 422), f"Unexpected status: {r.status_code}"
 
 
 class TestSystemRoutes:
@@ -58,13 +59,16 @@ class TestEngineRoutes:
         assert r.status_code == 200
 
     def test_unload_engine(self, client):
+        """Unload engine endpoint - may return 200, 400, or 500 (backend issue with unloaded engine)"""
         r = client.post("/api/engine/unload")
-        assert r.status_code in (200, 400, 404, 500)
+        # Backend has a known issue where factory can be None when no engine loaded
+        assert r.status_code in (200, 400, 500), f"Unexpected status: {r.status_code}"
 
 
     def test_load_engine_missing_body(self, client):
+        """POST /engine/load with empty body -> 422 (validation error)"""
         r = client.post("/api/engine/load", json={})
-        assert r.status_code in (200, 400, 422, 500)
+        assert r.status_code == 422, f"Expected 422 for missing load body, got {r.status_code}"
 
 
 class TestTaskRoutes:
@@ -73,25 +77,35 @@ class TestTaskRoutes:
         assert r.status_code == 200
 
     def test_get_task_not_found(self, client):
+        """GET non-existent task -> 404"""
         r = client.get("/api/tasks/nonexistent-task-id-xyz")
-        assert r.status_code in (200, 404, 500)
+        assert r.status_code == 404, f"Expected 404 for missing task, got {r.status_code}"
 
     def test_cancel_task_not_found(self, client):
+        """Cancel non-existent task -> 404"""
         r = client.post("/api/tasks/nonexistent-task-id-xyz/cancel")
-        assert r.status_code in (200, 404, 500)
+        assert r.status_code == 404, f"Expected 404 for cancelling missing task, got {r.status_code}"
 
     def test_export_tasks(self, client):
+        """Export tasks endpoint - returns file or 404 if no export available"""
         r = client.get("/api/tasks/export")
-        assert r.status_code in (200, 404, 500)
+        # May return 200 (file download), 204 (empty), or 404 (not found)
+        assert r.status_code in (200, 204, 404), f"Unexpected status: {r.status_code}"
 
     def test_add_tags(self, client):
+        """Add tags with empty task_ids -> 400 (business validation) or 422 (Pydantic)"""
         r = client.post("/api/tasks/tags", json={"task_ids": [], "tags": ["a"]})
-        assert r.status_code in (200, 400, 422, 500)
+        # Backend may validate at business level (400) or Pydantic level (422)
+        assert r.status_code in (400, 422), f"Expected error response, got {r.status_code}"
 
     def test_cleanup(self, client):
+        """Cleanup endpoint should be callable and return 200"""
         r = client.post("/api/tasks/cleanup")
-        assert r.status_code in (200, 400, 500)
+        # Cleanup can succeed even with nothing to clean
+        assert r.status_code == 200, f"Cleanup should return 200, got {r.status_code}: {r.text[:150]}"
 
     def test_delete_tasks(self, client):
+        """DELETE /tasks without body -> 400 (business validation) or 422 (Pydantic)"""
         r = client.delete("/api/tasks")
-        assert r.status_code in (200, 400, 500)
+        # Delete requires some criteria; backend validates appropriately
+        assert r.status_code in (400, 422), f"Expected error for delete without criteria, got {r.status_code}"
