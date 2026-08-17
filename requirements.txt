@@ -77,7 +77,7 @@ pytest-playwright>=0.4.0
 einops>=0.7.0
 omegaconf>=2.3.0
 pynvml>=11.5.0
-sentencepiece>=0.1.99
+sentencepiece>=0.2.2
 transformers>=4.40.0
 accelerate>=0.29.0
 
