@@ -47,7 +47,7 @@ safetensors>=0.4.0
 
 # ── CLIP 安全内容检测（P0 任务1）──────────────────────────
 # 注：clip 包依赖 torch，首次使用时自动下载 ViT-B/32 模型
-clip-anytorch>=2.0.0
+clip-anytorch>=2.6.0
 
 # ── ControlNet 预处理器（P0 任务3）────────────────────────
 # controlnet_aux 提供 OpenPose / Canny / HED 等预处理器
