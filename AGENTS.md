@@ -1,8 +1,8 @@
 # Image MultiModel AGENTS.md — AI 辅助开发指南
 
-> 🧬 **自进化协议版本**：v1.8  
-> 📅 **最后更新日期**：2026-08-14  
-> 🎯 **对应项目版本**：v1.2.2（Apache-2.0 开源协议）
+> 🧬 **自进化协议版本**：v1.12  
+> 📅 **最后更新日期**：2026-08-17  
+> 🎯 **对应项目版本**：v1.4.0（Apache-2.0 开源协议）
 
 ---
 
@@ -639,6 +639,8 @@ pre-commit run -a
 | 23 | **Z-Image 原生引擎 latent 用错 SD3 通道/下采样参数** | `native/executor.py` 的 `LATENT_CHANNELS=4` / `SPATIAL_DOWNSCALE=8`（SD3 参数），但 Z-Image 用 FLUX AE | 采样时 `RuntimeError: mat1 and mat2 shapes cannot be multiplied (2304x16 and 64x3840)`（Lumina `x_embedder` 期望 patch_size²×in_channels＝64，但 latent 只有 4 通道）；或输出分辨率减半（768 变 384） | Z-Image 用 **FLUX AE：16 通道 / 8 倍下采样**。`LATENT_CHANNELS=16`、`SPATIAL_DOWNSCALE=8`；验证输出的宽高 = 输入宽高（768→768）。`model.latent_format` 对 Z-Image 为 None，需硬编码正确默认值 | 2026-08-14 |
 | 24 | **`vae.decode()` 传参错误：多包了一层 `{"samples": ...}`** | `native/executor.py` 的 `_vae_decode` 写 `vae.decode({"samples": latent})` | `AttributeError: 'dict' object has no attribute 'ndim'`（`comfy/sd.py` 的 `decode` 直接访问 `samples_in.ndim`） | `vae.decode(latent)` 直接传 latent 张量（对齐 Comfy 的 `VAEDecode` 节点语义），不要再包 dict | 2026-08-14 |
 | 25 | **服务跑在 CPU 版 torch 上，推理报无 CUDA** | 服务由 TRAE VM 自带 python（`torch 2.13.0+cpu`）启动，选引擎生成时 | `RuntimeError: Torch not compiled with CUDA enabled`（`torch.cuda.is_available()==False`） | 用带 CUDA 的 Python 启动（本机 `C:\Python312`，torch 2.13.0+cu132）。`bin/clean_launch.py` 的 `find_winpython()` 新增系统级 CUDA Python 候选（`C:\Python312`、`ComfyUI-aki-v3\python`），并修正重启逻辑（`os.path.abspath(wpy) != os.path.abspath(sys.executable)` 即切换，不再只认 `WPy64`） | 2026-08-14 |
+| 26 | **悬浮查看器顶栏 setPointerCapture 劫持按钮 click** | 点击查看器顶栏任意按钮（关闭 ✕ / 对比 ⇄ / 缩放 ± / 收藏 ☆）时 | 按钮 click 事件失效（vClose 关不掉查看器、缩放不生效），因为 `pointerdown` 时 `vHead.setPointerCapture()` 把 click 目标重定向到 vHead（capture target 与 hit-test target 的最近公共祖先 = vHead），按钮 handler 永不触发 | **先不捕获，拖动超过 4px 阈值后再惰性捕获**：`pointerdown` 只记起点 → `pointermove` 位移 >4px 才 `setPointerCapture` + 标记 `moved` → `pointerup`/`pointercancel` 释放捕获并复位。单纯点击全程无捕获，click 自然落到按钮 | 2026-08-17 |
+| 27 | **函数引用被 addEventListener 提前捕获，覆盖版（F2/F9）永不生效** | 前端用「先定义原函数 → 赋值覆盖」模式（如 `openStat=function(){_origOpenStat();...}` / `openSet=function(){...}`），但按钮绑定写的是 `addEventListener('click', openStat)` | 点击 `#sbConn`/`#setOpen` 时走的是**绑定瞬间捕获的旧函数引用**，覆盖版从未执行 → 系统状态抽屉详情块不显示、设置抽屉不加载真实配置（选择器永为空） | 绑定处改回调包装：`addEventListener('click', function(){ openStat(); })`（调用时再解析变量）。排查同类模式：`showHistList`/`showPList` 因调用点用直接调用 `showHistList()`（运行时解析）而幸免，凡写成 `addEventListener(x, fn)` 传值的一律中招 | 2026-08-17 |
 
 ---
 
@@ -683,5 +685,7 @@ pre-commit run -a
 | v1.8 | 2026-08-14 | 修复原生引擎无法出图（worker 挂起 + latent 参数错 + VAE 传参 + CPU torch），切 portable 模型来源 + 用 FP8 unet | 新增 Gotcha #22（`asyncio.wait_for(queue.get(), timeout)` 超时不触发导致 worker 永久挂起 → 改 `get_nowait()`+`sleep` 轮询）+ #23（Z-Image latent 应为 16 通道/8 倍下采样，误用 SD3 的 4 通道导致 shape 错/分辨率减半）+ #24（`vae.decode()` 直接传张量，勿包 `{"samples":...}`）+ #25（服务须用 CUDA Python `C:\Python312`，`torch 2.13.0+cu132`，勿用 TRAE VM CPU 版 torch）；`config.yaml → model_source_mode` 改 `portable`（模型入 `pretrained_models/`，无外部链接，便携独立运行）；unet 改用 FP8（`zimageTurboNSFWByStable_2602NSFWFP8.safetensors`），`default_precision=fp8`；`clean_launch.py` 新增系统级 CUDA Python 候选 + 修正重启逻辑；补装 `einops`/`torchsde`/`comfy-aimdo`/`comfy-kitchen`；实测 768×768 出图 ~30s；版本号 1.2.0 → 1.2.2 三处同步 | v1.2.2 |
 | **v1.9** | **2026-08-17** | **M8: diffusers 原生引擎迁移 + TTS_MultiModel 架构对齐** | **新增** `diffusers_engine.py`（ZImageDiffusersEngine，Apache-2.0，eliminate GPL-3.0）+ `DiffusersEngineConfig` + `InMemoryEngineRegistry`（TTS 风格，懒导入+RLock）+ `create_engine_instance()` 工厂方法（backend 分发）；**修改** `config.yaml` default_engine=z_image_turbo_diffusers；**新增** phase_loading_model / phase_encoding / phase_decoding / phase_postprocessing i18n 5 语同步；**版本** 1.2.2 → 1.3.0 三处同步 | **v1.3.0** |
 | **v1.10** | **2026-08-17** | **M9: 三项性能/功能改进** | **新增** `watermark_gpu.py`（cupy 批量 DCT 加速）+ `services/seedvr2_service.py`（SeedVR2 懒加载管理器）+ `_generate_ese_compare()` 双图对比；**修改** `watermark.py` 入口自动检测 cupy + `diffusers_engine.py` 集成 SeedVR2/EsEs + `app.js` renderImg() 更换静态"BEFORE"为真实双图对比 + `seed.css` 新增 `.v-img.split-view` 样式；**同步** version 1.3.0→1.4.0 三处 + `requirements.txt` 追加可选 `cupy-cuda12x`；**测试** 480 passed, 0 failures | **v1.4.0** |
+| **v1.11** | **2026-08-17** | **M10: 前端走查修复（E2E 验证驱动）** | **新增** Gotcha #26（查看器顶栏 setPointerCapture 劫持按钮 click → 4px 阈值惰性捕获）+ #27（addEventListener 捕获旧函数引用致 F2/F9 覆盖版失效 → 回调包装）；**修复** `index.html`：批量/状态抽屉 `?`→`✕`、批量警告框/提交按钮 `?`→`⚠`/`▶`、负向提示词清空/复制按钮补 id、查看器下载/重绘按钮补 id、SeedVR2「待接入」→「已接入」、Eses/SeedVR2 过时文案更新、重复注释清理；**修复** `app.js`：负向提示词清空/复制接线、查看器下载/重绘接线、系统状态抽屉详情块 `.drawer-body`→`.ov-body` + openStat/openSet 绑定改回调包装（真实配置/状态终于加载）、prompt 渲染 4 处 XSS 转义（escHtml）、队列取消按钮改 id 选择器、删除失效 mock 行监听；**验证** Playwright 15 项交互检查全过 + 无控制台错误；E2E 8 项失败系既有环境问题（conftest 硬编码 8288 无服务 / Google Fonts 外链不可达致 goto load 超时 / 旧 UI data-i18n='sub' 选择器漂移），与本次改动无关 | v1.4.0 |
+| **v1.12** | **2026-08-17** | **AGENTS.md 自检通过（例行版本递增）** | 运行自进化自检清单逐项核对：目录结构（bin/integrated_app + routes/native/middleware/security/tests）与第 3 节一致；唯一引擎 `z_image_turbo_native`（backend: native）与 config.yaml → models.engines 一致；Known Gotchas 已至 #27；路由 auto_register 命名规范未违反；i18n 5 语言 key 同步；版本号三处同步确认一致（config.yaml / __init__.py / CHANGELOG 均 v1.4.0）、端口 8288 与入口 `bin/clean_launch.py` 一致。仅例行递增自进化版本 v1.11 → v1.12，无文档内容修正 | v1.4.0 |
 
 <!-- 🔄 下次更新 AGENTS.md 时，在上面表格末尾追加新一行，不要删除历史记录 -->
