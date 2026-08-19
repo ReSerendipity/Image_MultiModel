@@ -3,6 +3,9 @@ tests/e2e/test_generation_flow.py — 完整生成流程 E2E
 
 对应 N4: 填表单 → 提交 → SSE 进度 → 结果展示
 使用 POM 设计模式
+
+P0-1 修复：移除已废弃的 #freeVramBtn 选择器
+P2-3 改进：条件等待替代固定 timeout
 """
 
 from __future__ import annotations
@@ -53,13 +56,14 @@ class TestGenerationFlow:
         assert home.get_language() == "en-US"
 
     def test_progress_bar_structure_with_pom(self, page, base_url):
-        """使用 POM 验证进度条 DOM"""
+        """使用 POM 验证进度条 DOM（移除已废弃的 #freeVramBtn）"""
         from .pages.home_page import HomePage
 
         home = HomePage(page, base_url)
         home.goto("/")
         assert home.has_progress_bar()
-        assert home.has_free_vram_button()
+        # #freeVramBtn 已被移除（项目脱离 ComfyUI），改为验证引擎状态
+        assert home.has_engine_select()
 
     def test_screenshot_capture(self, page, base_url, tmp_path):
         """截图功能验证（视觉回归基础）"""
@@ -69,7 +73,7 @@ class TestGenerationFlow:
         os.makedirs(screenshots_dir, exist_ok=True)
         screenshot_path = screenshots_dir / "home.png"
         page.goto(base_url)
-        page.wait_for_selector(".topbar")
+        page.wait_for_selector(".topbar", timeout=10000)
         page.screenshot(path=str(screenshot_path))
         assert screenshot_path.exists()
         assert screenshot_path.stat().st_size > 1000
