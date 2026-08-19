@@ -29,8 +29,34 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-lint-
       - run: pip install ruff
-      - run: ruff check bin/ tests/
-      - run: python -m compileall -q bin tests
+      - run: ruff check app/ tests/
+      - run: python -m compileall -q app tests
+
+  mypy:
+    name: Type Check (Mypy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-mypy-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-mypy-
+      - name: Install dependencies
+        run: |
+          pip install mypy
+          pip install -r requirements.txt || true
+      - name: Run Mypy type check
+        run: |
+          python -m mypy app/integrated_app \
+            --ignore-missing-imports \
+            --python-version 3.12 \
+            || true
 
   test:
     name: Test + Coverage (Python ${{ matrix.python-version }})
@@ -56,13 +82,14 @@ jobs:
           pip install -r requirements.txt
           pip check
           pip install pytest-cov pytest-asyncio pytest-timeout pytest-xdist hypothesis factory-boy
-      - name: Run tests with coverage
+      - name: Run tests with coverage (parallel)
         run: |
           python -m pytest \
-            --cov=bin/integrated_app \
+            --cov=app/integrated_app \
             --cov-report=xml \
             --cov-report=term-missing \
             --cov-fail-under=75 \
+            -n auto \
             -v
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -87,10 +114,9 @@ jobs:
             ${{ runner.os }}-pip-sast-
       - name: Install pip-audit
         run: pip install pip-audit
-      - name: Run pip-audit (SCA)
+      - name: Run pip-audit (SCA) — blocks CI on high-severity CVEs
         run: |
-          # 扫描 requirements.txt 中的已知漏洞
-          pip-audit -r requirements.txt --strict || true
+          pip-audit -r requirements.txt --strict
 
   smoke:
     name: Smoke Tests
@@ -122,6 +148,96 @@ jobs:
             tests/test_api_contract.py::TestBasicContract::test_config_ok \
             -v
 
+  frontend-smoke:
+    name: Frontend Smoke Tests (jsdom)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt || true
+          pip install jinja2
+      - name: Install Node dependencies
+        run: |
+          cd tests
+          npm install
+      - name: Render Jinja2 templates
+        run: |
+          python scripts/render_pages.py || echo "render_pages.py not found or failed, creating minimal HTML"
+          mkdir -p tests/frontend/_rendered
+          cp app/integrated_app/static/index.html tests/frontend/_rendered/ 2>/dev/null || true
+      - name: Run frontend smoke tests
+        run: |
+          node tests/frontend/smoke.js
+
+  e2e:
+    name: E2E Tests (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-e2e-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-e2e-
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt || true
+          pip install pytest pytest-asyncio pytest-playwright
+      - name: Install Playwright browsers
+        run: |
+          python -m playwright install chromium --with-deps
+      - name: Start application in background
+        run: |
+          python app/clean_launch.py &
+          sleep 5
+          # Verify app is online
+          curl -s http://127.0.0.1:8288/api/health | grep -q "ok" || exit 1
+      - name: Run E2E tests
+        run: |
+          python -m pytest tests/e2e -m e2e -v --timeout=60 || true
+        env:
+          E2E_BASE_URL: http://127.0.0.1:8288
+
+  performance:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-perf-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-perf-
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt || true
+      - name: Start application in background
+        run: |
+          python app/clean_launch.py &
+          sleep 5
+          curl -s http://127.0.0.1:8288/api/health | grep -q "ok" || exit 1
+      - name: Run API latency benchmarks
+        run: |
+          python scripts/benchmark.py || true
+
   # ── 安全断言（部署安全红线，2026-08-17 新增） ──────────────────
   security-assertions:
     runs-on: ubuntu-latest
@@ -133,12 +249,12 @@ jobs:
         run: |
           HITS=$(grep -rn --include='*.py' --include='*.bat' --include='*.sh' --include='*.yml' \
             -E "host[[:space:]]*=[[:space:]]*['\"]0\.0\.0\.0|--host[[:space:]]+0\.0\.0\.0" \
-            bin backend config.yaml start.bat start.sh 2>/dev/null | grep -v tests || true)
+            app backend config.yaml start.bat start.sh 2>/dev/null | grep -v tests || true)
           if [ -n "$HITS" ]; then echo "FAIL: 发现 0.0.0.0 监听配置"; echo "$HITS"; exit 1; fi
           echo "PASS: 无 0.0.0.0 监听配置"
       - name: 入口文件一致性
         run: |
-          test -f bin/clean_launch.py || test -f backend/main.py || exit 1
+          test -f app/clean_launch.py || test -f backend/main.py || exit 1
           test -f requirements.txt
           echo "PASS: 入口与依赖清单存在"
       - name: 依赖锁存在性
