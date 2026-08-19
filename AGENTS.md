@@ -1,7 +1,7 @@
 # Image MultiModel AGENTS.md — AI 辅助开发指南
 
-> 🧬 **自进化协议版本**：v1.12  
-> 📅 **最后更新日期**：2026-08-17  
+> 🧬 **自进化协议版本**：v1.24  
+> 📅 **最后更新日期**：2026-08-19  
 > 🎯 **对应项目版本**：v1.4.0（Apache-2.0 开源协议）
 
 ---
@@ -18,13 +18,13 @@ AI Agent 打开本文件后的 **第一件事** 是执行下面的「🧪 自进
 5. **🏷️ 版本递增（Version Increment）**：每次更新本文件内容后，**必须** 做三件事：① 文件顶部「自进化协议版本号」+0.1（小改）或 +1.0（大改/框架调整）；② 更新「最后更新日期」；③ 在文件末尾「📋 自进化修订记录表」追加一行记录。
 
 ### 🧪 自进化自检清单（每次启动工作前必跑）
-- [ ] 目录结构（`bin/integrated_app/`、`routes/`、`native/`、`middleware/`、`security/`、`tests/`）是否和第 3 节模块边界描述一致？
-- [ ] 原生引擎（`z_image_turbo_native`，`backend: native`）的配置是否和 `config.yaml → models.engines` 实际条目一致？模型来源是否为 portable（`pretrained_models/`，无外部链接）？
+- [ ] 目录结构（`app/integrated_app/`、`routes/`、`native/`、`middleware/`、`security/`、`tests/`）是否和第 3 节模块边界描述一致？
+- [ ] 原生引擎（`z_image_turbo_native`，`backend: native`）的配置是否和 `config.yaml → models.engines` 实际条目一致？模型来源是否为 portable（`model/`，无外部链接）？
 - [ ] 上次工作是否踩了新坑？如果是，是否已追加到第 14 节 Known Gotchas？
 - [ ] 是否新增了路由文件？如果是，是否已确保文件内定义了 `router = APIRouter(...)` 变量（app_server.py 使用 `pkgutil.iter_modules` 自动发现，无需手动注册）？
 - [ ] 新增的翻译 key 是否已完成 5 种语言 JSON 同步（见第 8 节 i18n 规范）？
 - [ ] 上次更新是否正确递增了自进化协议版本号 + 追加了修订记录表？
-- [ ] 版本号是否已同步：`config.yaml` / `bin/integrated_app/__init__.py` / `CHANGELOG.md` 三处一致？
+- [ ] 版本号是否已同步：`config.yaml` / `app/integrated_app/__init__.py` / `CHANGELOG.md` 三处一致？
 
 ---
 
@@ -34,9 +34,9 @@ AI Agent 打开本文件后的 **第一件事** 是执行下面的「🧪 自进
 > 核心特色：**单一 Z-Image Turbo 引擎**（`z_image_turbo_native`，进程内原生推理）+ VRAM 预检 + 批量任务队列 + SSE 实时进度 + DCT 频域水印溯源 + 安全加固体系 + 5 语言国际化  
 > 开源协议：**Apache-2.0**  
 > 技术栈：**Python 3.10+（推荐 3.12） + FastAPI + Uvicorn + Pydantic v2 + PyYAML + aiohttp + websockets + aiofiles + SQLite（WAL + FTS5） + 原生引擎（复用 comfy_kernel 源码）**  
-> 代码入口：`bin/clean_launch.py`（推荐，含配置预热 + 数据目录创建 + 健康检查）  
+> 代码入口：`app/clean_launch.py`（推荐，含配置预热 + 数据目录创建 + 健康检查）  
 > 默认端口：**`http://127.0.0.1:8288`**（禁止 0.0.0.0 监听，见第 14 节陷阱）  
-> 模型来源：portable（`pretrained_models/`，无外部链接，便携独立运行）  
+> 模型来源：portable（`model/`，无外部链接，便携独立运行）  
 > 依赖管理：`requirements.txt`（生产）+ `requirements-lock.txt`（锁定）+ `pyproject.toml`（工具配置）
 
 ---
@@ -48,11 +48,11 @@ AI Agent 打开本文件后的 **第一件事** 是执行下面的「🧪 自进
 |------|---------|---------|
 | **Ruff** | `pyproject.toml → [tool.ruff]` | `target-version = "py312"`，`line-length = 120` |
 | Ruff select | `select = ["E", "F", "W", "I", "UP", "B", "SIM"]` | UP（Python 3.12 现代化语法）、B（flake8-bugbear）、SIM（flake8-simplify） |
-| Ruff ignore（⚠️ 重要，不要擅自移除） | 见右侧详细说明 | **为什么有这些 ignore？每条都有理由**<br>`E501`：行长超 120 不强制报错（ruff format 已处理大部分场景）<br>`E402`：`bin/clean_launch.py` 需要先 `sys.path.insert(0, bin_dir)` 再 import integrated_app<br>`B008`：Pydantic `Field(default_factory=list/dict)` 场景大量使用可变默认值，框架官方推荐用法<br>`B017`：安全测试 `pytest.raises(Exception)` 泛匹配（攻击用例故意抓所有异常测回退）<br>`B905`：`zip()` 无 `strict` 参数（兼容旧代码）<br>`SIM102/SIM108/SIM105/SIM117`：三元表达式 / try-except 简化（可读性优先，不强制） |
+| Ruff ignore（⚠️ 重要，不要擅自移除） | 见右侧详细说明 | **为什么有这些 ignore？每条都有理由**<br>`E501`：行长超 120 不强制报错（ruff format 已处理大部分场景）<br>`E402`：`app/clean_launch.py` 需要先 `sys.path.insert(0, app_dir)` 再 import integrated_app<br>`B008`：Pydantic `Field(default_factory=list/dict)` 场景大量使用可变默认值，框架官方推荐用法<br>`B017`：安全测试 `pytest.raises(Exception)` 泛匹配（攻击用例故意抓所有异常测回退）<br>`B905`：`zip()` 无 `strict` 参数（兼容旧代码）<br>`SIM102/SIM108/SIM105/SIM117`：三元表达式 / try-except 简化（可读性优先，不强制） |
 | **Mypy** | `[tool.mypy] disallow_untyped_defs = false` | 渐进式策略：`config.py`、`config_models.py`、`history_db.py`、`watermark.py`、`security/path_guard.py` 开启严格类型；`comfy/`、`routes/` 因第三方 ComfyUI API 响应类型不确定放宽 |
 | **命名规则** | 全局 | 类/异常 `PascalCase`，函数/方法/变量 `snake_case`，常量 `UPPER_SNAKE_CASE`，模块 `snake_case.py` |
 
-### 2.2 Import 顺序（Ruff `isort` 强制执行，known-first-party = integrated_app, bin）
+### 2.2 Import 顺序（Ruff `isort` 强制执行，known-first-party = integrated_app, app）
 ```python
 # 1. Stdlib（import sys / os / asyncio / typing / json）
 # 2. Third-party（import fastapi / pydantic / yaml / aiohttp / numpy / PIL）
@@ -64,7 +64,7 @@ AI Agent 打开本文件后的 **第一件事** 是执行下面的「🧪 自进
 python -m ruff format bin tests        # 格式化
 python -m ruff check --fix bin tests   # 自动修复可修复问题
 python -m ruff check bin tests         # 检查（CI 会跑，阻断 PR）
-python -m mypy bin/integrated_app      # 类型检查
+python -m mypy app/integrated_app      # 类型检查
 ```
 
 ### 2.4 Docstring
@@ -92,7 +92,7 @@ python -m mypy bin/integrated_app      # 类型检查
 
 ```
 Image_MultiModel/
-├── bin/
+├── app/
 │   ├── integrated_app/          ← 主应用包（FastAPI + 业务 + 引擎适配）
 │   │   ├── __init__.py          ← __version__ = "x.x.x"（版本号同步点 1/3）
 │   │   ├── app_server.py        ← create_app() + lifespan（加载引擎 / 初始化 DB / SSE broker）
@@ -138,7 +138,7 @@ Image_MultiModel/
 │   └── clean_launch.py          ← 被 start.bat 调用的入口（不要直接从根目录调这个）
 ├── workflows/                   ← ComfyUI 工作流 JSON（每引擎一份，可导入导出）
 │   └── Z_image_turbo.json
-├── pretrained_models/           ← portable 模式唯一模型目录（独立运行时模型放这里；shared 模式直接走 shared.comfy_models_dir，不再用根目录链接）
+├── model/           ← portable 模式唯一模型目录（独立运行时模型放这里；shared 模式直接走 shared.comfy_models_dir，不再用根目录链接）
 ├── tests/                       ← 测试体系（详见第 4 节）
 │   ├── e2e/                     ← Playwright E2E 测试
 │   └── *.py                     ← 单元 / 集成 / 安全测试
@@ -202,7 +202,7 @@ class TestTaskQueue:
 
 ### 4.3 覆盖率门槛（CI 强制，低于 75% 直接阻断 PR）
 - `pyproject.toml → [tool.coverage.report] fail_under = 75`
-- 覆盖源：`bin/integrated_app`（排除 `static/`、`locales/`、`schemas/`）
+- 覆盖源：`app/integrated_app`（排除 `static/`、`locales/`、`schemas/`）
 
 ### 4.4 常用测试命令
 ```bash
@@ -219,7 +219,7 @@ python -m pytest -m security -q
 python -m pytest tests/test_api_contract.py tests/test_*_routes.py -q
 
 # 覆盖率报告
-python -m pytest --cov=bin/integrated_app --cov-report=term --cov-report=html -q
+python -m pytest --cov=app/integrated_app --cov-report=term --cov-report=html -q
 # → 报告生成到 htmlcov/index.html
 
 # E2E（需要 Playwright 浏览器 + 服务在线）
@@ -259,11 +259,11 @@ python -m pytest tests/e2e -m e2e -v
 
 ### 6.2 手动启动命令
 ```bash
-# 推荐方式（bin/clean_launch.py，含环境检测 + 配置加载 + 数据目录创建 + 健康检查）
+# 推荐方式（app/clean_launch.py，含环境检测 + 配置加载 + 数据目录创建 + 健康检查）
 cd bin
 python clean_launch.py
 # 或根目录直接（start.bat 内部就是这么调的）
-python bin/clean_launch.py
+python app/clean_launch.py
 # → 监听 http://127.0.0.1:8288
 # 成功标志：日志最后出现 "Server ready. Health check: GET /api/system/health"
 
@@ -315,7 +315,7 @@ uvicorn integrated_app.app_server:app --host 127.0.0.1 --port 8288 --workers 1
 ## 8. i18n 多语言规范（5 种语言：简中 / 繁中 / 英 / 日 / 韩）
 
 ### 8.1 翻译机制（和 TTS_MultiModel 不同，Image_MultiModel 用 JSON 不是 gettext）
-- 后端错误文案 + 前端 UI 文案共用 **5 个 JSON 文件**：`bin/integrated_app/locales/{zh,zh-tw,en,ja,ko}.json`
+- 后端错误文案 + 前端 UI 文案共用 **5 个 JSON 文件**：`app/integrated_app/locales/{zh,zh-tw,en,ja,ko}.json`
 - 后端走 `integrated_app/i18n.py` 的 `_()` 包装（三层 fallback：用户指定语言 → en 英文 → key 本身兜底）
 - 前端走 `window.I18N.t(key)`，`index.html` 启动时根据浏览器语言 / localStorage 选择加载对应 JSON
 
@@ -376,7 +376,7 @@ ci: 增加 E2E Playwright 截图对比 job
 | # | 文件路径 | 要改的字段 | 示例（2.0.0 → 2.1.0） |
 |---|---------|-----------|---------------------|
 | 1 | **`config.yaml`（根）** | 顶部第一行 `version:` | `version: 2.0.0` → `version: 2.1.0` |
-| 2 | **`bin/integrated_app/__init__.py`** | `__version__` | `__version__ = "2.0.0"` → `__version__ = "2.1.0"` |
+| 2 | **`app/integrated_app/__init__.py`** | `__version__` | `__version__ = "2.0.0"` → `__version__ = "2.1.0"` |
 | 3 | **`CHANGELOG.md`（根）** | 标题格式 `## [x.x.x] - YYYY-MM-DD` | `## [2.0.0] - 2026-08-10` → 在上面新增 `## [2.1.0] - 2026-08-17` |
 
 > ⚠️ 为什么 3 处都要？`/api/system/health` 返回的 version 从 `__init__.py` 读，配置保存时 YAML 里的 version 用于数据迁移判断，CHANGELOG 用于 GitHub Release 自动生成说明。
@@ -467,7 +467,7 @@ pre-commit run -a
 **步骤**：
 1. **准备工作流 JSON + Schema YAML**：
    - 把 ComfyUI 导出的工作流 JSON 放到 `workflows/Z_image_turbo_fast.json`
-   - 在 `bin/integrated_app/native/schemas/` 新建 `z_image_turbo_fast.yaml`，把 JSON 里的 CLIPTextEncode / KSampler / VAEDecode 等需要动态 patch 的节点的 ID、widgets_values 的下标对应好（参考 `z_image_turbo_native.yaml` 的格式）
+   - 在 `app/integrated_app/native/schemas/` 新建 `z_image_turbo_fast.yaml`，把 JSON 里的 CLIPTextEncode / KSampler / VAEDecode 等需要动态 patch 的节点的 ID、widgets_values 的下标对应好（参考 `z_image_turbo_native.yaml` 的格式）
 2. **注册引擎配置**：
    - 打开根目录 `config.yaml → models.engines`，追加一个新 block：
      ```yaml
@@ -477,7 +477,7 @@ pre-commit run -a
        display_name_en: Z-Image Turbo Fast
        backend: native
        workflow_file: workflows/Z_image_turbo_fast.json
-       parameter_schema: bin/integrated_app/native/schemas/z_image_turbo_fast.yaml
+       parameter_schema: app/integrated_app/native/schemas/z_image_turbo_fast.yaml
        text_encoder: { sub_dir: text, sub_path: z_image_turbo_fast/text_encoder.safetensors }
        unet:         { sub_dir: unet, sub_path: z_image_turbo_fast/unet.safetensors }
        vae:          { sub_dir: vae,  sub_path: z_image_turbo_fast/vae.safetensors }
@@ -497,9 +497,9 @@ pre-commit run -a
 
 **关联文件**：
 - `workflows/Z_image_turbo_fast.json`
-- `bin/integrated_app/native/schemas/z_image_turbo_fast.yaml`
+- `app/integrated_app/native/schemas/z_image_turbo_fast.yaml`
 - `config.yaml`
-- `bin/integrated_app/locales/*.json`
+- `app/integrated_app/locales/*.json`
 - `tests/test_model_registry.py`
 - `tests/test_native_engine.py`
 
@@ -539,11 +539,11 @@ pre-commit run -a
 **验证**：启动服务 → Swagger UI `/docs` 里出现新路由 → curl / Postman 跑通成功和失败两种场景 → API contract 测试通过
 
 **关联文件**：
-- `bin/integrated_app/routes/preset_routes.py`（或新文件）
-- `bin/integrated_app/config_models.py`
+- `app/integrated_app/routes/preset_routes.py`（或新文件）
+- `app/integrated_app/config_models.py`
 - `tests/test_api_contract.py`
 - `tests/test_preset_routes.py`
-- `bin/integrated_app/locales/*.json`
+- `app/integrated_app/locales/*.json`
 
 #### SOP-3: 修复 Bug 后追加 Known Gotchas + 修订记录（自进化协议 2/5 两条铁律）
 **适用条件**：任何 Bug 修复完成、踩了任何坑之后（哪怕是很小的坑，比如 f-string 漏花括号）
@@ -595,16 +595,45 @@ pre-commit run -a
 **验证**：启动服务 → Swagger `/docs` 出现新路由 → curl 测试成功/失败场景 → 单元测试通过
 
 **关联文件**：
-- `bin/integrated_app/security/content_filter.py`（或 `preprocessors/xxx.py`）
-- `bin/integrated_app/routes/xxx_routes.py`
+- `app/integrated_app/security/content_filter.py`（或 `preprocessors/xxx.py`）
+- `app/integrated_app/routes/xxx_routes.py`
 - `tests/test_xxx.py`
-- `bin/integrated_app/locales/*.json`
+- `app/integrated_app/locales/*.json`
 - `requirements.txt`
-- `config.yaml` / `bin/integrated_app/__init__.py` / `CHANGELOG.md`
+- `config.yaml` / `app/integrated_app/__init__.py` / `CHANGELOG.md`
 
----
+#### SOP-5: 测试体系改进落地（基于测试金字塔评估报告）
+**适用条件**：测试体系评估报告输出后，按优先级分批落地改进
 
-## 14. 常见陷阱（Known Gotchas）— 血泪教训汇总
+**步骤**：
+1. **P0 高优先级（阻塞性问题）**：
+   - E2E 选择器对齐：写 E2E 前先 `grep getElementById` 确认前端实际 ID，选择器与前端代码同步更新
+   - CI 兼容性修复：`import torch` 改为 `pytest.importorskip("torch")`，避免无 CUDA 环境 collection error
+   - 残缺断言修复：`status in (200, 400, 500)` 改为精确验证（200 或 500 + 注释说明已知问题）
+   - E2E/前端冒烟接入 CI：ci.yml 新增 `e2e` job 和 `frontend-smoke` job
+2. **P1 中优先级（质量增强）**：
+   - 混沌工程测试：新建 `test_chaos_engineering.py`，覆盖 GPU OOM 降级、SQLite 磁盘满、并发锁竞争
+   - 性能测试 CI 集成：benchmark.py 接入 CI（CPU 可运行部分）
+   - mypy 类型检查接入 CI 质量门禁
+   - SAST 严格化：`pip-audit || true` 改为 `pip-audit --strict`（阻断 CI）
+   - pytest-xdist 并行：`-n auto` 加速测试
+3. **P2 低优先级（代码质量）**：
+   - 集成测试标记补齐：`pytestmark = pytest.mark.integration` 模块级标记
+   - E2E 巨型测试拆分：一个 `test_txt2img_complete_flow` 拆为 4-6 个小步骤
+   - 硬编码等待改为条件等待：`page.wait_for_timeout(500)` → `page.wait_for_selector()`
+   - 吞没异常修复：`except Exception: pass` → `except sqlite3.OperationalError: pass`
+   - 跨浏览器 E2E：conftest.py 添加 `pytest_generate_tests` 支持 `BROWSERS=chromium,firefox`
+4. **全量测试验证**：所有改动完成后运行 `pytest tests/ --tb=short -q` 确认 0 failures
+5. **文档更新**：追加 Known Gotchas + 版本递增 + 修订记录
+
+**验证**：CI 全部 job 通过 + 本地 `pytest tests/ -q` 全绿 + `ruff check tests/` 全绿
+
+**关联文件**：
+- `tests/e2e/test_core_user_flows.py` / `test_generate_progress.py` / `test_engine_switch.py` / `test_generation_flow.py`
+- `tests/e2e/pages/home_page.py` / `tests/e2e/conftest.py`
+- `tests/test_chaos_engineering.py` / `tests/test_native_coverage.py`
+- `tests/test_route_coverage.py` / `tests/test_generate_routes.py` / `tests/test_sql_injection.py`
+- `.github/workflows/ci.yml`
 
 <!-- 📥 新坑追加模板（AI 踩坑后复制填好追加到表格最后）：
 | # | 坑点标题 | 触发场景 | 现象/报错 | 正确做法 | 首次发现日期 |
@@ -632,15 +661,25 @@ pre-commit run -a
 | 16 | **comfy_source_dir 相对路径需拼项目根绝对路径** | `config.yaml → models.engines.*.comfy_source_dir` 写相对路径（如 `comfy_kernel`），`native/engine.load()` 直接把它当绝对路径传给 `source.ensure_loaded()` | `RuntimeError: Comfy source dir invalid ... (missing 'comfy/' package)`，因为相对路径基于进程 cwd 解析成了错误位置 | 解析 `comfy_source_dir` 时若为相对路径，先 `Path(project_root) / comfy_source_dir` 拼成绝对路径再装载；`source._default_comfy_root()` 已内置 `{项目根}/comfy_kernel` 兜底 | 2026-08-13 |
 | 17 | **seed 超节点上限 / 空 LoRA 沿用损坏默认值** | `workflow.py _resolve_seeds()` 用 `random.randint(0, 2**53-1)` 生成三个 seed，但 ReservedVRAMSetter 上限 2^50、SeedVR2VideoUpscaler 上限 2^32；`_patch_widgets()` 对空 LoRA 名 `continue` 沿用工作流里损坏的默认 `.safetensors` | ComfyUI `/prompt` 返回 400 `prompt_outputs_failed_validation`：`Value xxx bigger than max of ...: seed`（节点 78/80）+ `lora_name: '.safetensors' not in (list of length 64)` | ① `_resolve_seeds()` 按节点分档：主 seed→2^53、seedvr2→2^32-1、vram→2^50-1，且对手工输入也 `min/max` 钳制；② 空 LoRA 名写入空串而非 `continue`，让 `to_api_format()` 移除该层；③ `to_api_format()` COMBO 匹配加 basename 兜底 | 2026-08-13 |
 | 18 | **backend: native 仍走 ComfyEngine 连 ComfyUI 8188** | 选原生引擎（`z_image_turbo_native`，`backend: native`）生成，但 `app_server.py` worker 硬编码 `engine = ComfyEngine(...)` 不按 backend 分发 | `ConnectionError: Cannot connect to ComfyUI at http://127.0.0.1:8188 ... 远程计算机拒绝网络连接`，即使不依赖外部 ComfyUI 仍报错 | worker 里按 `getattr(ecfg, "backend", "comfyui")` 分发：`native` → `NativeEngine(name, display_name, display_name_en, config={workflow_file, comfy_source_dir})`；否则才建 `ComfyEngine` | 2026-08-13 |
-| 19 | **根目录 text/unet/vae Junction 误导模型摆放** | 项目根曾建 `text/`、`unet/`、`vae/` 指向 aki 的 Junction（`setup_symlinks.ps1` / 手工），但运行时 `resolve_engine_model_paths` 从不读它们（shared 用 `comfy_models_dir`，portable 用 `pretrained_models/`） | 项目根看起来"模型在这"实际指向外部，独立运行时放错位置、误导认知 | 根目录不再允许模型链接；模型只走两处：shared→`models.shared.comfy_models_dir`，portable→`pretrained_models/`。已删除 6 个遗留 Junction，退役 `setup_symlinks.ps1`，`pack_portable.ps1` STEP 3 改从 `comfy_models_dir` 直接拷贝 | 2026-08-13 |
-| 20 | **完全脱离 ComfyUI 后遗留 HTTP 引擎引用** | 决定项目完全脱离外部 ComfyUI 进程、统一走进程内 `NativeEngine`，但前后端/测试/脚本仍残留 `integrated_app.comfy.*`、`ComfyEngine`、`ComfyClient`、`8188`、`/engine/free` 等引用 | ① 测试 collection 报 `ModuleNotFoundError: No module named 'integrated_app.comfy'`；② 前端仍显示 ComfyUI 后端状态 / 释放显存按钮；③ 生成接口因 `flux2_klein_9b_distilled` 引擎已删除返回 404 | 全量清理：删除 `bin/integrated_app/comfy/` HTTP 引擎包；`app_server.py` worker 与 `engine_routes.py` 工厂统一走 `NativeEngine`（删除 `/engine/free` 端点）；`config.yaml`/`config_models.py` 只保留 `z_image_turbo_native`（backend: native）；前端移除 ComfyUI 状态/释放显存/backend 过滤/comfy_preview；删除 `test_comfy_vram_scheduler.py`、`test_ws_reconnect.py`，`test_i18n_backend.py` 改引 `native.engine.PHASE_KEY_MAP`，各测试引擎名改 `z_image_turbo_native`；`benchmark.py`/`pack_portable.ps1` 去 8188/auto_spawn 残留 | 2026-08-13 |
+| 19 | **根目录 text/unet/vae Junction 误导模型摆放** | 项目根曾建 `text/`、`unet/`、`vae/` 指向 aki 的 Junction（`setup_symlinks.ps1` / 手工），但运行时 `resolve_engine_model_paths` 从不读它们（shared 用 `comfy_models_dir`，portable 用 `model/`） | 项目根看起来"模型在这"实际指向外部，独立运行时放错位置、误导认知 | 根目录不再允许模型链接；模型只走两处：shared→`models.shared.comfy_models_dir`，portable→`model/`。已删除 6 个遗留 Junction，退役 `setup_symlinks.ps1`，`pack_portable.ps1` STEP 3 改从 `comfy_models_dir` 直接拷贝 | 2026-08-13 |
+| 20 | **完全脱离 ComfyUI 后遗留 HTTP 引擎引用** | 决定项目完全脱离外部 ComfyUI 进程、统一走进程内 `NativeEngine`，但前后端/测试/脚本仍残留 `integrated_app.comfy.*`、`ComfyEngine`、`ComfyClient`、`8188`、`/engine/free` 等引用 | ① 测试 collection 报 `ModuleNotFoundError: No module named 'integrated_app.comfy'`；② 前端仍显示 ComfyUI 后端状态 / 释放显存按钮；③ 生成接口因 `flux2_klein_9b_distilled` 引擎已删除返回 404 | 全量清理：删除 `app/integrated_app/comfy/` HTTP 引擎包；`app_server.py` worker 与 `engine_routes.py` 工厂统一走 `NativeEngine`（删除 `/engine/free` 端点）；`config.yaml`/`config_models.py` 只保留 `z_image_turbo_native`（backend: native）；前端移除 ComfyUI 状态/释放显存/backend 过滤/comfy_preview；删除 `test_comfy_vram_scheduler.py`、`test_ws_reconnect.py`，`test_i18n_backend.py` 改引 `native.engine.PHASE_KEY_MAP`，各测试引擎名改 `z_image_turbo_native`；`benchmark.py`/`pack_portable.ps1` 去 8188/auto_spawn 残留 | 2026-08-13 |
 | 21 | **HTML 中文 mojibake 乱码 + 自动修复脚本二次破坏** | `static/index.html` 中文经多次 GBK/UTF-8 往返编码被破坏（曾提交到 git 的 `6b63310`/`978f7ab`），页面出现 `?` 乱码；随后用 `errors="replace"` 的自动修复脚本想"反向还原"，反而把 1118 个字符永久替换成 `\ufffd` 丢失 | 浏览器显示中文变 `涓婚闃查棯`（UTF-8 被当 GBK 解码）或 `主?防闪?`（非法字节被替换成 `?`/``）；部分字符因 PUA / `\ufffd` 已不可逆 | ① 不要用 `errors="replace"` 的脚本去"还原"乱码——数据已丢，越改越坏；② 正确做法：从**干净的 git 提交**（`git log` 逐个验证 `SET=设置` 筛出 `014edd3`）整文件重建，再按需求重做改动；③ 结构化 diff 判断：乱码提交与干净提交通常**仅中文不同、结构一致**，用 `git diff --no-index` 对齐即可确认；④ 改 HTML 前先 `python -c "t=open(f,encoding='utf-8').read();assert t.count('\ufffd')==0"` | 2026-08-14 |
 | 22 | **`asyncio.wait_for(queue.get(), timeout=...)` 超时不触发导致 worker 永久挂起** | 原生引擎选 `z_image_turbo_native` 生成，任务提交后一直 pending，worker 从不消费；曾用 `asyncio.wait_for(self._queue.get(), timeout=1.0)` 做取任务超时 | 日志只有 `Task submitted: xxx`，永远没有 `Worker processing task: xxx`；任务 status 卡在 pending，即使队列 qsize=1 / 同一事件循环 / 同一队列实例，worker 的 `wait_for` 既不返回也不超时（HTTP 请求正常，事件循环未阻塞） | **不要用 `wait_for(queue.get(), timeout)` 做取任务超时**——该环境（ProactorEventLoop + uvicorn）下 timeout 定时器不触发。改为 `get_nowait()` + `asyncio.sleep(0.2)` 轮询：`try: task = self._queue.get_nowait() / except asyncio.QueueEmpty: await asyncio.sleep(0.2); continue` | 2026-08-14 |
 | 23 | **Z-Image 原生引擎 latent 用错 SD3 通道/下采样参数** | `native/executor.py` 的 `LATENT_CHANNELS=4` / `SPATIAL_DOWNSCALE=8`（SD3 参数），但 Z-Image 用 FLUX AE | 采样时 `RuntimeError: mat1 and mat2 shapes cannot be multiplied (2304x16 and 64x3840)`（Lumina `x_embedder` 期望 patch_size²×in_channels＝64，但 latent 只有 4 通道）；或输出分辨率减半（768 变 384） | Z-Image 用 **FLUX AE：16 通道 / 8 倍下采样**。`LATENT_CHANNELS=16`、`SPATIAL_DOWNSCALE=8`；验证输出的宽高 = 输入宽高（768→768）。`model.latent_format` 对 Z-Image 为 None，需硬编码正确默认值 | 2026-08-14 |
 | 24 | **`vae.decode()` 传参错误：多包了一层 `{"samples": ...}`** | `native/executor.py` 的 `_vae_decode` 写 `vae.decode({"samples": latent})` | `AttributeError: 'dict' object has no attribute 'ndim'`（`comfy/sd.py` 的 `decode` 直接访问 `samples_in.ndim`） | `vae.decode(latent)` 直接传 latent 张量（对齐 Comfy 的 `VAEDecode` 节点语义），不要再包 dict | 2026-08-14 |
-| 25 | **服务跑在 CPU 版 torch 上，推理报无 CUDA** | 服务由 TRAE VM 自带 python（`torch 2.13.0+cpu`）启动，选引擎生成时 | `RuntimeError: Torch not compiled with CUDA enabled`（`torch.cuda.is_available()==False`） | 用带 CUDA 的 Python 启动（本机 `C:\Python312`，torch 2.13.0+cu132）。`bin/clean_launch.py` 的 `find_winpython()` 新增系统级 CUDA Python 候选（`C:\Python312`、`ComfyUI-aki-v3\python`），并修正重启逻辑（`os.path.abspath(wpy) != os.path.abspath(sys.executable)` 即切换，不再只认 `WPy64`） | 2026-08-14 |
+| 25 | **服务跑在 CPU 版 torch 上，推理报无 CUDA** | 服务由 TRAE VM 自带 python（`torch 2.13.0+cpu`）启动，选引擎生成时 | `RuntimeError: Torch not compiled with CUDA enabled`（`torch.cuda.is_available()==False`） | 用带 CUDA 的 Python 启动（本机 `C:\Python312`，torch 2.13.0+cu132）。`app/clean_launch.py` 的 `find_winpython()` 新增系统级 CUDA Python 候选（`C:\Python312`、`ComfyUI-aki-v3\python`），并修正重启逻辑（`os.path.abspath(wpy) != os.path.abspath(sys.executable)` 即切换，不再只认 `WPy64`） | 2026-08-14 |
 | 26 | **悬浮查看器顶栏 setPointerCapture 劫持按钮 click** | 点击查看器顶栏任意按钮（关闭 ✕ / 对比 ⇄ / 缩放 ± / 收藏 ☆）时 | 按钮 click 事件失效（vClose 关不掉查看器、缩放不生效），因为 `pointerdown` 时 `vHead.setPointerCapture()` 把 click 目标重定向到 vHead（capture target 与 hit-test target 的最近公共祖先 = vHead），按钮 handler 永不触发 | **先不捕获，拖动超过 4px 阈值后再惰性捕获**：`pointerdown` 只记起点 → `pointermove` 位移 >4px 才 `setPointerCapture` + 标记 `moved` → `pointerup`/`pointercancel` 释放捕获并复位。单纯点击全程无捕获，click 自然落到按钮 | 2026-08-17 |
 | 27 | **函数引用被 addEventListener 提前捕获，覆盖版（F2/F9）永不生效** | 前端用「先定义原函数 → 赋值覆盖」模式（如 `openStat=function(){_origOpenStat();...}` / `openSet=function(){...}`），但按钮绑定写的是 `addEventListener('click', openStat)` | 点击 `#sbConn`/`#setOpen` 时走的是**绑定瞬间捕获的旧函数引用**，覆盖版从未执行 → 系统状态抽屉详情块不显示、设置抽屉不加载真实配置（选择器永为空） | 绑定处改回调包装：`addEventListener('click', function(){ openStat(); })`（调用时再解析变量）。排查同类模式：`showHistList`/`showPList` 因调用点用直接调用 `showHistList()`（运行时解析）而幸免，凡写成 `addEventListener(x, fn)` 传值的一律中招 | 2026-08-17 |
+| 28 | **批量 edit 的 oldString 必须与实际文件内容逐字一致；脚本替换需用全文件名** | ① 扩写 60 个新 SFW 文件时凭记忆写 oldString，3 次 `Edit` 报 oldString not found（公园太极/咖啡馆窗边读书/水墨幻境九尾狐）；② PowerShell 批量替换时用部分文件名匹配 cos 文件（`cos_碧蓝档案_霞泽美游写真.txt`），实际文件名带前缀 `L2_东亚_年轻_单人_cos_` | ① Edit 直接失败（报错可自愈，读原文重试即可）；② 3 个 cos 文件替换被静默跳过（报 MISSING FILE），若不补跑验证就会漏改 | ① 任何 edit 前先 `Read` 确认原文（不要凭记忆写 oldString）；② 脚本按文件名匹配时用完整文件名（`Get-ChildItem -Recurse | Where-Object Name -eq 全名`），替换后必须跑全库复扫确认 0 残留 | 2026-08-18 |
+| 31 | **构图/方向类短语也含质量词子串（完美居中/极致超广角/极致留白）+ 扩写尾句追加法** | 扩写时用了「完美居中」「极致超广角」「极致留白」等构图术语，或把扩写句插在故事中段 | 全校验质量词扫描命中：完美居中（粉风衣霓虹肖像）、极致超广角/极致留白（唐风幻想云海）、令人惊叹（神经网络森林）；故事中段插句容易与已有情节时序冲突 | ① 构图/方向类词汇优先换用中性词：完美居中→精准居中、极致超广角→大幅超广角、极致留白→大面积留白、令人惊叹→充满想象力；② 中段插句后仍 <500 的收尾文件，改用「尾部追加法」：在文件末尾「整体氛围…」句后追加「；镜头…画面…收束/定格」式镜头语言句（约50-70字），叙事时序自然衔接、扫描零命中；③ 插句一律避开 完美/极致/画质/惊人/杰作 等词根 | 2026-08-18 |
+| 32 | **批量扩写参数内嵌 ASCII 引号截断 + 文件名前缀笔误产生空文件** | 用 PowerShell 函数批量给文件追加尾部时，$tail 参数里内嵌 ASCII 双引号（如「用力一扳，+"砰"+的一声」），或文件名 单人/多人 前缀写错 | ① 尾部只写入引号前的片段（文件只 +9 字）；② 或对错误文件名执行写入：若文件已存在则写错内容，若不存在则 ReadAllText 报错且可能留下 0 字节空文件——全校验出现 MIN LEN 0 | ① 尾部文本内禁用 ASCII 引号（中文引号「」或改写句式）；② 批量写入前先 Test-Path 核对每个目标文件存在，写入后立即回读长度；③ 每批结束后必跑全校验：长度 <500 与 =0 均判失败，逐文件列出 | 2026-08-19 |
+| 30 | **批量扩写插入点分隔符需逐文件确认 + 一次插入需留字数余量** | 用脚本对 120+ 新文件批量补写细节（字符数 <500 需扩写），统一在 ；光线为 前插入句子 | ① 动漫风格类文件（浮世绘/水墨/像素等）无 ；光线为 段，分隔符是 ；拍摄与风格说明，替换静默失败（0 变化）；② 凭记忆估算插入长度，一遍插入后仍差 1~60 字，需 2~3 轮补插 | ① 批量插入前先抽样确认文件实际分隔符（grep 光线为），对未命中文件换锚点重插，插入后必须输出新字符数核对；② 每文件预估插入字数 = (500 - 现字数) + 15~25 余量，一次插够，减少轮次；③ 全校验脚本统一跑一遍并列出所有 <500 与 0 变化文件 | 2026-08-18 |
+| 29 | **否定词/暴露词自动扫描的误报判定口径（须人工逐条看上下文）** | 按 SKILL.md 规范全库复扫 `不/无/避免/杰作/画质` 等关键词 | 误报命中：`明媚`（含"媚"）、`裸粉色/裸妆`（化妆术语）、`透视/镂空`（剪纸艺术）、`插画质感`（含"画质"）、`别着`（别发簪）、`不同`、`深浅不一`、`无线耳麦`、`无影棚`、`密不透风`、`无缝衔接`、`静立不动`、`不远处`、`一望无际`；若脚本直接替换会把文库改成病句 | 判定口径：只修「指令式否定」（避免/无需/不可/不直接裸露/半掩不露/不偏脏不偏灰/不要XX 等）与「质量后缀」（杰作/高分辨率/画质类）；惯用语、名词（无袖/无影灯/无线/无影棚）、描述性俗语（深浅不一/密不透风/生生不息）、化妆术语（裸妆/裸粉色）、艺术术语（透视/镂空）一律保留。替换需带上下文精确字符串，改后复扫 + 抽查通读 | 2026-08-18 |
+| 33 | **批量修复脚本二次运行导致「女女」双前缀 substring 污染** | 修复脚本（audit_fix.py）因路径笔误（验光师在 SFW 不在 NSFW）只改了部分文件，修完路径后**整库重跑同一脚本**，短 old 串（如「说书人说到精彩处」）在已改文本（「女说书人说到精彩处」）里仍是 substring 再次命中 | 「说书人」→「女说书人」→「女女说书人」共 19 处分布在 13 文件（瓦舍听书 3 处/民谣小酒馆 3 处/那达慕 2 处等）；顺带暴露「歌手/鼓手/键盘手/乐师/伙计/摊主/先生/师傅/乐官」等前缀式替换全有同类风险 | ① 修复脚本必须**幂等**：new 文本里禁止包含可再次命中的 old substring（如直接写「女女说书人→女说书人」全量对），或替换后断言 `old not in text`；② 重跑前先核对哪些文件已改（git diff 或记录已处理清单），只补跑未完成文件；③ 跑完必做全库复扫 `女女`（19→0）与「前缀词 女X → 女女X」专项正则；④ 全局替换（如 摊主→女摊主）需守卫：文件已含「女摊主」则拒绝 | 2026-08-19 |
+| 34 | **E2E 测试选择器与实际前端 ID 漂移** | E2E 测试（`test_core_user_flows.py` 等）使用 `#promptInput`/`#widthInput`/`#heightInput`/`#outputGrid`/`#batchInput`/`#freeVramBtn` 等选择器 | E2E 全部 `pytest.skip` 或超时失败；`#freeVramBtn` 已被移除（项目脱离 ComfyUI）导致 `query_selector` 返回 None | ① 写 E2E 前先 `grep getElementById` 确认前端实际 ID；② 前端 ID 变更后同步更新 E2E 选择器（如 `#posPrompt`/`#width`/`#height`/`#outGrid`/`#openBatch`）；③ 已移除的元素（如 `#freeVramBtn`）在 E2E 和 POM 中同步删除，改为验证替代元素（如 `#engineSelect`） | 2026-08-19 |
+| 35 | **sqlite3.Connection.execute 是只读属性，无法 monkey-patch** | 混沌工程测试中 mock `db.conn.execute` 模拟磁盘满故障 | `AttributeError: 'sqlite3.Connection' object attribute 'execute' is read-only`；`monkeypatch.setattr` 也无效（C 扩展对象属性特殊） | ① 不能直接赋值 `db.conn.execute = mock_fn`；② `monkeypatch.setattr(db.conn, 'execute', mock_fn)` 也无效；③ 正确做法：用 `unittest.mock.patch.object(db, 'create_task', side_effect=sqlite3.OperationalError(...))` 直接 mock 方法层面，绕过 Connection 属性限制 | 2026-08-19 |
+| 36 | **HistoryDB.conn 是 property 无 setter，无法直接赋值替换** | 混沌工程测试中 `db.conn = MockConn()` 尝试替换连接对象 | `AttributeError: property 'conn' of 'HistoryDB' object has no setter`；直接赋值 conn 属性会报错 | ① 不要试图替换 `db.conn`；② 如果需要 mock 连接行为，在方法层面用 `unittest.mock.patch.object(db, 'method_name', side_effect=...)` ；③ 或者在 HistoryDB 构造时传入 mock 连接（依赖注入模式） | 2026-08-19 |
+| 34 | **os.walk 默认不穿透 Junction，模型目录改符号链接后资源扫描为空** | 把 portable 模式的 `model/` 目录从真实文件改为指向 ComfyUI 的 Windows Junction（目录符号链接）后，用前端「模型扫描」/ LoRA 下拉 | 前端资源列表为空：`scan_resource_files()` 用 `os.walk(base)`（默认 `followlinks=False`），遇到 Junction 直接跳过不进入子目录；但引擎加载（`resolve_engine_model_paths` 显式 sub_path）正常，容易误判"模型丢了" | `config_models.py::scan_resource_files` 的 `os.walk` 加 `followlinks=True`（本场景 Junction 指向 ComfyUI 无环，安全）；引擎加载走显式路径不受影响；回归 `python -m pytest tests/test_config.py --basetemp=<临时目录>` | 2026-08-19 |
 
 ---
 
@@ -658,13 +697,13 @@ pre-commit run -a
 
 | v1.4 | 2026-08-13 | 修复原生引擎仍连 ComfyUI、LoRA 默认坏值 | 新增 Gotcha #18（backend: native 仍走 ComfyEngine 连 ComfyUI 8188）；修复 `app_server.py` worker 按 `ecfg.backend` 分发引擎（native → NativeEngine，否则 ComfyEngine）；修复 `app_server.py` 原生引擎不传 `on_chunk_done`（NativeEngine 不支持）碰 TypeError；实现 Gotcha #16：`native/engine.py` 相对 `comfy_source_dir` 拼 `cfg.project_root` 为绝对路径；`tests/test_workflow.py` 18 用例 + `tests/test_native_*` 40 用例全过；`NativeEngine.load()` 实测 OK | v1.2.0 |
 
-| v1.5 | 2026-08-13 | 清理根目录遗留 Junction，统一模型摆放，规划彻底脱离 ComfyUI | 新增 Gotcha #19（根目录 text/unet/vae Junction 误导模型摆放）；删除根目录 6 个遗留 Junction；模型摆放统一为 shared→`comfy_models_dir` / portable→`pretrained_models/`；退役 `setup_symlinks.ps1`；`pack_portable.ps1` STEP 3 改从 `comfy_models_dir` 直接拷贝；新增 `docs/COMFYUI-INDEPENDENCE-PLAN.md`（彻底脱离 ComfyUI + 复用源码独立成项目规划） | v1.2.0 |
+| v1.5 | 2026-08-13 | 清理根目录遗留 Junction，统一模型摆放，规划彻底脱离 ComfyUI | 新增 Gotcha #19（根目录 text/unet/vae Junction 误导模型摆放）；删除根目录 6 个遗留 Junction；模型摆放统一为 shared→`comfy_models_dir` / portable→`model/`；退役 `setup_symlinks.ps1`；`pack_portable.ps1` STEP 3 改从 `comfy_models_dir` 直接拷贝；新增 `docs/COMFYUI-INDEPENDENCE-PLAN.md`（彻底脱离 ComfyUI + 复用源码独立成项目规划） | v1.2.0 |
 
-| v1.6 | 2026-08-13 | 彻底删除 comfy/ HTTP 引擎包，项目完全脱离外部 ComfyUI 进程 | 新增 Gotcha #20（完全脱离 ComfyUI 后遗留 HTTP 引擎引用）；删除 `bin/integrated_app/comfy/`（client/engine/workflow/vram_scheduler/schemas）；`app_server.py` worker 与 `engine_routes.py` 引擎工厂统一走 `NativeEngine`（删除 `/engine/free` 端点）；`config.yaml`/`config_models.py` 只保留 `z_image_turbo_native`（backend: native）；前端移除 ComfyUI 状态/释放显存/backend 过滤/comfy_preview；删除 `test_comfy_vram_scheduler.py`、`test_ws_reconnect.py`，`test_i18n_backend.py` 改引 `native.engine.PHASE_KEY_MAP`，各测试引擎名改 `z_image_turbo_native`；`benchmark.py`/`pack_portable.ps1` 去 8188/auto_spawn 残留；同步第 2.2 节 import 示例、第 3 节目录树、硬约束 #1/#2 为 native 语义 | v1.2.0 |
+| v1.6 | 2026-08-13 | 彻底删除 comfy/ HTTP 引擎包，项目完全脱离外部 ComfyUI 进程 | 新增 Gotcha #20（完全脱离 ComfyUI 后遗留 HTTP 引擎引用）；删除 `app/integrated_app/comfy/`（client/engine/workflow/vram_scheduler/schemas）；`app_server.py` worker 与 `engine_routes.py` 引擎工厂统一走 `NativeEngine`（删除 `/engine/free` 端点）；`config.yaml`/`config_models.py` 只保留 `z_image_turbo_native`（backend: native）；前端移除 ComfyUI 状态/释放显存/backend 过滤/comfy_preview；删除 `test_comfy_vram_scheduler.py`、`test_ws_reconnect.py`，`test_i18n_backend.py` 改引 `native.engine.PHASE_KEY_MAP`，各测试引擎名改 `z_image_turbo_native`；`benchmark.py`/`pack_portable.ps1` 去 8188/auto_spawn 残留；同步第 2.2 节 import 示例、第 3 节目录树、硬约束 #1/#2 为 native 语义 | v1.2.0 |
 
 | v1.7 | 2026-08-14 | 修复 `index.html` 中文 mojibake 乱码 + 彻底清理前端 ComfyUI 残留 | 新增 Gotcha #21（HTML 中文 mojibake + 自动修复脚本二次破坏）；从干净 git 提交 `014edd3` 整文件重建 `static/index.html`（0 乱码）；前端彻底脱离 ComfyUI：移除 `freeVramBtn`/`/engine/free`、ComfyUI 后端状态面板、`CONN: LOCAL:8188`、关于面板「统一驱动 ComfyUI」副标题；引擎引用统一为 `z_image_turbo_native`；顶部图标按钮加文字标签（主题/颜色/字体/关于/设置/模型/语言）；删除会二次破坏编码的 `scripts/fix_encoding_ui.py` | v1.2.1 |
 
-| v1.8 | 2026-08-14 | 修复原生引擎无法出图（worker 挂起 + latent 参数错 + VAE 传参 + CPU torch），切 portable 模型来源 + 用 FP8 unet | 新增 Gotcha #22（`asyncio.wait_for(queue.get(), timeout)` 超时不触发导致 worker 永久挂起 → 改 `get_nowait()`+`sleep` 轮询）+ #23（Z-Image latent 应为 16 通道/8 倍下采样，误用 SD3 的 4 通道导致 shape 错/分辨率减半）+ #24（`vae.decode()` 直接传张量，勿包 `{"samples":...}`）+ #25（服务须用 CUDA Python `C:\Python312`，`torch 2.13.0+cu132`，勿用 TRAE VM CPU 版 torch）；`config.yaml → model_source_mode` 改 `portable`（模型入 `pretrained_models/`，无外部链接，便携独立运行）；unet 改用 FP8（`zimageTurboNSFWByStable_2602NSFWFP8.safetensors`），`default_precision=fp8`；`clean_launch.py` 新增系统级 CUDA Python 候选 + 修正重启逻辑；补装 `einops`/`torchsde`/`comfy-aimdo`/`comfy-kitchen`；实测 768×768 出图 ~30s；版本号 1.2.0 → 1.2.2 三处同步 | v1.2.2 |
+| v1.8 | 2026-08-14 | 修复原生引擎无法出图（worker 挂起 + latent 参数错 + VAE 传参 + CPU torch），切 portable 模型来源 + 用 FP8 unet | 新增 Gotcha #22（`asyncio.wait_for(queue.get(), timeout)` 超时不触发导致 worker 永久挂起 → 改 `get_nowait()`+`sleep` 轮询）+ #23（Z-Image latent 应为 16 通道/8 倍下采样，误用 SD3 的 4 通道导致 shape 错/分辨率减半）+ #24（`vae.decode()` 直接传张量，勿包 `{"samples":...}`）+ #25（服务须用 CUDA Python `C:\Python312`，`torch 2.13.0+cu132`，勿用 TRAE VM CPU 版 torch）；`config.yaml → model_source_mode` 改 `portable`（模型入 `model/`，无外部链接，便携独立运行）；unet 改用 FP8（`zimageTurboNSFWByStable_2602NSFWFP8.safetensors`），`default_precision=fp8`；`clean_launch.py` 新增系统级 CUDA Python 候选 + 修正重启逻辑；补装 `einops`/`torchsde`/`comfy-aimdo`/`comfy-kitchen`；实测 768×768 出图 ~30s；版本号 1.2.0 → 1.2.2 三处同步 | v1.2.2 |
 
 <!-- 🔄 下次更新 AGENTS.md 时，在上面表格末尾追加新一行，不要删除历史记录 -->
 
@@ -679,13 +718,33 @@ pre-commit run -a
 | v1.2 | 2026-08-13 | 原生进程内引擎（M7）+ 双后端模式改造 | 新增模块边界：`native/` 包（source / executor / engine / lora / seedvr / compares / vram / preview）；更新自检清单与第 3 节目录树；里程碑对应表追加 M7；新增 Gotcha #15（复用 comfy 源码需 ensure_loaded 注入 sys.path）+ #16（comfy_source_dir 相对路径需拼项目根绝对路径）；新增安全测试 `tests/test_native_security.py`；版本号 1.1.0 → 1.2.0 三处同步 | v1.2.0 |
 | v1.3 | 2026-08-13 | 修复 ComfyUI /prompt 400 校验失败（seed 超上限 + 空 LoRA 沿用损坏默认值） | 新增 Gotcha #17（seed 超节点上限 / 空 LoRA 沿用损坏默认值）；修复 `workflow.py`：`_resolve_seeds()` 按节点分档钳制 seed（主 2^53 / seedvr2 2^32-1 / vram 2^50-1）+ 对手工输入 min/max 钳制；空 LoRA 名写入空串使 `to_api_format()` 移除该层；`to_api_format()` COMBO 匹配加 basename 兜底；前端 L1/L6 LoRA 默认改「— 禁用 —」；`tests/test_workflow.py` 18 用例全过 | v1.2.0 |
 | v1.4 | 2026-08-13 | 修复原生引擎仍连 ComfyUI、LoRA 默认坏值 | 新增 Gotcha #18（backend: native 仍走 ComfyEngine 连 ComfyUI 8188）；修复 `app_server.py` worker 按 `ecfg.backend` 分发引擎（native → NativeEngine，否则 ComfyEngine）；修复 `app_server.py` 原生引擎不传 `on_chunk_done`（NativeEngine 不支持）碰 TypeError；实现 Gotcha #16：`native/engine.py` 相对 `comfy_source_dir` 拼 `cfg.project_root` 为绝对路径；`tests/test_workflow.py` 18 用例 + `tests/test_native_*` 40 用例全过；`NativeEngine.load()` 实测 OK | v1.2.0 |
-| v1.5 | 2026-08-13 | 清理根目录遗留 Junction，统一模型摆放，规划彻底脱离 ComfyUI | 新增 Gotcha #19（根目录 text/unet/vae Junction 误导模型摆放）；删除根目录 6 个遗留 Junction；模型摆放统一为 shared→`comfy_models_dir` / portable→`pretrained_models/`；退役 `setup_symlinks.ps1`；`pack_portable.ps1` STEP 3 改从 `comfy_models_dir` 直接拷贝；新增 `docs/COMFYUI-INDEPENDENCE-PLAN.md`（彻底脱离 ComfyUI + 复用源码独立成项目规划） | v1.2.0 |
-| v1.6 | 2026-08-13 | 彻底删除 comfy/ HTTP 引擎包，项目完全脱离外部 ComfyUI 进程 | 新增 Gotcha #20（完全脱离 ComfyUI 后遗留 HTTP 引擎引用）；删除 `bin/integrated_app/comfy/`（client/engine/workflow/vram_scheduler/schemas）；`app_server.py` worker 与 `engine_routes.py` 引擎工厂统一走 `NativeEngine`（删除 `/engine/free` 端点）；`config.yaml`/`config_models.py` 只保留 `z_image_turbo_native`（backend: native）；前端移除 ComfyUI 状态/释放显存/backend 过滤/comfy_preview；删除 `test_comfy_vram_scheduler.py`、`test_ws_reconnect.py`，`test_i18n_backend.py` 改引 `native.engine.PHASE_KEY_MAP`，各测试引擎名改 `z_image_turbo_native`；`benchmark.py`/`pack_portable.ps1` 去 8188/auto_spawn 残留；同步第 2.2 节 import 示例、第 3 节目录树、硬约束 #1/#2 为 native 语义 | v1.2.0 |
+| v1.5 | 2026-08-13 | 清理根目录遗留 Junction，统一模型摆放，规划彻底脱离 ComfyUI | 新增 Gotcha #19（根目录 text/unet/vae Junction 误导模型摆放）；删除根目录 6 个遗留 Junction；模型摆放统一为 shared→`comfy_models_dir` / portable→`model/`；退役 `setup_symlinks.ps1`；`pack_portable.ps1` STEP 3 改从 `comfy_models_dir` 直接拷贝；新增 `docs/COMFYUI-INDEPENDENCE-PLAN.md`（彻底脱离 ComfyUI + 复用源码独立成项目规划） | v1.2.0 |
+| v1.6 | 2026-08-13 | 彻底删除 comfy/ HTTP 引擎包，项目完全脱离外部 ComfyUI 进程 | 新增 Gotcha #20（完全脱离 ComfyUI 后遗留 HTTP 引擎引用）；删除 `app/integrated_app/comfy/`（client/engine/workflow/vram_scheduler/schemas）；`app_server.py` worker 与 `engine_routes.py` 引擎工厂统一走 `NativeEngine`（删除 `/engine/free` 端点）；`config.yaml`/`config_models.py` 只保留 `z_image_turbo_native`（backend: native）；前端移除 ComfyUI 状态/释放显存/backend 过滤/comfy_preview；删除 `test_comfy_vram_scheduler.py`、`test_ws_reconnect.py`，`test_i18n_backend.py` 改引 `native.engine.PHASE_KEY_MAP`，各测试引擎名改 `z_image_turbo_native`；`benchmark.py`/`pack_portable.ps1` 去 8188/auto_spawn 残留；同步第 2.2 节 import 示例、第 3 节目录树、硬约束 #1/#2 为 native 语义 | v1.2.0 |
 | v1.7 | 2026-08-14 | 修复 `index.html` 中文 mojibake 乱码 + 彻底清理前端 ComfyUI 残留 | 新增 Gotcha #21（HTML 中文 mojibake + 自动修复脚本二次破坏）；从干净 git 提交 `014edd3` 整文件重建 `static/index.html`（0 乱码）；前端彻底脱离 ComfyUI：移除 `freeVramBtn`/`/engine/free`、ComfyUI 后端状态面板、`CONN: LOCAL:8188`、关于面板「统一驱动 ComfyUI」副标题；引擎引用统一为 `z_image_turbo_native`；顶部图标按钮加文字标签（主题/颜色/字体/关于/设置/模型/语言）；删除会二次破坏编码的 `scripts/fix_encoding_ui.py` | v1.2.1 |
-| v1.8 | 2026-08-14 | 修复原生引擎无法出图（worker 挂起 + latent 参数错 + VAE 传参 + CPU torch），切 portable 模型来源 + 用 FP8 unet | 新增 Gotcha #22（`asyncio.wait_for(queue.get(), timeout)` 超时不触发导致 worker 永久挂起 → 改 `get_nowait()`+`sleep` 轮询）+ #23（Z-Image latent 应为 16 通道/8 倍下采样，误用 SD3 的 4 通道导致 shape 错/分辨率减半）+ #24（`vae.decode()` 直接传张量，勿包 `{"samples":...}`）+ #25（服务须用 CUDA Python `C:\Python312`，`torch 2.13.0+cu132`，勿用 TRAE VM CPU 版 torch）；`config.yaml → model_source_mode` 改 `portable`（模型入 `pretrained_models/`，无外部链接，便携独立运行）；unet 改用 FP8（`zimageTurboNSFWByStable_2602NSFWFP8.safetensors`），`default_precision=fp8`；`clean_launch.py` 新增系统级 CUDA Python 候选 + 修正重启逻辑；补装 `einops`/`torchsde`/`comfy-aimdo`/`comfy-kitchen`；实测 768×768 出图 ~30s；版本号 1.2.0 → 1.2.2 三处同步 | v1.2.2 |
+| v1.8 | 2026-08-14 | 修复原生引擎无法出图（worker 挂起 + latent 参数错 + VAE 传参 + CPU torch），切 portable 模型来源 + 用 FP8 unet | 新增 Gotcha #22（`asyncio.wait_for(queue.get(), timeout)` 超时不触发导致 worker 永久挂起 → 改 `get_nowait()`+`sleep` 轮询）+ #23（Z-Image latent 应为 16 通道/8 倍下采样，误用 SD3 的 4 通道导致 shape 错/分辨率减半）+ #24（`vae.decode()` 直接传张量，勿包 `{"samples":...}`）+ #25（服务须用 CUDA Python `C:\Python312`，`torch 2.13.0+cu132`，勿用 TRAE VM CPU 版 torch）；`config.yaml → model_source_mode` 改 `portable`（模型入 `model/`，无外部链接，便携独立运行）；unet 改用 FP8（`zimageTurboNSFWByStable_2602NSFWFP8.safetensors`），`default_precision=fp8`；`clean_launch.py` 新增系统级 CUDA Python 候选 + 修正重启逻辑；补装 `einops`/`torchsde`/`comfy-aimdo`/`comfy-kitchen`；实测 768×768 出图 ~30s；版本号 1.2.0 → 1.2.2 三处同步 | v1.2.2 |
 | **v1.9** | **2026-08-17** | **M8: diffusers 原生引擎迁移 + TTS_MultiModel 架构对齐** | **新增** `diffusers_engine.py`（ZImageDiffusersEngine，Apache-2.0，eliminate GPL-3.0）+ `DiffusersEngineConfig` + `InMemoryEngineRegistry`（TTS 风格，懒导入+RLock）+ `create_engine_instance()` 工厂方法（backend 分发）；**修改** `config.yaml` default_engine=z_image_turbo_diffusers；**新增** phase_loading_model / phase_encoding / phase_decoding / phase_postprocessing i18n 5 语同步；**版本** 1.2.2 → 1.3.0 三处同步 | **v1.3.0** |
 | **v1.10** | **2026-08-17** | **M9: 三项性能/功能改进** | **新增** `watermark_gpu.py`（cupy 批量 DCT 加速）+ `services/seedvr2_service.py`（SeedVR2 懒加载管理器）+ `_generate_ese_compare()` 双图对比；**修改** `watermark.py` 入口自动检测 cupy + `diffusers_engine.py` 集成 SeedVR2/EsEs + `app.js` renderImg() 更换静态"BEFORE"为真实双图对比 + `seed.css` 新增 `.v-img.split-view` 样式；**同步** version 1.3.0→1.4.0 三处 + `requirements.txt` 追加可选 `cupy-cuda12x`；**测试** 480 passed, 0 failures | **v1.4.0** |
 | **v1.11** | **2026-08-17** | **M10: 前端走查修复（E2E 验证驱动）** | **新增** Gotcha #26（查看器顶栏 setPointerCapture 劫持按钮 click → 4px 阈值惰性捕获）+ #27（addEventListener 捕获旧函数引用致 F2/F9 覆盖版失效 → 回调包装）；**修复** `index.html`：批量/状态抽屉 `?`→`✕`、批量警告框/提交按钮 `?`→`⚠`/`▶`、负向提示词清空/复制按钮补 id、查看器下载/重绘按钮补 id、SeedVR2「待接入」→「已接入」、Eses/SeedVR2 过时文案更新、重复注释清理；**修复** `app.js`：负向提示词清空/复制接线、查看器下载/重绘接线、系统状态抽屉详情块 `.drawer-body`→`.ov-body` + openStat/openSet 绑定改回调包装（真实配置/状态终于加载）、prompt 渲染 4 处 XSS 转义（escHtml）、队列取消按钮改 id 选择器、删除失效 mock 行监听；**验证** Playwright 15 项交互检查全过 + 无控制台错误；E2E 8 项失败系既有环境问题（conftest 硬编码 8288 无服务 / Google Fonts 外链不可达致 goto load 超时 / 旧 UI data-i18n='sub' 选择器漂移），与本次改动无关 | v1.4.0 |
-| **v1.12** | **2026-08-17** | **AGENTS.md 自检通过（例行版本递增）** | 运行自进化自检清单逐项核对：目录结构（bin/integrated_app + routes/native/middleware/security/tests）与第 3 节一致；唯一引擎 `z_image_turbo_native`（backend: native）与 config.yaml → models.engines 一致；Known Gotchas 已至 #27；路由 auto_register 命名规范未违反；i18n 5 语言 key 同步；版本号三处同步确认一致（config.yaml / __init__.py / CHANGELOG 均 v1.4.0）、端口 8288 与入口 `bin/clean_launch.py` 一致。仅例行递增自进化版本 v1.11 → v1.12，无文档内容修正 | v1.4.0 |
+| **v1.12** | **2026-08-17** | **AGENTS.md 自检通过（例行版本递增）** | 运行自进化自检清单逐项核对：目录结构（app/integrated_app + routes/native/middleware/security/tests）与第 3 节一致；唯一引擎 `z_image_turbo_native`（backend: native）与 config.yaml → models.engines 一致；Known Gotchas 已至 #27；路由 auto_register 命名规范未违反；i18n 5 语言 key 同步；版本号三处同步确认一致（config.yaml / __init__.py / CHANGELOG 均 v1.4.0）、端口 8288 与入口 `app/clean_launch.py` 一致。仅例行递增自进化版本 v1.11 → v1.12，无文档内容修正 | v1.4.0 |
+| **v1.13** | **2026-08-17** | **目录重命名 bin→app** | **修改** 项目主程序目录 `bin/` → `app/`：入口 `bin/clean_launch.py` → `app/clean_launch.py`、`bin/integrated_app` → `app/integrated_app`、`bin/start.bat` → `app/start.bat`、`bin/install.bat` → `app/install.bat`；**同步** start.bat / start.sh / install.bat / install.sh、pyproject.toml（coverage `source` / `mypy_path` / `known-first-party`）、.github workflows（ci.yml 等）、config.yaml（cert/key/manifest_file/locale_dir 路径）、Dockerfile / docker-compose.yml / README.md / .gitignore / perf_monitor.py、tests/ 与 scripts/ 全部 import 与路径引用为 app；start.sh 的 venv `/usr/bin/...`、`node_modules\.bin\`、npm `"bin"` 字段等非项目 bin 引用保持不变 | v1.4.0 |
+| **v1.14** | **2026-08-17** | **目录重命名 pretrained_models→model** | **修改** 模型目录 `pretrained_models/` → `model/`：**同步** config.yaml（`internal_models_dir: model` + security.allowed_base_dirs `- model/`）、config_models.py（`internal_models_dir` 默认值 / allowed_base_dirs default_factory / docstring `./model/`）、`native/seedvr.py`（`_DEFAULT_MODELS_DIR` + 注释）、`native/diffusers_engine.py` 注释、`services/seedvr2_service.py` 全部路径字符串、scripts/setup_symlinks.ps1 + pack_portable.ps1、.env.example 注释、.gitignore（model/README.txt + 5 行权重忽略 + !model/.gitkeep）、docker-compose.yml（`./model:/app/model:ro`）、install.bat / install.sh（mkdir）、tests/（test_config / test_path_guard_attacks / test_security_audit / test_native_coverage）、README.md / AGENTS.md；`internal_models_dir` 键名保持不变 | v1.4.0 |
+| **v1.19** | **2026-08-19** | **SFW 七夕主题专栏：新建 `prompt/SFW/七夕/` 子目录 + 29 个七夕提示词** | 按用户需求（人文向优先）新建七夕专栏子目录（命名格式与 SFW 主目录一致，`人种_年龄_人数_题材.txt`），29 个文件覆盖：①神话星辰4（银河织女星许愿/鹊桥灯影夜游/葡萄架听鹊语/月下拜织女）；②乞巧民俗5（庭院乞巧会/凤仙花染红甲/巧果煎炸/晒书晒衣/摩睺罗泥人铺）；③古风宫苑4（唐宫乞巧楼/月下互赠香囊/水畔放河灯/绣坊绣比翼）；④神话传说深化3（月下结拜金兰/剪纸鹊桥相会/庙会戏台演鹊桥会）；⑤地方民俗4（广府拜七姐/岭南取七夕水/喜蛛应巧/兰夜绘星图）；⑥古风人文3（灯谜会提灯猜谜/月老祠求红线/老绣娘讲牛郎织女）；⑦现代人文传承4（闺蜜互赠巧果礼盒/老字号巧果铺赶工/社区巧果非遗课堂/文创市集乞巧体验摊）；⑧岁时温情2（老夫妻摇扇忆当年/独倚窗阑遥望双星）；牛郎织女传说全女性化处理（只做星象/鹊桥/葡萄架意象）；避让既有题材（星空露营/烛光晚餐/夜市小吃街/石桥观荷/织布机/糖画/皮影/评书等）与 NSFW 七夕两篇（穿针乞巧/鹊桥许愿）差异化；全校验全绿：29 文件全部 ≥500 字符（MIN 504）、质量词 0、否定词 0、暴露词 0、无重名（SFW 内部+SFW/NSFW 交叉）、无 U+FFFD、无半角标点、ASCII 引号 0 残留；README.md 补充七夕专栏说明 | v1.4.0 |
+| **v1.20** | **2026-08-19** | **SFW/NSFW 全库男性角色清除（POV 全女性化）+ 修复脚本二次运行污染** | 按用户 POV 规则（画面中不允许出现男性角色）全库扫描 1571 文件：①修复真男性角色：验光师（顾客→女顾客×9）、镖局启程（总镖头/伙计/托镖商人→女）、船夫×5 文件（乌镇/尼罗河/威尼斯/浮世绘/曲江游春→船娘）、农夫（土楼→农妇）、明清当铺朝奉（蓄须中年人→盘发中年妇人）、养老院/乒乓球/美术馆/布达拉宫等老人→老妇人、端午鼓手/乐队鼓手/键盘手→女X、教坊乐官/编钟/昆曲/弗拉明戈乐师→女X、瓦舍/老茶馆说书人→女说书人、各摊主/掌柜/店主→女X、cos 瞬教鞭先生→执教鞭女老师、cos 宵宫烟花店老板→老板娘、cos 朝颜花绘圣诞老人装→圣诞主题衣裙、马术训练病句"一名的东亚的"→"一位东亚的"等；②修复 audit_fix.py 二次运行 substring 污染：新增 Gotcha #33（女女双前缀 19 处/13 文件全清 0）；③全校验全绿：女女 0、真男性词 0（仅老板娘/女摊主/女说书人/动物胡须/主角自称等豁免）、SFW 全部 ≥500 字符（MIN 501）、无 U+FFFD、无半角标点、无相邻重复 | v1.4.0 |
+| **v1.18** | **2026-08-19** | **SFW 种类优先扩展（第三轮）：+126 新文件（38 新种类），SFW 320→446** | 按用户方向扩展：①中国古代朝代30（先秦秦汉4/魏晋3/大唐5/宋4/明4/明清市井3/武侠4/古建3）；②各类社会人士30（司法4/金融3/传媒3/教育科研4/交通物流4/基层4/文体幕后4/生活服务4）；③外国古今26（古希腊3/罗马3/埃及3/中世纪3/文艺复兴2/日本3/朝鲜3/丝路2/美洲2/现代异国4）；④神话传说4+少数民族5（少数民族统一 东亚_ 前缀+特征词强化：那达慕盛装/火把节银饰长裙/葡萄架歌舞/风雨桥芦笙/高原经幡）；⑤补充29（节令3/戏曲3/雅戏3/老行当4/水乡3/非遗3/异国3/晒秋2/神话2/茶百戏1/太空2）；避让 NSFW 已有题材（胡旋舞→教坊乐舞、银行柜员→理财顾问等）；新增 Gotcha #32（扩写参数 ASCII 引号截断+文件名前缀笔误致空文件）；全校验全绿：446 文件全部 ≥500 字符（MIN 500）、质量词 0（仅旧文件 艺术术语/艺术理念 保留）、否定词 0（仅 要不要/舍不得 惯用语）、暴露词 0（仅 雾气/材质/乳香 保留）、无重名（SFW 内部+SFW/NSFW 交叉）、无 U+FFFD、ASCII 引号已清除 | v1.4.0 |
+| **v1.17** | **2026-08-18** | **SFW 种类优先扩展（第二轮）：+98 新文件（25 新种类），SFW 222→320** | 新增 25 个新种类共 98 文件：职业日常6/书香阅读5/文博展览5/户外露营5/亲子时光5/银发生活5/校园时光5/夜生活5/茶酒咖啡4/市井小吃4/甜品烘焙4/花卉园艺4/水域湖泊4/山川徒步4/冰雪运动3/健身塑形3/潮玩手办3/游戏娱乐3/美妆护肤3/绘画设计3/音乐创作3/婚礼纪念3/寺庙祈福3/观鸟自然3/艺术空间3；人物以东亚为主+少量欧美（鸡尾酒调酒师/法式甜点/健身房自由重量/红酒品鉴会），多人双人约 26 个；新增 Gotcha #31（构图类短语含质量词子串：完美居中/极致超广角→精准居中/大幅超广角，扩写尾部追加法在「整体氛围」句后接镜头语言句零命中）；修复旧文件 3 处（完美居中/令人惊叹/极致超广角/极致留白）；全校验全绿：320 文件全部 ≥500 字符、质量词 0（仅 儿童画/麦当劳「不完美」艺术理念与 木版画质感/插画质感 术语保留）、指令式否定 0（仅 舍不得/要不要 惯用语）、SFW 暴露词 0（仅 雾气/纱料/化妆术语 保留）、无重名（SFW 内部 + SFW/NSFW 交叉均 0）、无 U+FFFD | v1.4.0 |
+| **v1.16** | **2026-08-18** | **SFW 种类优先扩展：+125 新文件（22 新种类）** | 新增 Gotcha #30（批量扩写插入点分隔符需逐文件确认：动漫风格文件用 ；拍摄与风格说明 无 ；光线为 段，替换会静默失败；一次插入需留字数余量，预估 =(500-现字数)+15~25）；新增 125 个 SFW 文件覆盖 22 个新种类：民俗非遗10/音乐8/舞蹈5/竞技运动8/田园农业6/海洋5/城市人文5/手工艺5/舞台演出5/游乐4/季节气象8/餐饮6/服饰5/动物新种8/琴棋书画5/科技3/医护2/交通3/民宿酒店2/摄影3/动漫新风格8（浮世绘/像素/折纸/水墨/蜡笔/玻璃画/霓虹赛博/蒸汽朋克）/双人多题材6；人物以东亚为主+少量欧美/其他（芭蕾/街舞/冲浪/音乐节/薰衣草/霓虹赛博/蒸汽朋克），多人12 个；全部 ≥500 字符、0 否定句式、0 质量后缀、0 SFW 暴露词；全库 545 文件（SFW 222 + NSFW 323）复核：修复 5 处旧文件残留（完美的小星球效果/完美的弧线/毫不裸露/毫不露肤/没有任何肢体交缠）；全校验 6 项全绿（字符数/质量后缀/指令式否定/SFW 暴露词/重名/U+FFFD）| v1.4.0 |
+| **v1.15** | **2026-08-18** | **SKILL.md 规范全库复查（SFW+NSFW 969 文件）+ SFW 补充 60 文件** | 新增 Gotcha #28（批量 edit oldString 必须逐字一致 / 脚本替换需全文件名）+ #29（否定词/暴露词扫描误报判定口径：只修指令式否定与质量后缀，惯用语/化妆术语/艺术术语保留）；SKILL.md 复查修复：质量后缀（杰作×6、高分辨率×6、画质×11）+ 指令式否定（避免/无需/不可×3、不偏脏不偏灰、不复杂不厚重、不僵硬不摆拍、不进也不出、不重叠不相贴不缠绕、不惊不怖、不过度紧绷、不喧宾夺主、不见生硬线条、不直接裸露×18、半掩不露×5、掩不住×3、不得不露面、放不开、无多余陈设、无任何多余陈设、均不佩戴、够不到、无法言说、毫无表情、而不俗艳、而不失雅致）+ 全部改正向描述；60 个新 SFW 文件全部 ≥500 字符 | v1.4.0 |
+| **v1.21** | **2026-08-19** | **NSFW L5 新增 5 条：男友 POV 口交 ×3 + 肛塞自插 + 观影自慰** | 新建 5 个 L5 文件（`prompt/NSFW/` 根目录）：①车内俯身口交POV（深夜江边车内，副驾跪坐俯身，镜头即男友视线，画外男声喘息锚点）；②卧室跪姿口交POV（床沿地毯跪坐，目光穿画面与观众相接）；③卧室反向跨坐口交POV（男友仰躺视线，丰臀正对镜头，臀沟特写）；④浴室镜前肛塞自插（扶台弯腰，T形硅胶肛塞+白浊浓稠润滑液，镜面雾气倒影）；⑤卧室观影自慰（靠床头看片，改**手指**自慰不用跳蛋，屏幕光晕明暗交替）。全部 G 罩杯丰腴身形（用户两轮放大 E→G）＋出图调优：口交动作改「正埋下头＋樱唇被阴茎撑开绷紧＋唇瓣包覆/箍住柱身＋深喉没入口中＋下缘虚化」确保正在口交而非将要口交；乳房增大不再只靠罩杯数字，改用实感描述（沉甸甸垂坠/乳沟深邃/一手根本无法掌握/乳肉晃动）；链状配饰与纹身全数移除（银链腰链/珍珠项链/锁骨链/银脚链/桃心吊坠/银链吊坠/玫瑰刺青→仅耳钉/发夹，避免模型在画面下缘渲染金属链）；肛塞文件强化「臀部正中肛口/塞体没入臀缝/大半没入肛门内」位置词＋嘴部改「紧抿着唇/鼻间轻哼」防塞错位到嘴边；人物要素全项（明确成年/身高/面容≥2/发色+发型/妆造/肌肤/服装配饰/神态/姿势）+ 单主语"她" + 全角标点 + 体液白浊浓稠 + 行文顺序合规 + POV 无完整男性角色；全校验通过：5 文件全部 ≥500 字符（MIN 584）、词频≤3、无 U+FFFD、无半角标点、无相邻重复、无链状配饰与纹身残留 | v1.4.0 |
+| **v1.22** | **2026-08-19** | **L5 出图迭代：蕾丝胸罩托举、口交含入口中、肛塞趴伏撅臀 + 全 11 个 L5 文件乳房统一放大** | ①口交动作强化「正埋下头＋阴茎大半已含入口中＋樱唇被撑开绷紧＋柱身在她唇间缓缓进出＋深喉几乎整根没入口腔＋画面下缘虚化」，解决"嘴边未含入"；②5 篇新文件胸部改穿**蕾丝半杯胸罩**（车内黑/跪姿白/反向跨坐黑/肛塞湿透浅紫/观影粉），「托着沉甸甸的巨乳＋乳肉几乎溢出杯口」增强托举沉甸感；③肛塞场景由"侧身扶洗手台"改为「双肘撑浴缸边缘、上身与地面平行、臀部高高撅起正对镜头」，肛塞抵肛门推入过程直白化；④**全部 11 个 L5 文件**乳房统一放大为「G罩杯尺寸惊人的巨乳沉甸甸垂在胸前/乳沟深邃/一手根本无法掌握/乳肉丰盈饱满」（闺蜜双人两角同规格，罩杯数字+实感描述并用）；⑤清除全部链状配饰与纹身（细银链/银链腰链/锁骨链/玫瑰刺青→仅耳钉/发夹）；顺带修复旧文件词频超限（假阳具口交口水4→3、浴室花洒柱身4→3）并强化假阳具口交"大半已含入口中"；全校验全绿：11 文件全部 ≥500 字符（MIN 591）、词频≤3、无链饰/纹身/U+FFFD/半角标点残留 | v1.4.0 |
+| **v1.23** | **2026-08-19** | **L5 扩展 23 个新文件（8 方向）：乳交3/口交变体3/道具新玩法4/自慰场景5/骑乘POV1/双人3/情趣感官2/户外半公开2** | 新增 23 个 L5 文件（`prompt/NSFW/` 根目录）：**A 乳交系列**3（卧姿乳交POV俯视/乳交颜射乳沟/乳交转口交）；**B 口交变体**3（书房桌下口交POV/卧室站姿口交POV/深喉特写85mm大头）；**C 道具新玩法**4（阴蒂吸吮器/拉珠渐进入肛/震动棒G点前壁/乳夹+跳蛋）；**D 自慰场景**5（浴缸泡泡浴/商场试衣间半公开/酒店落地窗夜景/清晨赖床/客厅沙发）；**E POV女上位**1（正面骑乘，结合处柱身出入局部锚点）；**F 双人**3（双女六九互舔/共享震动棒/乳贴乳互摸）；**G 情趣感官**2（丝绸眼罩跳蛋感官剥夺+画外音引导/丝带轻缚双手自愿）；**H 户外半公开**2（夜公园长椅/车内副驾跳蛋手指并用）；统一沿用 G 罩杯巨乳实感+蕾丝半杯胸罩+无纹身无链饰（仅耳钉/发夹/非金属道具：硅胶乳夹/丝绸眼罩/丝带）+ 白浊浓稠体液 + 词频≤3 + 口交类含入口中写法；新文件全 ≥500 字符（MIN 527）；全校验 34 个 L5 文件全绿（含顺带修复晨光跳蛋旧文件"把她把"笔误与阴蒂×4） | v1.4.0 |
+| **v1.24** | **2026-08-19** | **测试体系改进全量落地（基于测试金字塔评估报告）** | **P0**：E2E 选择器对齐实际前端 ID（`#posPrompt`/`#width`/`#height`/`#outGrid`/`#openBatch`，移除已废弃 `#freeVramBtn`）+ E2E 巨型测试拆分为 7 个小步骤 + 硬编码 `wait_for_timeout` 改为条件 `wait_for_selector` + `test_native_coverage.py` 的 `import torch` 改为 `pytest.importorskip` + `test_route_coverage.py` 残缺断言精确化 + `test_generate_routes.py` 的 503 测试改用 `unittest.mock.patch` + ci.yml 新增 `e2e`/`frontend-smoke`/`mypy`/`performance` 4 个 job；**P1**：新建 `test_chaos_engineering.py`（12 用例：GPU OOM 降级 4 + SQLite 磁盘满 3 + 并发锁竞争 3 + 崩溃恢复 2）+ ci.yml `sast` job 移除 `|| true` 改为 `--strict` + ci.yml `test` job 添加 `-n auto` 并行；**P2**：4 个集成测试文件补加 `pytestmark = pytest.mark.integration` + `test_sql_injection.py` 的 `except Exception` 改为 `except sqlite3.OperationalError` + E2E conftest.py 添加 `pytest_generate_tests` 跨浏览器支持；新增 Gotcha #34（E2E 选择器漂移）+ #35（sqlite3.Connection.execute 只读）+ #36（HistoryDB.conn property 无 setter）；新增 SOP-5（测试体系改进落地）；全量测试 218+ passed 0 failed | v1.4.0 |
+| **v1.24** | **2026-08-19** | **portable 模型目录迁移 ComfyUI + Junction 复用（零冗余）** | 将 `model/` 下 FLUX.1-dev-fp8×4 / FLUX.2-klein-9b-fp8×5 / Z-image-bf16×1 / Z-image_turbo-bf16×2 / t5xxl / qwen3-8b / qwen3-4b / ae vae / flux2-vae 共 17 个模型（~132.7GB）逐目录移动至 ComfyUI `models/{unet,text_encoders,vae}`，原路径建立 9 个 Junction 指向 ComfyUI（两侧共用、无磁盘冗余）；新增 `model/README.md` 说明链接结构与维护规范；新增 Gotcha #34（os.walk 默认不穿透 Junction → `scan_resource_files` 加 `followlinks=True`）；`tests/test_config.py` 22 passed | v1.4.0 |
 
 <!-- 🔄 下次更新 AGENTS.md 时，在上面表格末尾追加新一行，不要删除历史记录 -->
+
+
+## 路线图落地新增模块（2026-08-18，未提交）
+- app/integrated_app/mcp_server.py — MCP Server（移植自 TTS_MultiModel）
+- app/integrated_app/spec.py — 领域公式契约层（含 validate_output_size）
+- scripts/render_pages.py + tests/frontend/smoke.js — 前端冒烟测试
+- tests/test_mcp_server.py、tests/test_spec.py
