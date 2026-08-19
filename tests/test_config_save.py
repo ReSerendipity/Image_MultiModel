@@ -7,6 +7,9 @@ tests/test_config_save.py — 配置写回 + reload 测试
 from __future__ import annotations
 
 import pytest
+
+pytestmark = pytest.mark.integration
+
 import yaml
 
 from integrated_app.config import load_config, reload_config, save_config

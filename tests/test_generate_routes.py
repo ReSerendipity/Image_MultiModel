@@ -15,7 +15,7 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from bin.integrated_app.app_server import create_app
+from app.integrated_app.app_server import create_app
 
 
 @pytest.fixture(scope="module")
@@ -161,10 +161,17 @@ class TestGenerateRoutes:
         assert len(body["task_id"]) > 0, "task_id must not be empty"
 
     def test_generate_queue_full_returns_503(self, client):
-        """TaskQueue 满时 → 503（理论上难触发，但断言契约）"""
-        # 实际测试很难复现此场景（单 worker 通常很快），此处仅验证代码路径存在
-        # 可通过模拟 TaskQueue.submit 返回 False 来触发（复杂，留作未来增强）
-        pytest.mark.skip("Hard to reproduce queue full scenario without mocking")
+        """TaskQueue 满时 → 503（通过 mock get_model_manager 触发）"""
+        from unittest.mock import MagicMock, patch
+        with patch('integrated_app.model_manager.get_model_manager') as mock_get:
+            mock_manager = MagicMock()
+            mock_manager.task_queue.submit = MagicMock(return_value=False)
+            mock_manager.task_queue.qsize = MagicMock(return_value=1)
+            mock_manager.task_queue.maxsize = 1
+            mock_manager.states = {}
+            mock_get.return_value = mock_manager
+            r = client.post("/api/generate", json=self._valid_payload())
+            assert r.status_code == 503, f"Expected 503 when queue full, got {r.status_code}: {r.text[:200]}"
 
     def test_generate_with_reference_image_path(self, client):
         """提供 reference_image_path → PathGuard 校验 + 文件存在性检查"""

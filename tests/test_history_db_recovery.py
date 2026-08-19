@@ -6,6 +6,8 @@ test_history_db_recovery.py — 崩溃恢复两阶段（cleanup → recover）
 
 import pytest
 
+pytestmark = pytest.mark.integration
+
 from integrated_app.history_db import HistoryDB
 
 

@@ -53,10 +53,14 @@ class TestSQLInjectionTasks:
         db.create_task(task_id="sqli-search", engine="test", prompt="normal text")
         # SQL 注入 payload 作为搜索词 — FTS5 有自己的语法，可能报错
         # 关键验证：即使搜索报错，数据不被破坏
+        # P2-4 修复：精确捕获 sqlite3 异常，不再吞没所有异常
+        import sqlite3
         try:
             db.list_tasks(q="'; DROP TABLE tasks; --")
-        except Exception:
+        except sqlite3.OperationalError:
             pass  # FTS5 语法错误是预期的
+        except sqlite3.DatabaseError:
+            pass  # FTS5 查询可能抛 DatabaseError 子类
         # 表仍然存在（未被注入破坏）
         tasks, total = db.list_tasks(page=1, page_size=10)
         assert total == 1

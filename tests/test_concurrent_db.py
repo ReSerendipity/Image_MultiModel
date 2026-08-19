@@ -12,6 +12,8 @@ import time
 
 import pytest
 
+pytestmark = pytest.mark.integration
+
 from integrated_app.history_db import HistoryDB
 
 
