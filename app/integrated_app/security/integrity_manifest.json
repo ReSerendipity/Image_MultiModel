@@ -1,0 +1,32 @@
+{
+  "generated_at": "2026-08-19T19:44:50.408367",
+  "generator": "scripts/generate_integrity_manifest.py",
+  "description": "核心安全模块 SHA256 完整性清单，用于启动时自检",
+  "files": {
+    "app_server.py": "97eae80d667f4878411aabf0d8aac8b6b626c982353a276372180402335bb04b",
+    "config.py": "90fecf5a9ca510879d38222db0acd100e79b1b6d008c951bad95d7ef2d63b969",
+    "config_models.py": "e7d16867611bfc611f0a1fbb4df59647a75b1c3cbebfe1e8bdbc5629d778f1ae",
+    "engine_interface.py": "345ac3aa6b4226dd0ebc387b0d0b003c148e0b5db6ab0409cbfa990e261b297b",
+    "model_manager.py": "df95cabeb0048517928adc3156c8f57afdb3624655a9788546ce9a31fc1a66e6",
+    "model_registry.py": "98d30447b6990ccbcaed9eb4d28a0d171e31ba4969712ee70fc59c78fab880c3",
+    "task_queue.py": "1eef692fb9ea56eee0e9e248480fd247f7e7b8e049c8a005784a8961ff2c6092",
+    "history_db.py": "61011c1577bc2e8cfd1454bee4d19e649f8ffb2ae471694c4908619b59747e37",
+    "i18n.py": "af33d41ed1863bcd9e5271ba3de019121bfaa15d407462b047ec6caf9fb8e5dd",
+    "gpu_utils.py": "6d7ecdd3bb6597a8d3503fae69f69b6f56a572ff8738c3a7a75c716adde17051",
+    "sse.py": "460671a9c0571e691c8b901bf663a2481faccd1b4a21bd9c68b3583b8d35f96c",
+    "watermark.py": "5e3e1e6c4f6dbb5304f5021bda4df8e7f42e6c25cca7461d6ff7152b120fb1a6",
+    "checkpoint.py": "3d936178c7258af4bf39e3f3d1e01a010acc353c06e367f114db90b7b9a9d686",
+    "security/path_guard.py": "fc7ca833df8b2ed252a23f670bb90351d7f866a175783a74d276f1b3cec7eb86",
+    "security/integrity_selfcheck.py": "44d2aacb7404a712f2a4bcb38a9e9c937ae737bce5bb04109a1c063ae59fd02b",
+    "middleware/csrf.py": "761fce11c955c25cb6838b3dfcd4443b955c88bd4d8dc963ac162ad3e534039f",
+    "middleware/rate_limit.py": "5ea152dfc307a3980985d4c4e87febc2ef19535d327ee4be2b2635e84f621a53",
+    "middleware/request_id.py": "32442c252888d6f9e602460faef6855875776ef9e473f28a40e9d3852d10a13c",
+    "routes/config_routes.py": "747ec95b40190e2a4ae545c2f0d5b72fdc3db56c2884686cf2906ab11abc802a",
+    "routes/system_routes.py": "3dd9e3e06e4dff8050838a5dedb9aa11ce7ed6217a001df7576260491290f168",
+    "routes/generate_routes.py": "9dea89aef4f1aa026b4e80b7ed061a5fdba68c39c5a100a5f45ad6b093f3ece1",
+    "routes/task_routes.py": "eb8d2cc96e3a09d27fad5f5a02a8e246186facfc93e302d9ef2fa60b50b6d1a3",
+    "routes/output_routes.py": "e9d8c2431a0bcbc9f4495306c848411c14c2f7e46ce9d5ab8a5545ce7e06398c",
+    "routes/preset_routes.py": "d7405fa028f384ef76657dd5e9dbfacd85c6d27f47d9cd191d8205f7e403e444",
+    "routes/engine_routes.py": "d4252814265b148f026c9f5feaa6fd907dc1b239d70244255ff95c43318fe484"
+  }
+}
