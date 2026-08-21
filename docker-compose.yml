@@ -36,7 +36,7 @@ services:
     # 模型 volume 挂载（portable 模式）
     volumes:
       # 模型文件（只读挂载）
-      - ./pretrained_models:/app/pretrained_models:ro
+      - ./model:/app/model:ro
       # 工作流
       - ./workflows:/app/workflows:ro
       # 持久化数据

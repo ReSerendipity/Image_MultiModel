@@ -129,12 +129,12 @@ mkdir -p data/uploads
 mkdir -p data/cache
 mkdir -p outputs
 mkdir -p logs
-mkdir -p pretrained_models/checkpoints
-mkdir -p pretrained_models/controlnet
-mkdir -p pretrained_models/loras
-mkdir -p pretrained_models/text_encoders
-mkdir -p pretrained_models/unet
-mkdir -p pretrained_models/vae
+mkdir -p model/checkpoints
+mkdir -p model/controlnet
+mkdir -p model/loras
+mkdir -p model/text_encoders
+mkdir -p model/unet
+mkdir -p model/vae
 mkdir -p workflows
 
 echo "[OK] Required directories created"
@@ -147,7 +147,7 @@ echo ""
 echo "You can now start the application by running:"
 echo "  ./start.sh"
 echo "  # or"
-echo "  python bin/clean_launch.py"
+echo "  python app/clean_launch.py"
 echo ""
 echo "Note: Make sure your ComfyUI workflows (.json) are in workflows/"
 echo "and model checkpoints are properly configured in config.yaml."

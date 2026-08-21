@@ -24,7 +24,7 @@ body:
       label: 复现步骤
       description: 详细描述如何复现这个问题
       placeholder: |
-        1. 启动 Image MultiModel（python bin/clean_launch.py）
+        1. 启动 Image MultiModel（python app/clean_launch.py）
         2. 在 Web UI 中选择引擎 '...'
         3. 输入 Prompt '...'
         4. 设置参数：分辨率 ..., steps ..., batch_size ...

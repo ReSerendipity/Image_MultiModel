@@ -7,11 +7,11 @@ server:
   workers: 1
   ssl:
     enabled: false
-    certfile: bin/cert.pem
-    keyfile: bin/key.pem
+    certfile: app/cert.pem
+    keyfile: app/key.pem
 models:
   model_source_mode: portable
-  default_engine: z_image_turbo_diffusers
+  default_engine: z_image_turbo_native
   shared:
     comfy_models_dir: ''
     mount_map:
@@ -23,7 +23,7 @@ models:
       checkpoint: checkpoints
     symlink_strategy: junction
   portable:
-    internal_models_dir: pretrained_models
+    internal_models_dir: model
     sub_dirs:
       text: text_encoders
       unet: unet
@@ -32,40 +32,6 @@ models:
       controlnet: controlnet
       checkpoint: checkpoints
   engines:
-    z_image_turbo_diffusers:
-      name: z_image_turbo_diffusers
-      display_name: Z-Image Turbo (diffusers)
-      display_name_en: Z-Image Turbo (diffusers)
-      backend: diffusers
-      workflow_file: ''
-      parameter_schema: ''
-      comfy_source_dir: ''
-      custom_nodes_dir: ''
-      seedvr2_source_dir: ''
-      text_encoder: null
-      unet: null
-      vae: null
-      model_id: Tongyi-MAI/Z-Image-Turbo
-      local_model_dir: Tongyi-MAI--Z-Image-Turbo
-      vram_gb: 10.0
-      ram_gb: 16.0
-      default_precision: bf16
-      fallback_precision: fp8
-      supported_features:
-      - txt2img
-      - lora_stack_6
-      - seedvr2_upscale_2x
-      - eses_compare
-      - reserved_vram
-      default_width: 1024
-      default_height: 1024
-      image_formats:
-      - png
-      license: Apache-2.0
-      tags:
-      - turbo
-      - diffusers
-      - apache2
     z_image_turbo_native:
       name: z_image_turbo_native
       display_name: Z-Image Turbo (原生)
@@ -99,6 +65,8 @@ models:
       - reserved_vram
       default_width: 1024
       default_height: 1024
+      latent_channels: 16
+      latent_downscale: 8
       image_formats:
       - png
       license: Apache-2.0
@@ -106,6 +74,80 @@ models:
       - turbo
       - native
       - low-vram
+    flux1_dev_fp8:
+      name: flux1_dev_fp8
+      display_name: FLUX.1-dev fp8 (原生)
+      display_name_en: FLUX.1-dev fp8 (Native)
+      backend: native
+      workflow_file: workflows/flux1_dev_fp8.json
+      parameter_schema: ''
+      comfy_source_dir: comfy_kernel
+      custom_nodes_dir: ''
+      seedvr2_source_dir: ''
+      text_encoder:
+        sub_dir: text
+        sub_path: FLUX.1-dev/t5xxl_fp8_e4m3fn.safetensors
+      unet:
+        sub_dir: unet
+        sub_path: FLUX.1-dev-fp8/Flux-Capacity-NSFW-V2-fp8.safetensors
+      vae:
+        sub_dir: vae
+        sub_path: FLUX.1-dev(Z-image(turbo))/ae.safetensors
+      model_id: ''
+      local_model_dir: ''
+      vram_gb: 12.0
+      ram_gb: 16.0
+      default_precision: fp8
+      fallback_precision: fp8
+      supported_features:
+      - txt2img
+      default_width: 1024
+      default_height: 1024
+      latent_channels: null
+      latent_downscale: null
+      image_formats:
+      - png
+      license: Apache-2.0
+      tags:
+      - flux
+      - native
+    flux2_klein_9b:
+      name: flux2_klein_9b
+      display_name: FLUX.2 Klein 9B (原生)
+      display_name_en: FLUX.2 Klein 9B (Native)
+      backend: native
+      workflow_file: workflows/flux2_klein_9b.json
+      parameter_schema: ''
+      comfy_source_dir: comfy_kernel
+      custom_nodes_dir: ''
+      seedvr2_source_dir: ''
+      text_encoder:
+        sub_dir: text
+        sub_path: FLUX.2-klein-9b/qwen_3_8b_fp8mixed.safetensors
+      unet:
+        sub_dir: unet
+        sub_path: FLUX.2-klein-9b-fp8/flux-2-klein-base-9b-fp8.safetensors
+      vae:
+        sub_dir: vae
+        sub_path: FLUX.2-klein-9b/flux2-vae.safetensors
+      model_id: ''
+      local_model_dir: ''
+      vram_gb: 12.0
+      ram_gb: 16.0
+      default_precision: fp8
+      fallback_precision: fp8
+      supported_features:
+      - txt2img
+      default_width: 1024
+      default_height: 1024
+      latent_channels: 128
+      latent_downscale: 16
+      image_formats:
+      - png
+      license: Apache-2.0
+      tags:
+      - flux
+      - native
 inference:
   default_steps: 10
   default_cfg: 1.0
@@ -182,7 +224,7 @@ security:
   - outputs/
   - data/
   - workflows/
-  - pretrained_models/
+  - model/
   rate_limit:
     infer_per_minute: 30
     upload_per_minute: 10
@@ -208,7 +250,7 @@ security:
     warn_if_pickle_found: true
   integrity_selfcheck:
     enabled: true
-    manifest_file: bin/integrated_app/security/integrity_manifest.json
+    manifest_file: app/integrated_app/security/integrity_manifest.json
   content_filter:
     fail_closed_on_clip_missing: false
 gpu:
@@ -241,7 +283,7 @@ i18n:
   - ja
   - ko
   - zh-tw
-  locale_dir: bin/integrated_app/locales
+  locale_dir: app/integrated_app/locales
   fallback_to_en: true
 logging:
   level: INFO

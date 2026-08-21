@@ -53,8 +53,8 @@ Thumbs.db
 desktop.ini
 
 # ── SSL ─────────────────────────────────────────────────────
-bin/cert.pem
-bin/key.pem
+app/cert.pem
+app/key.pem
 
 # ── .env（P1-3: 敏感配置不提交）──────────────────────────────
 .env
@@ -128,7 +128,7 @@ WEBAPP_GUIDE.md
 capture-screenshots.bat
 examples/
 perf/monitoring_plan.md
-pretrained_models/README.txt
+model/README.txt
 prototypes/
 /workflows/
 docs/API.md
@@ -163,11 +163,11 @@ LOCAL_RULES.md
 WPy64-*/
 WinPython*/
 python/
-pretrained_models/*.pth
-pretrained_models/*.safetensors
-pretrained_models/*.bin
-pretrained_models/*.pt
-pretrained_models/*.ckpt
+model/*.pth
+model/*.safetensors
+model/*.bin
+model/*.pt
+model/*.ckpt
 *.onnx
 data/uploads/*
 outputs/*
@@ -185,7 +185,7 @@ tests/frontend/_rendered/
 *.tmp
 *.bak
 Desktop.ini
-!pretrained_models/.gitkeep
+!model/.gitkeep
 !logs/.gitkeep
 !data/uploads/.gitkeep
 !outputs/.gitkeep

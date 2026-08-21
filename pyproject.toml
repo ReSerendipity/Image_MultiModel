@@ -20,7 +20,7 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["bin/integrated_app"]
+source = ["app/integrated_app"]
 omit = [
     "*/__init__.py",
     "*/locales/*",
@@ -47,18 +47,18 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM"]
 ignore = ["E501", "E402", "B008", "B017", "B905", "UP042", "UP036", "B904", "B007", "SIM102", "SIM108", "SIM105", "SIM117", "F841"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["integrated_app", "bin"]
+known-first-party = ["integrated_app", "app"]
 
 [tool.mypy]
 python_version = "3.12"
 warn_unused_configs = true
 disallow_untyped_defs = false
 ignore_missing_imports = true
-mypy_path = ["bin"]
+mypy_path = ["app"]
 exclude = [
-    "bin/integrated_app/static/",
-    "bin/integrated_app/locales/",
-    "bin/integrated_app/comfy/schemas/",
+    "app/integrated_app/static/",
+    "app/integrated_app/locales/",
+    "app/integrated_app/comfy/schemas/",
     "tests/e2e/",
 ]
 

@@ -76,12 +76,12 @@ echo "Using Python: $PYTHON_CMD"
 echo ""
 
 # Check launch script
-if [ ! -f "bin/clean_launch.py" ]; then
-    echo "Error: Launch script not found at bin/clean_launch.py"
+if [ ! -f "app/clean_launch.py" ]; then
+    echo "Error: Launch script not found at app/clean_launch.py"
     exit 1
 fi
 
 echo "Starting Image MultiModel..."
 echo ""
 
-"$PYTHON_CMD" bin/clean_launch.py
+"$PYTHON_CMD" app/clean_launch.py

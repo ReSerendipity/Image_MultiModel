@@ -16,7 +16,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # 编译检查
-RUN python -m compileall -q bin tests
+RUN python -m compileall -q app tests
 
 # 暴露端口
 EXPOSE 8288
@@ -26,4 +26,4 @@ HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8288/api/health')" || exit 1
 
 # 启动
-CMD ["python", "bin/clean_launch.py"]
+CMD ["python", "app/clean_launch.py"]

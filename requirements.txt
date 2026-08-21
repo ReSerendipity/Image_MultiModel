@@ -81,6 +81,18 @@ sentencepiece>=0.1.99
 transformers>=4.40.0
 accelerate>=0.29.0
 
+# ── 原生引擎 comfy_kernel 运行时依赖（backend: native，说明）──
+# comfy-aimdo：ComfyUI 内存管理后端，native 引擎【硬依赖】。缺失会在
+#   _load_models -> import comfy.model_management -> comfy.memory_management
+#   时报 ModuleNotFoundError: No module named 'comfy_aimdo'，所有 native 推理任务失败。
+#   安装：pip install comfy-aimdo
+# comfy-kitchen：Native FP8/FP4 内核，native 引擎【硬依赖】（comfy/ldm/modules/attention.py
+#   直接 import comfy_kitchen，缺失时连 import comfy.samplers 都会失败）。
+#   安装：pip install comfy-kitchen
+# torchsde：comfy k_diffusion 采样器依赖（comfy/k_diffusion/sampling.py import torchsde），
+#   缺失时 import comfy.samplers 失败。安装：pip install torchsde
+# 以上为 comfy_kernel 运行时依赖，未列入 requirements-lock.txt（OS 相关 abi3 wheel）。
+
 # ── diffusers 原生引擎（M8: backend: diffusers）─────────────
 # 注：diffusers 版本锁定为 0.39.0（已验证 ZImagePipeline 可用）
 diffusers==0.39.0

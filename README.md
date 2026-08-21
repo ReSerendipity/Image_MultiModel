@@ -66,19 +66,19 @@
 4. **（可选）配置环境变量**  
    - **新手**：跳过此步，默认便携模式即可使用  
    - **高级用户**：复制 `.env.example` 为 `.env`，按需修改（详见 [docs/PATH-CONFIGURATION.md](docs/PATH-CONFIGURATION.md)）
-5. 确认模型文件已就位（存放于 `pretrained_models/`，portable 模式，完全自包含）
+5. 确认模型文件已就位（存放于 `model/`，portable 模式，完全自包含）
 6. 双击运行：
    ```bat
    start.bat
    ```
 7. 浏览器自动打开 Web UI（默认地址 `http://127.0.0.1:8288`）
 
-> 💡 **优势**：进程内原生引擎复用项目内 `comfy_kernel` 源码，完全脱离外部 ComfyUI 进程，模型随 `pretrained_models/` 内置，可作便携包独立运行。
+> 💡 **优势**：进程内原生引擎复用项目内 `comfy_kernel` 源码，完全脱离外部 ComfyUI 进程，模型随 `model/` 内置，可作便携包独立运行。
 
 > 📌 **默认端口**：`8288`（可在 `config.yaml` → `server.port` 修改）。
 
 > 📌 **模型路径模式**（`config.yaml` → `models.model_source_mode`）：
-> - `portable`（当前默认）：模型路径指向项目内 `pretrained_models/` 目录，适合便携包模式（完全自包含，无外部链接）。
+> - `portable`（当前默认）：模型路径指向项目内 `model/` 目录，适合便携包模式（完全自包含，无外部链接）。
 > - 切换模式后重启应用即可生效。
 
 ---
@@ -107,7 +107,7 @@
 ```bash
 docker build -t image-multimodel .
 docker run --gpus all -p 8288:8288 \
-  -v ./pretrained_models:/app/pretrained_models \
+  -v ./model:/app/model \
   -v ./outputs:/app/outputs \
   image-multimodel
 ```
@@ -138,7 +138,7 @@ docker run --gpus all -p 8288:8288 \
 
 ```
 Image_MultiModel/
-├── bin/                          # 应用入口与主程序
+├── app/                          # 应用入口与主程序
 │   ├── clean_launch.py          # 启动清理 + 环境检测脚本
 │   ├── install.bat              # 依赖安装脚本
 │   ├── start.bat                # Windows 启动脚本
@@ -158,7 +158,7 @@ Image_MultiModel/
 │       └── task_queue.py        # 异步任务队列（SSE 推送）
 ├── workflows/                   # 工作流 JSON
 ├── comfy_kernel           # 复用的 ComfyUI 源码（推理底层）
-├── pretrained_models/           # 模型检查点存放（portable 模式）
+├── model/           # 模型检查点存放（portable 模式）
 ├── data/                        # 运行时数据（预设 / 上传 / 缓存）
 ├── outputs/                     # 生成结果输出
 ├── logs/                        # 运行日志
@@ -256,7 +256,7 @@ python -m pytest -q
 python -m ruff check bin tests
 
 # 覆盖率
-python -m pytest --cov=bin/integrated_app --cov-report=term-missing
+python -m pytest --cov=app/integrated_app --cov-report=term-missing
 
 # E2E 测试（需先安装 Playwright）
 pip install playwright pytest-playwright

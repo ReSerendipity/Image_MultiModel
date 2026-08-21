@@ -30,7 +30,7 @@
 
 - [ ] 新增/修改的功能已补充 `test_` 测试
 - [ ] `python -m pytest -q` 全量测试通过（0 failed）
-- [ ] 覆盖率不低于 75%（`python -m pytest --cov=bin/integrated_app`）
+- [ ] 覆盖率不低于 75%（`python -m pytest --cov=app/integrated_app`）
 - [ ] 安全相关功能已补攻击测试（PathGuard / SQL 注入等）
 
 ### 文档与计划

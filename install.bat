@@ -189,7 +189,7 @@ if not exist "data\uploads" mkdir "data\uploads"
 if not exist "data\cache" mkdir "data\cache"
 if not exist "outputs" mkdir "outputs"
 if not exist "logs" mkdir "logs"
-if not exist "pretrained_models" mkdir "pretrained_models"
+if not exist "model" mkdir "model"
 if not exist "workflows" mkdir "workflows"
 
 echo [OK] Required directories created
