@@ -11,7 +11,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from bin.integrated_app import watermark  # noqa: E402
+from app.integrated_app import watermark  # noqa: E402
 
 pytest.importorskip("numpy")
 

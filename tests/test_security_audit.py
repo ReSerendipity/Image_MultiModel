@@ -28,7 +28,7 @@ class TestPathTraversalDownload:
     @pytest.fixture
     def guard(self):
         return PathGuard(
-            allowed_base_dirs=["outputs/", "data/", "workflows/", "pretrained_models/"],
+            allowed_base_dirs=["outputs/", "data/", "workflows/", "model/"],
             project_root=str(PROJECT_ROOT),
         )
 
@@ -142,7 +142,7 @@ class TestIntegritySelfCheck:
 
     def test_manifest_file_exists(self):
         """integrity_manifest.json 存在"""
-        manifest_path = PROJECT_ROOT / "bin" / "integrated_app" / "security" / "integrity_manifest.json"
+        manifest_path = PROJECT_ROOT / "app" / "integrated_app" / "security" / "integrity_manifest.json"
         assert manifest_path.exists(), f"Integrity manifest not found: {manifest_path}"
 
 

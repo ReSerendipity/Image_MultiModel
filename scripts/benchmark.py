@@ -169,7 +169,7 @@ def bench_sse_gpu_status():
 def run_benchmarks():
     """运行所有基准"""
     if not _check_app_online():
-        print("应用不在线，请先启动: python bin/clean_launch.py")
+        print("应用不在线，请先启动: python app/clean_launch.py")
         return
 
     results = []

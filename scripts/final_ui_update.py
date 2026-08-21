@@ -3,7 +3,7 @@
 """最终 UI 更新 - 仅添加 CSS 和简化引擎菜单"""
 from pathlib import Path
 
-HTML_FILE = Path(__file__).resolve().parent.parent / "bin" / "integrated_app" / "static" / "index.html"
+HTML_FILE = Path(__file__).resolve().parent.parent / "app" / "integrated_app" / "static" / "index.html"
 
 def main():
     # 读取原始字节

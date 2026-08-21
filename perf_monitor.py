@@ -49,7 +49,7 @@ def benchmark():
             
     except requests.exceptions.ConnectionError:
         print("[Image_MultiModel] ⚠️ 服务未运行")
-        print("请先启动：python -m uvicorn bin.integrated_app.app_server:app --host 127.0.0.1 --port 8288")
+        print("请先启动：python -m uvicorn app.integrated_app.app_server:app --host 127.0.0.1 --port 8288")
         return {"error": "Service not running"}
     except Exception as e:
         print(f"[Image_MultiModel] ❌ 异常：{e}")

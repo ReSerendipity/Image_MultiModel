@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from bin.integrated_app.app_server import create_app  # noqa: E402
+from app.integrated_app.app_server import create_app  # noqa: E402
 
 COMFY_URL = "http://127.0.0.1:8188"
 

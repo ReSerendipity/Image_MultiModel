@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from bin.integrated_app.app_server import create_app
+from app.integrated_app.app_server import create_app
 
 
 @pytest.fixture(scope="module")

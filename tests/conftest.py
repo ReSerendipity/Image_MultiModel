@@ -13,11 +13,11 @@ import pytest
 
 # ── 统一路径注入 ────────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-BIN_DIR = PROJECT_ROOT / "bin"
+APP_DIR = PROJECT_ROOT / "app"
 
 # 避免重复插入
-if str(BIN_DIR) not in sys.path:
-    sys.path.insert(0, str(BIN_DIR))
+if str(APP_DIR) not in sys.path:
+    sys.path.insert(0, str(APP_DIR))
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -45,6 +45,6 @@ def path_guard(project_root):
     from integrated_app.security.path_guard import PathGuard
 
     return PathGuard(
-        allowed_base_dirs=["outputs/", "data/", "workflows/", "pretrained_models/"],
+        allowed_base_dirs=["outputs/", "data/", "workflows/", "model/"],
         project_root=str(project_root),
     )

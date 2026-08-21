@@ -112,18 +112,18 @@ class TestResolveModelPath:
         assert fake_models_dir in result or "text_encoders" in result
 
     def test_portable_mode_resolution(self, project_root):
-        """portable 模式：路径基于 pretrained_models/"""
+        """portable 模式：路径基于 model/"""
         models_config = ModelsConfig(
             model_source_mode="portable",
             portable=PortableConfig(
-                internal_models_dir="pretrained_models",
+                internal_models_dir="model",
                 sub_dirs={"text": "text_encoders", "unet": "unet", "vae": "vae"},
             ),
         )
         mp = ModelPaths(sub_dir="text", sub_path="Z_image(turbo)/qwen_3_4b_fp8_mixed.safetensors")
         result = resolve_model_path(mp, models_config, project_root)
 
-        assert "pretrained_models" in result
+        assert "model" in result
         assert "text_encoders" in result
         assert "Z_image(turbo)/qwen_3_4b_fp8_mixed.safetensors" in result
 
@@ -165,7 +165,7 @@ class TestScanResourceFiles:
         models_config = ModelsConfig(
             model_source_mode="portable",
             portable=PortableConfig(
-                internal_models_dir="pretrained_models",
+                internal_models_dir="model",
                 sub_dirs={"text": "text_encoders"},
             ),
         )

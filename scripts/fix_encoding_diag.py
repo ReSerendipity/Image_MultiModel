@@ -3,7 +3,7 @@
 """诊断 index.html 的 mojibake 编码问题"""
 from pathlib import Path
 
-f = Path(__file__).resolve().parent.parent / "bin" / "integrated_app" / "static" / "index.html"
+f = Path(__file__).resolve().parent.parent / "app" / "integrated_app" / "static" / "index.html"
 raw = f.read_bytes()
 
 # 当前文件按 UTF-8 解码（能成功但中文乱码）

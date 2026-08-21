@@ -75,7 +75,7 @@ class TestI18nBackendCoverage:
         import json as _json
         from pathlib import Path as _Path
 
-        locale_dir = _Path(__file__).resolve().parent.parent / "bin" / "integrated_app" / "locales"
+        locale_dir = _Path(__file__).resolve().parent.parent / "app" / "integrated_app" / "locales"
         # 收集所有 phase 键
         phase_keys = set(PHASE_KEY_MAP.values())
         phase_keys.update({"phase_sampling", "phase_executing"})  # 动态生成的键

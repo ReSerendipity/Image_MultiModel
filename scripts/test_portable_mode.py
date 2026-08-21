@@ -5,7 +5,7 @@ import shutil
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT / "bin"))
+sys.path.insert(0, str(PROJECT_ROOT / "app"))
 
 config_path = PROJECT_ROOT / "config.yaml"
 backup_path = PROJECT_ROOT / "config.yaml.bak"

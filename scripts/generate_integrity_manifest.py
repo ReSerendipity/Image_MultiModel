@@ -4,7 +4,7 @@
 使用方式:
     python scripts/generate_integrity_manifest.py
 
-输出文件: bin/integrated_app/security/integrity_manifest.json
+输出文件: app/integrated_app/security/integrity_manifest.json
 
 清单格式:
     {
@@ -27,7 +27,7 @@ import sys
 from pathlib import Path
 
 
-# 核心安全模块清单 (相对于 bin/integrated_app/)
+# 核心安全模块清单 (相对于 app/integrated_app/)
 CORE_MODULES = [
     "app_server.py",
     "config.py",
@@ -77,7 +77,7 @@ def compute_sha256(filepath: Path) -> str:
 def main() -> None:
     """生成完整性清单。"""
     project_root = Path(__file__).resolve().parent.parent
-    app_dir = project_root / "bin" / "integrated_app"
+    app_dir = project_root / "app" / "integrated_app"
     manifest_path = app_dir / "security" / "integrity_manifest.json"
 
     files: dict[str, str] = {}

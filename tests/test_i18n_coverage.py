@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-LOCALE_DIR = PROJECT_ROOT / "bin" / "integrated_app" / "locales"
+LOCALE_DIR = PROJECT_ROOT / "app" / "integrated_app" / "locales"
 
 EXPECTED_LOCALES = ["zh", "en", "ja", "ko", "zh-tw"]
 

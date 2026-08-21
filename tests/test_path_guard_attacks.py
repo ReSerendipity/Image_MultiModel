@@ -16,7 +16,7 @@ from integrated_app.security.path_guard import PathGuard, PathGuardError
 @pytest.fixture
 def guard():
     return PathGuard(
-        allowed_base_dirs=["outputs/", "data/", "workflows/", "pretrained_models/"],
+        allowed_base_dirs=["outputs/", "data/", "workflows/", "model/"],
         project_root=str(PROJECT_ROOT),
     )
 

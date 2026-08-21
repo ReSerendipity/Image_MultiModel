@@ -71,7 +71,7 @@ class TestWatermarkProperties:
     @settings(max_examples=20, deadline=5000, suppress_health_check=[HealthCheck.too_slow])
     def test_watermark_roundtrip_with_different_seeds(self, seed):
         """不同 seed 的图像 → 水印嵌入/验证 roundtrip"""
-        from bin.integrated_app import watermark
+        from app.integrated_app import watermark
 
         rng = np.random.default_rng(seed)
         img = (128 + rng.normal(0, 5, (256, 256))).clip(0, 255)
@@ -85,7 +85,7 @@ class TestWatermarkProperties:
     @settings(max_examples=15, deadline=5000, suppress_health_check=[HealthCheck.too_slow])
     def test_watermark_imperceptible_always(self, product_id):
         """水印不可感知性始终满足"""
-        from bin.integrated_app import watermark
+        from app.integrated_app import watermark
 
         rng = np.random.default_rng(42)
         img = (128 + rng.normal(0, 5, (256, 256))).clip(0, 255)

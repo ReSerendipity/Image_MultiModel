@@ -15,7 +15,7 @@ import numpy as np
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT_PATH = PROJECT_ROOT / "scripts" / "verify_watermark.py"
 
-from bin.integrated_app import watermark
+from app.integrated_app import watermark
 
 
 class TestVerifyWatermarkScript:
