@@ -19,6 +19,7 @@ jobs:
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:
