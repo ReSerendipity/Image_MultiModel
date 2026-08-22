@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.5.1](https://github.com/ReSerendipity/Image_MultiModel/compare/v1.5.0...v1.5.1) (2026-08-22)
+
+
+### Documentation
+
+* 同步 README 版本徽章到 v1.5.0 ([fdac09d](https://github.com/ReSerendipity/Image_MultiModel/commit/fdac09d7bb32d734023f0c97b51e1ae0a416d76b))
+
+
+### CI/CD
+
+* 安全扫描与发布各 job 加 continue-on-error，避免红叉 ([47bd594](https://github.com/ReSerendipity/Image_MultiModel/commit/47bd59477815573e3a672ee8962403cb07863b42))
+* 开启 actions 创建/审批 PR 权限，重跑 release-please ([fe8f9e0](https://github.com/ReSerendipity/Image_MultiModel/commit/fe8f9e0a6e2481e6a2283d74d196dd822cf4f3f3))
+* 测试步骤容错，避免依赖本地 comfy 的测试失败导致 CI 变红 ([d2b8187](https://github.com/ReSerendipity/Image_MultiModel/commit/d2b81878a323c41d0049835e9ffe3a258a34e75e))
+* 禁用 E2E 和 Performance 测试 ([337de59](https://github.com/ReSerendipity/Image_MultiModel/commit/337de59135613e713f445bea43186fdefbc137b4))
+* 降低质量门禁严格程度，避免频繁失败 ([5a6e578](https://github.com/ReSerendipity/Image_MultiModel/commit/5a6e578a2ed634ed6b2e0acc89ca0a3ecf4d2772))
+
 ## [1.5.0](https://github.com/ReSerendipity/Image_MultiModel/compare/v1.4.0...v1.5.0) (2026-08-21)
 
 
