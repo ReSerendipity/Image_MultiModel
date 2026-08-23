@@ -70,7 +70,7 @@ beautifulsoup4>=4.12.0
 
 # ── 可选：Playwright E2E（M5 阶段）────────────────────────
 playwright>=1.40.0
-pytest-playwright>=0.4.0
+pytest-playwright>=0.9.0
 
 # ── 原生引擎复用 Comfy 源码所需依赖（backend: native）──────
 # 复用 references/ComfyUI/comfy/ + aki-v3 custom_nodes 源码时按 import 补齐
