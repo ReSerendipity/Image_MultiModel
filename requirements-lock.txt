@@ -18,7 +18,7 @@ colorama==0.4.6
 controlnet_aux==0.0.10
 coverage==7.15.4
 cryptography==50.0.0
-diffusers==0.39.0
+diffusers==0.40.0
 einops==0.8.2
 execnet==2.1.2
 factory_boy==3.3.3

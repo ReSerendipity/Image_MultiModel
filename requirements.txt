@@ -95,7 +95,7 @@ accelerate>=0.29.0
 
 # ── diffusers 原生引擎（M8: backend: diffusers）─────────────
 # 注：diffusers 版本锁定为 0.39.0（已验证 ZImagePipeline 可用）
-diffusers==0.39.0
+diffusers==0.40.0
 
 # ── 可选：DCT 水印 GPU 加速（M9）───────────────────────────
 # 注：cupy 提供 GPU 加速的水印嵌入（cuBLAS 批量 matmul），
