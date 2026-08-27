@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [master, main]
+    branches: [main]
   pull_request:
-    branches: [master, main]
+    branches: [main]
   schedule:
     # 每日 UTC 02:00（北京时间 10:00）运行全量测试
     - cron: "0 2 * * *"
@@ -30,7 +30,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-lint-
       - run: pip install ruff
-      - run: ruff check app/ tests/ || true
+      - run: ruff check app/ tests/
 
   mypy:
     name: Type Check (Mypy)
