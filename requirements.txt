@@ -34,7 +34,7 @@ aiosqlite>=0.20.0
 # ── 图像处理（水印 DCT / 缩略图 / VRAM 估算）────────────
 numpy>=1.26
 Pillow>=10.0
-scipy>=1.11.0
+scipy>=1.18.1
 opencv-python-headless>=4.8.0
 PyWavelets>=1.5.0
 
