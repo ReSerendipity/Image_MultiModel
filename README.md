@@ -65,7 +65,7 @@
 3. 双击运行 **`install.bat`**（会自动检测系统 Python，安装 PyTorch CUDA 版 + 全部依赖）
 4. **（可选）配置环境变量**  
    - **新手**：跳过此步，默认便携模式即可使用  
-   - **高级用户**：复制 `.env.example` 为 `.env`，按需修改（详见 [docs/project/PATH-CONFIGURATION.md](docs/project/PATH-CONFIGURATION.md)）
+   - **高级用户**：复制 `.env.example` 为 `.env`，按需修改（详见 [docs/project/PATH-CONFIGURATION.md（本地文档，未随仓库发布）](docs/project/PATH-CONFIGURATION.md)）
 5. 确认模型文件已就位（存放于 `model/`，portable 模式，完全自包含）
 6. 双击运行：
    ```bat
@@ -130,7 +130,7 @@ docker run --gpus all -p 8288:8288 \
 - **`sys.path` 注入**：通过 `native/source.ensure_loaded()` 把该目录注入 `sys.path[0]`，在同一进程内调用 `comfy.sd` / `comfy.samplers` 完成推理。
 - **统一引擎 key**：`config.yaml → models.engines.z_image_turbo_native`（`backend: native`）。
 
-> ℹ️ 详情见 [docs/plans/COMFYUI-INDEPENDENCE-PLAN.md](docs/plans/COMFYUI-INDEPENDENCE-PLAN.md)。
+> ℹ️ 详情见 [docs/plans/COMFYUI-INDEPENDENCE-PLAN.md（本地文档，未随仓库发布）](docs/plans/COMFYUI-INDEPENDENCE-PLAN.md)。
 
 ---
 
