@@ -24,7 +24,7 @@ execnet==2.1.2
 factory_boy==3.3.3
 Faker==40.36.0
 fastapi==0.141.1
-filelock==3.32.2
+filelock==3.32.4
 frozenlist==1.8.0
 fsspec==2026.7.0
 git-filter-repo==2.47.0
