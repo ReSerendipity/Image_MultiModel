@@ -54,7 +54,7 @@ def ensure_loaded(
         RuntimeError: ``comfy_root`` 下不存在 ``comfy/`` 包，或 import comfy 失败。
     """
     global _loaded, _comfy_root
-    if _loaded:
+    if _loaded and _comfy_root is not None:
         return _comfy_root
 
     root = Path(comfy_root).resolve() if comfy_root else _default_comfy_root().resolve()

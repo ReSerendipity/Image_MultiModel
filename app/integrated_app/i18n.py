@@ -203,7 +203,7 @@ def _resolve_key(translations: dict[str, Any], key: str) -> str | None:
     if "." in key:
         try:
             parts = key.split(".")
-            result: Any = translations
+            result = translations
             for part in parts:
                 if isinstance(result, dict) and part in result:
                     result = result[part]

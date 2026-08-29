@@ -33,7 +33,7 @@ def save_png(path: Path, image: Any, *, is_tensor: bool = False) -> None:
 def embed_provenance(path: Path, product_id: str, task_id: str) -> None:
     """对已保存的 PNG 嵌入来源标识（失败静默，不影响输出）。"""
     try:
-        img = Image.open(path)
+        img: Image.Image = Image.open(path)
         if img.mode != "RGB":
             img = img.convert("RGB")
         arr = np.array(img).astype(np.float64)

@@ -201,7 +201,7 @@ def register_error_handlers(app: FastAPI) -> None:
 
     注册顺序：先注册更具体的类型，最后注册通用 Exception。
     """
-    app.add_exception_handler(ImageAppError, image_error_handler)
-    app.add_exception_handler(RequestValidationError, validation_error_handler)
-    app.add_exception_handler(StarletteHTTPException, _http_exception_handler)
-    app.add_exception_handler(Exception, generic_error_handler)
+    app.add_exception_handler(ImageAppError, image_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(StarletteHTTPException, _http_exception_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(Exception, generic_error_handler)  # type: ignore[arg-type]
