@@ -111,8 +111,8 @@ class ContentSafetyFilter:
             return False
 
         try:
-            import torch
             import clip as clip_lib
+            import torch
             from PIL import Image  # noqa: F401 — 确认 Pillow 可用
 
             self._device = "cuda" if torch.cuda.is_available() else "cpu"

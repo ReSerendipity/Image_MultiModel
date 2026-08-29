@@ -51,7 +51,6 @@ async def health_check(request: Request) -> dict[str, Any]:
     task_queue = getattr(request.app.state, "task_queue", None)
     if task_queue is not None:
         tasks = task_queue.list_tasks()
-        from ..task_queue import TaskStatus
         status_count = {
             "pending": 0, "processing": 0, "completed": 0,
             "failed": 0, "cancelled": 0,
@@ -90,8 +89,8 @@ async def health_check(request: Request) -> dict[str, Any]:
     # 引擎状态（model_manager 真实加载状态）
     engines: list = []
     try:
-        from ..model_manager import get_model_manager
         from ..engine_interface import get_registry
+        from ..model_manager import get_model_manager
         registry = get_registry()
         model_mgr = get_model_manager()
         for eng_name, eng_cfg in cfg.models.engines.items():

@@ -10,7 +10,6 @@ preprocessors/canny.py — Canny 边缘检测预处理器
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 import numpy as np
 

@@ -54,7 +54,7 @@ python_version = "3.12"
 warn_unused_configs = true
 disallow_untyped_defs = false
 ignore_missing_imports = true
-mypy_path = ["app"]
+explicit_package_bases = true
 exclude = [
     "app/integrated_app/static/",
     "app/integrated_app/locales/",

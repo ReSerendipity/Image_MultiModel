@@ -72,7 +72,6 @@ class MiDaSDepthEstimator:
 
         try:
             import torch
-            import torchvision.transforms as T
 
             self._device = "cuda" if torch.cuda.is_available() else "cpu"
             self._model = torch.hub.load("intel-isl/MiDaS", self._model_type)

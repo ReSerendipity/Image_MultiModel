@@ -9,8 +9,6 @@ tests/test_content_filter.py — CLIP 安全内容检测器测试
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from integrated_app.security.content_filter import (

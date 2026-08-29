@@ -25,8 +25,8 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import inspect
+import json
 import logging
 import sys
 from dataclasses import dataclass, field

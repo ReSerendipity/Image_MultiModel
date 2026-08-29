@@ -150,7 +150,7 @@ def embed_watermark(
             logger.debug("GPU watermark returned None, falling back to CPU")
     except Exception as e:
         logger.debug(f"GPU watermark failed, falling back to CPU: {e}")
-    
+
     # CPU 实现（原有路径）
     ts = timestamp if timestamp is not None else time.time()
     payload = _payload_string(product_id, task_id, ts)

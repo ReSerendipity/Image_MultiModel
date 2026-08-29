@@ -17,8 +17,6 @@ diffusers_engine.py — ZImageDiffusersEngine（M8 diffusers 迁移）
 
 from __future__ import annotations
 
-import asyncio
-import io
 import logging
 import os
 import random
@@ -28,10 +26,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-
 from ..config import get_config
-from ..config_models import resolve_engine_model_paths
 from ..engine_interface import GenerationConfig, ProgressCallback
 from ..security.path_guard import PathGuard
 from . import output_pipeline
@@ -429,7 +424,7 @@ class ZImageDiffusersEngine:
                         image_path=tmp_path,
                         target_resolution=target_resolution,
                         color_correction=color_correction,
-                        seed=config.seed if hasattr(self, '_last_seed') else -1,
+                        seed=self._last_seed if hasattr(self, '_last_seed') else -1,
                     )
                     upscaled.append(Image.open(output_path).copy())
                 finally:

@@ -21,7 +21,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -470,6 +470,7 @@ def create_app() -> FastAPI:
     # 页面路由（服务端渲染）
     if templates_dir.exists():
         from jinja2 import Environment, FileSystemLoader, select_autoescape
+
         from .i18n import t as _i18n_t
 
         templates = Jinja2Templates(

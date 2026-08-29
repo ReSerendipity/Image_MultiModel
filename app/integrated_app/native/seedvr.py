@@ -141,7 +141,7 @@ def _image_bytes_to_tensor(image_bytes: bytes) -> torch.Tensor:
     if not is_magic:
         raise ValueError(f"Invalid image magic: {error}")
 
-    img = Image.open(io.BytesIO(image_bytes))
+    img: Image.Image = Image.open(io.BytesIO(image_bytes))
     img.verify()
     img = Image.open(io.BytesIO(image_bytes))
     if img.mode != "RGB":

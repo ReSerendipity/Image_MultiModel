@@ -24,7 +24,6 @@ from integrated_app.mcp_server import (
     MCPTool,
 )
 
-
 # ── 工具函数 ─────────────────────────────────────────────────
 
 
