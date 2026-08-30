@@ -17,13 +17,86 @@ from pydantic import BaseModel
 from ..config import get_config
 from ..engine_interface import get_registry
 from ..i18n import get_error_message
-from ..model_manager import ModelState, get_model_manager
+from ..model_manager import ModelManager, ModelState, get_model_manager
 from ..native.engine import NativeEngine
 from ..sse import get_sse_bus
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/engine", tags=["engine"])
+
+
+async def switch_engine_with_rollback(
+    model_mgr: ModelManager,
+    registry: Any,
+    engine_name: str,
+    eng_cfg: Any,
+    *,
+    load_engine=None,
+    unload_engine=None,
+    get_engine=None,
+) -> dict[str, Any]:
+    """加载 / 切换引擎，并在新引擎加载失败时回滚到切换前的活动引擎。
+
+    P1·韧性（消除反模式 #6「切换无失败回滚 → 无引擎可用空窗」）：
+    - 仅在加载成功后才 ``set_active(new)``；
+    - 加载失败时 best-effort 回滚到 ``prev_active``，避免系统陷入
+      「旧引擎已卸载、新引擎未加载」的空窗。
+
+    Args:
+        model_mgr: ModelManager 单例
+        registry: 引擎注册表（InMemoryEngineRegistry）
+        engine_name: 目标引擎名
+        eng_cfg: 目标引擎配置（EngineConfig），用于错误文案
+        load_engine / unload_engine / get_engine: 可注入，便于单测（默认走真实单例）
+
+    Returns:
+        dict: ``{"status", "rolled_back", "message", "engine_name"}``
+    """
+    load_engine = load_engine or model_mgr.load_engine
+    unload_engine = unload_engine or model_mgr.unload_engine
+    get_engine = get_engine or registry.get
+
+    prev_active = registry.active_engine_name
+
+    # 若当前有不同活动引擎，先卸载以释放显存
+    if prev_active and prev_active != engine_name:
+        try:
+            await unload_engine(prev_active, get_engine(prev_active))
+        except Exception as e:  # noqa: BLE001 - 卸载失败不阻断后续加载
+            logger.warning("Failed to unload engine %s before switch: %s", prev_active, e)
+
+    display = getattr(eng_cfg, "display_name", engine_name)
+    try:
+        await load_engine(engine_name, get_engine(engine_name))
+    except Exception as e:  # noqa: BLE001 - 捕获加载失败以触发回滚
+        logger.error("Engine '%s' load failed: %s", engine_name, e)
+        rolled_back = False
+        rollback_detail = ""
+        if prev_active and prev_active != engine_name:
+            try:
+                await load_engine(prev_active, get_engine(prev_active))
+                registry.set_active(prev_active)
+                rolled_back = True
+                rollback_detail = f"; 已回滚至 '{prev_active}'"
+            except Exception as rb_e:  # noqa: BLE001
+                logger.error("Rollback to '%s' also failed: %s", prev_active, rb_e)
+                rollback_detail = f"; 回滚失败: {rb_e}"
+        return {
+            "engine_name": engine_name,
+            "status": "error",
+            "rolled_back": rolled_back,
+            "message": f"引擎 '{display}' 加载失败: {e}{rollback_detail}",
+        }
+
+    # 加载成功后再设为活动引擎
+    registry.set_active(engine_name)
+    return {
+        "engine_name": engine_name,
+        "status": "loaded",
+        "rolled_back": False,
+        "message": f"Engine '{display}' loaded successfully",
+    }
 
 
 class EngineLoadRequest(BaseModel):
@@ -116,31 +189,17 @@ async def load_engine(req: EngineLoadRequest, request: Request) -> dict[str, Any
 
     engine = registry.get(engine_name)
 
-    # 如果当前有活动引擎且不同，先卸载
-    current_active = registry.active_engine_name
-    if current_active and current_active != engine_name:
-        try:
-            old_engine = registry.get(current_active)
-            await model_mgr.unload_engine(current_active, old_engine)
-        except Exception as e:
-            logger.warning(f"Failed to unload engine {current_active}: {e}")
-
-    registry.set_active(engine_name)
-
-    try:
-        await model_mgr.load_engine(engine_name, engine)
-        return {
-            "engine_name": engine_name,
-            "status": "loaded",
-            "message": f"Engine '{eng_cfg.display_name}' loaded successfully",
-        }
-    except Exception as e:
-        logger.error(f"Engine load failed: {e}")
-        return {
-            "engine_name": engine_name,
-            "status": "error",
-            "message": str(e),
-        }
+    # P1·韧性：加载/切换 + 失败回滚（消除「无引擎可用」空窗）
+    result = await switch_engine_with_rollback(
+        model_mgr,
+        registry,
+        engine_name,
+        eng_cfg,
+        load_engine=model_mgr.load_engine,
+        unload_engine=model_mgr.unload_engine,
+        get_engine=registry.get,
+    )
+    return result
 
 
 @router.post("/unload")
