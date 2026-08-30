@@ -112,6 +112,41 @@ def apply_lora_stack(
     applied = 0
     for name, strength in pending:
         path = lora_paths.get(name)
+        # MLOps P0-1: 加载前完整性校验（仅对实际存在的文件生效；
+        # 校验失败默认告警并跳过该层，fail_closed 时抛 WeightIntegrityError）。
+        if path and Path(path).exists():
+            try:
+                from ..config import get_config
+                from ..security.weight_integrity import (
+                    WeightIntegrityError,
+                    load_weight_manifest,
+                    manifest_hash_for_path,
+                    verify_weight_before_load,
+                )
+
+                cfg = get_config()
+                mfmt = cfg.security.model_format
+                expected_sha256 = None
+                if mfmt.verify_weights and mfmt.weight_manifest_file:
+                    manifest = load_weight_manifest(
+                        Path(cfg.project_root) / mfmt.weight_manifest_file
+                    )
+                    expected_sha256 = manifest_hash_for_path(manifest, path, cfg.project_root)
+                res = verify_weight_before_load(
+                    path,
+                    expected_sha256=expected_sha256,
+                    allow_non_safetensors=not mfmt.only_safetensors,
+                )
+                if not res.ok:
+                    msg = f"LoRA '{name}' 完整性校验失败: {res.error}"
+                    if mfmt.fail_closed_on_corrupt_weight:
+                        raise WeightIntegrityError(msg)
+                    logger.warning("%s，跳过该层", msg)
+                    continue
+            except WeightIntegrityError:
+                raise
+            except Exception as e:  # noqa: BLE001 - 校验自身异常不阻断主推理
+                logger.warning("LoRA 校验异常（已放行）: %s", e)
         try:
             lora_sd = comfy.utils.load_torch_file(path)
             model, clip = comfy.sd.load_lora_for_models(

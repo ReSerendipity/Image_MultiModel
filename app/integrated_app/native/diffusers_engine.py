@@ -344,6 +344,30 @@ class ZImageDiffusersEngine:
                 logger.warning(f"LoRA file not found: {lora_path}, skipping")
                 continue
 
+            # MLOps P0-1: 加载前完整性校验（损坏/非白名单格式拒绝或告警跳过）
+            try:
+                from ..security.weight_integrity import (
+                    WeightIntegrityError,
+                    verify_weight_before_load,
+                )
+
+                mfmt = cfg.security.model_format
+                if mfmt.verify_weights:
+                    res = verify_weight_before_load(
+                        str(lora_path),
+                        allow_non_safetensors=not mfmt.only_safetensors,
+                    )
+                    if not res.ok:
+                        msg = f"LoRA '{lora_name}' 完整性校验失败: {res.error}"
+                        if mfmt.fail_closed_on_corrupt_weight:
+                            raise WeightIntegrityError(msg)
+                        logger.warning("%s，跳过该层", msg)
+                        continue
+            except WeightIntegrityError:
+                raise
+            except Exception as e:  # noqa: BLE001 - 校验异常不阻断
+                logger.warning("LoRA 校验异常（已放行）: %s", e)
+
             adapter_name = f"lora_{i}"
             try:
                 self._pipe.load_lora_weights(str(lora_path), adapter_name=adapter_name)
