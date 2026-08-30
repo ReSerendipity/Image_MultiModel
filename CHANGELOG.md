@@ -1,5 +1,23 @@
 # Changelog
 
+## [Unreleased]
+
+### Features
+
+* **security:** LoRA/checkpoint 权重加载前 SHA256 + 结构校验（反模式 #2，防供应链投毒/静默损坏）
+* **engine:** 多 LoRA 叠加 VRAM 增量估算（满精度保守叠加，叠加后重判 can_run）+ VRAMLeakMonitor 显存泄漏监控
+* **routes:** 引擎切换失败自动回滚，消除「旧引擎已卸载、新引擎未加载」空窗（反模式 #6）
+* **quality:** 生成质量基准 PSNR/SSIM + golden file 回归（反模式 #4）
+* **governance:** Workflow JSON Schema 版本化（schema_version + 加载时校验，反模式 #1）+ 权重级 Model Card 元数据注册表（反模式 #3）
+
+### Security
+
+* integrity_selfcheck 清理 M7 迁移后 comfy HTTP 引擎死引用，纳入 weight_integrity 自检；清单重生成（25 模块自检全过）
+
+### Tests
+
+* 新增 6 个测试模块共 60+ 用例；conftest 增加环境感知跳过（torch/comfy_aimdo 缺失时跳过引擎栈相关测试）
+
 ## [1.5.1](https://github.com/ReSerendipity/Image_MultiModel/compare/v1.5.0...v1.5.1) (2026-08-22)
 
 

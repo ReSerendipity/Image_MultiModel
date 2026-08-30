@@ -48,3 +48,54 @@ def path_guard(project_root):
         allowed_base_dirs=["outputs/", "data/", "workflows/", "model/"],
         project_root=str(project_root),
     )
+
+
+# ── 环境感知：原生引擎栈不可用时跳过相关测试 ──────────────────
+def _torch_is_functional() -> bool:
+    """检测当前环境是否具备可用的 PyTorch（部分环境仅有占位/损坏的 torch）。"""
+    try:
+        import torch
+
+        return bool(hasattr(torch, "tensor") and hasattr(torch, "__version__"))
+    except Exception:  # pragma: no cover - 导入异常即视为不可用
+        return False
+
+
+def _comfy_available() -> bool:
+    """检测原生引擎运行所需的 comfy 扩展是否可用。"""
+    try:
+        import comfy_aimdo  # noqa: F401
+
+        return True
+    except Exception:  # pragma: no cover - 依赖缺失
+        return False
+
+
+_TORCH_OK = _torch_is_functional()
+_COMFY_OK = _comfy_available()
+_ENGINE_OK = _TORCH_OK and _COMFY_OK
+
+# 依赖原生引擎栈（torch + comfy）的测试文件：环境不可用时整体跳过
+_NATIVE_TEST_FILES = {
+    "test_preprocessors.py",
+    "test_generate_routes.py",
+    "test_forward_batch_and_cancel.py",
+    "test_forward_path_api.py",
+}
+
+
+def pytest_collection_modifyitems(config, items):
+    """原生引擎栈（torch / comfy_aimdo）不可用时，跳过依赖它的测试。
+
+    仅作用于缺失可用 PyTorch 或 comfy 扩展的环境；在完整环境上
+    ``_ENGINE_OK`` 为 True，本钩子不生效，全部测试照常执行。
+    """
+    if _ENGINE_OK:
+        return
+    skip_marker = pytest.mark.skip(
+        reason="原生引擎栈不可用（缺 PyTorch 或 comfy_aimdo），跳过引擎相关测试"
+    )
+    for item in items:
+        name = Path(item.path).name
+        if name.startswith("test_native_") or name in _NATIVE_TEST_FILES:
+            item.add_marker(skip_marker)
