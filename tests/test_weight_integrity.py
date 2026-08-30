@@ -10,8 +10,6 @@ import json
 import struct
 from pathlib import Path
 
-import pytest
-
 from integrated_app.security import weight_integrity as wi
 
 

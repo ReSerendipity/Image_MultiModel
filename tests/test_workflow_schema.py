@@ -6,10 +6,7 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
 from integrated_app import workflow_schema as ws
-
 
 VALID_WORKFLOW = {
     "schema_version": "1.0.0",
