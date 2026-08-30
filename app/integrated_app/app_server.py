@@ -308,6 +308,39 @@ async def lifespan(app: FastAPI):
             )
             gen = GenerationConfig(**task.config)
 
+            # MLOps P0-2: 多 LoRA 叠加 VRAM 增量预检（best-effort，仅告警不阻断）
+            try:
+                from .gpu_utils import get_gpu_info, preflight_vram_with_loras
+                from .native import lora as _lora_mod
+
+                stack = gen.effective_lora_stack()
+                if stack:
+                    gpu_info = get_gpu_info()
+                    if gpu_info.backend != "cpu":  # 无 GPU 环境跳过，避免噪声
+                        lora_paths = _lora_mod.resolve_lora_paths(cfg.models, cfg.project_root)
+                        est = preflight_vram_with_loras(
+                            ecfg.vram_gb,
+                            stack,
+                            width=gen.width,
+                            height=gen.height,
+                            batch_size=getattr(gen, "batch_size", 1),
+                            lora_paths=lora_paths,
+                            enable_seedvr2=False,
+                            default_precision=ecfg.default_precision,
+                            fallback_precision=ecfg.fallback_precision,
+                            multisample_rule=cfg.inference.vram_multisample_rule,
+                            headroom_gb=cfg.inference.vram_headroom_gb,
+                            gpu_info=gpu_info,
+                            allow_tight=cfg.inference.vram_tight_continue,
+                        )
+                        if not est.can_run:
+                            logger.warning(
+                                "[VRAM-PRECHECK] LoRA 栈可能超出显存 (增量 %.2fGB): %s",
+                                est.lora_increment_gb, est.warning,
+                            )
+            except Exception as e:  # noqa: BLE001 - 预检失败不阻断主推理
+                logger.debug("LoRA VRAM 预检异常（已忽略）: %s", e)
+
             def prog(pct, phase, extra):
                 task.progress = pct
                 task.phase = phase

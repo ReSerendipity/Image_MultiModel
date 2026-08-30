@@ -9,7 +9,10 @@ native/vram.py — VRAM 预留 + BlockSwap 配置
 from __future__ import annotations
 
 import gc
+import json
 import logging
+import struct
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -184,3 +187,93 @@ def _apply_reused_blockswap(model: Any, effective: int, offload: Any) -> None:
         "offload_device": torch.device(offload) if not isinstance(offload, torch.device) else offload,
     }
     apply_block_swap_to_dit(runner, config, debug)
+
+
+# ──────────────────────────────────────────────────────────────
+#  MLOps P0-2: 多 LoRA 叠加 VRAM 增量估算
+# ──────────────────────────────────────────────────────────────
+_DEFAULT_LORA_INCREMENT_GB = 0.15  # 读取不到 header 时的保守默认（典型小 LoRA）
+_BYTES_PER_PARAM = 2  # 推理时 LoRA 权重以 fp16 驻留
+
+
+def _read_safetensors_tensor_bytes(adapter_path: str | Path) -> int | None:
+    """读取 safetensors 头，返回所有张量数据区字节总量；失败返回 None。"""
+    try:
+        with open(adapter_path, "rb") as f:
+            magic = f.read(8)
+            if len(magic) < 8:
+                return None
+            header_len = struct.unpack("<Q", magic)[0]
+            if header_len <= 0 or header_len > 100 * 1024 * 1024:
+                return None
+            header = json.loads(f.read(header_len))
+        total = 0
+        for key, meta in header.items():
+            if key == "__metadata__" or not isinstance(meta, dict):
+                continue
+            offs = meta.get("data_offsets")
+            if offs and len(offs) == 2:
+                total += max(0, offs[1] - offs[0])
+        return total
+    except Exception as e:  # noqa: BLE001 - 解析失败即视为不可估算
+        logger.debug("safetensors tensor-byte read failed for %s: %s", adapter_path, e)
+        return None
+
+
+def estimate_lora_vram_increment(adapter_path: str | Path, strength: float = 1.0) -> float:
+    """估算单个 LoRA 叠加带来的增量显存（GB）。
+
+    依据：LoRA 权重以 fp16 常驻显存，增量 ≈ 张量数据字节数 × 2 / 1GB。
+    strength 不影响驻留显存（仅影响激活峰值），用 ``max(0.1, |strength|)`` 做轻微修正。
+
+    Args:
+        adapter_path: LoRA 文件绝对路径
+        strength: LoRA 强度
+
+    Returns:
+        增量显存（GB，保留 4 位小数）
+    """
+    tensor_bytes = _read_safetensors_tensor_bytes(adapter_path)
+    if tensor_bytes is None:
+        return _DEFAULT_LORA_INCREMENT_GB
+    gb = (tensor_bytes * _BYTES_PER_PARAM) / (1024**3)
+    return round(gb * max(0.1, abs(strength)), 4)
+
+
+def estimate_lora_stack_vram(paths_with_strength: list[tuple[str | None, float]]) -> float:
+    """估算整个 LoRA 栈的总增量显存（GB）。
+
+    Args:
+        paths_with_strength: ``[(abs_path, strength), ...]``，path 为空则跳过
+
+    Returns:
+        总增量显存（GB）
+    """
+    total = 0.0
+    for path, strength in paths_with_strength:
+        if not path:
+            continue
+        total += estimate_lora_vram_increment(path, strength)
+    return round(total, 4)
+
+
+def estimate_lora_stack_vram_from_stack(
+    stack: list[dict],
+    lora_paths: dict[str, str] | None = None,
+) -> float:
+    """从 ``effective_lora_stack()`` 结果与 name→path 映射估算总增量显存。
+
+    Args:
+        stack: ``[{"name", "strength"}, ...]``
+        lora_paths: ``{name: abs_path}``（由 ``lora.resolve_lora_paths`` 生成）
+
+    Returns:
+        总增量显存（GB）
+    """
+    pairs: list[tuple[str | None, float]] = []
+    for entry in stack or []:
+        name = (entry or {}).get("name") or ""
+        strength = float((entry or {}).get("strength", 1.0))
+        path = (lora_paths or {}).get(name)
+        pairs.append((path, strength))
+    return estimate_lora_stack_vram(pairs)
