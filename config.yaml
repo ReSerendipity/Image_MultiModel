@@ -74,6 +74,10 @@ models:
       - turbo
       - native
       - low-vram
+      weight_sha256: ''
+      weight_version: ''
+      training_data_source: ''
+      compatibility_matrix: {}
     flux1_dev_fp8:
       name: flux1_dev_fp8
       display_name: FLUX.1-dev fp8 (原生)
@@ -111,6 +115,10 @@ models:
       tags:
       - flux
       - native
+      weight_sha256: ''
+      weight_version: ''
+      training_data_source: ''
+      compatibility_matrix: {}
     flux2_klein_9b:
       name: flux2_klein_9b
       display_name: FLUX.2 Klein 9B (原生)
@@ -148,6 +156,10 @@ models:
       tags:
       - flux
       - native
+      weight_sha256: ''
+      weight_version: ''
+      training_data_source: ''
+      compatibility_matrix: {}
 inference:
   default_steps: 10
   default_cfg: 1.0
@@ -248,6 +260,9 @@ security:
   model_format:
     only_safetensors: true
     warn_if_pickle_found: true
+    verify_weights: true
+    weight_manifest_file: ''
+    fail_closed_on_corrupt_weight: false
   integrity_selfcheck:
     enabled: true
     manifest_file: app/integrated_app/security/integrity_manifest.json

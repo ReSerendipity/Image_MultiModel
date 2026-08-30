@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://imagmulti.dev/schemas/workflow_schema.json",
+  "title": "ImageMultiModel Workflow",
+  "description": "Z-Image Turbo 工作流 JSON Schema（MLOps P2·治理）。加载时校验以防护手动编辑破坏结构（反模式 #1、#6）。",
+  "type": "object",
+  "required": ["schema_version", "nodes"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "工作流 schema 版本，用于可复现性与向后兼容",
+      "enum": ["1.0.0"]
+    },
+    "name": {
+      "type": "string"
+    },
+    "nodes": {
+      "type": "array",
+      "description": "工作流节点列表",
+      "items": {
+        "type": "object",
+        "required": ["id", "type"],
+        "properties": {
+          "id": {
+            "type": ["string", "integer"],
+            "description": "节点唯一标识"
+          },
+          "type": {
+            "type": "string",
+            "description": "节点类型（如 KSampler / CLIPTextEncode / SaveImage）"
+          },
+          "inputs": {
+            "type": "object"
+          },
+          "outputs": {
+            "type": "object"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "edges": {
+      "type": "array",
+      "description": "节点间连接（可选）",
+      "items": {
+        "type": "object",
+        "required": ["from", "to"],
+        "properties": {
+          "from": { "type": ["string", "integer"] },
+          "to": { "type": ["string", "integer"] }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

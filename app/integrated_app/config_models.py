@@ -117,6 +117,11 @@ class EngineConfig(BaseModel):
     image_formats: list[str] = Field(default_factory=lambda: ["png"])
     license: str = ""
     tags: list[str] = Field(default_factory=list)
+    # ── MLOps P2·治理：权重级 Model Card 元数据（消除反模式 #3）──
+    weight_sha256: str = ""           # 主权重 SHA256（防供应链投毒 / 静默损坏）
+    weight_version: str = ""          # 权重版本号（语义化，便于回滚与血缘）
+    training_data_source: str = ""    # 训练数据来源（数据血缘溯源）
+    compatibility_matrix: dict[str, list[str]] = Field(default_factory=dict)  # LoRA / ControlNet 兼容性矩阵
 
 
 class DiffusersEngineConfig(BaseModel):
@@ -301,6 +306,10 @@ class CORSConfig(BaseModel):
 class ModelFormatConfig(BaseModel):
     only_safetensors: bool = True
     warn_if_pickle_found: bool = True
+    # MLOps P0-1: 权重加载前完整性校验（LoRA / checkpoint）
+    verify_weights: bool = True
+    weight_manifest_file: str = ""  # 相对项目根的权重 SHA256 清单；为空则不比对 hash
+    fail_closed_on_corrupt_weight: bool = False  # True=损坏即拒绝加载；False=告警并跳过该层
 
 
 class IntegritySelfcheckConfig(BaseModel):
