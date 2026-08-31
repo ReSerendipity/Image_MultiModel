@@ -14,7 +14,9 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 
+from ..config import get_config
 from ..history_db import HistoryDB
+from ..security.path_guard import PathGuard, PathGuardError
 from ..task_queue import TaskQueue
 
 logger = logging.getLogger(__name__)
@@ -45,6 +47,63 @@ async def list_tasks(
         "page_size": page_size,
         "total_pages": (total + page_size - 1) // page_size,
     }
+
+
+@router.get("/export")
+async def export_tasks(
+    request: Request,
+    ids: str = Query(..., description="逗号分隔的任务 ID"),
+    type: str | None = Query(None, description="original/upscaled/compare"),
+) -> StreamingResponse:
+    """GET /api/tasks/export?ids= — 打包 ZIP 导出
+
+    注意：本静态路由必须注册在 ``/{task_id}`` 之前，否则会被动态路由
+    吞掉并始终返回 404（Full test regression 阶段发现并修复）。
+    """
+    history_db: HistoryDB = request.app.state.history_db
+    cfg = get_config()
+    task_ids = [t.strip() for t in ids.split(",") if t.strip()]
+    if not task_ids:
+        raise HTTPException(400, detail="No task_ids provided")
+
+    # M-01 修复：此前直接用 Path(db_path) 拼接，既无 PathGuard（DB 被污染即任意文件
+    # 读取），又因 outputs 存的是相对路径、按 cwd 解析导致导出空 ZIP（功能已坏）。
+    # 改为用 PathGuard 以 outputs 基目录解析，越界路径跳过，缺失文件跳过。
+    guard = PathGuard(cfg.security.allowed_base_dirs, cfg.project_root)
+    base_dir = cfg.output.base_dir
+
+    buf = io.BytesIO()
+    written = 0
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for tid in task_ids:
+            task = history_db.get_task(tid)
+            if not task:
+                continue
+            for out in task.get("outputs", []):
+                out_type = out.get("output_type", "original")
+                if type and out_type != type:
+                    continue
+                rel = out.get("path", "")
+                if not rel:
+                    continue
+                try:
+                    safe_path = guard.resolve(rel, base_dir=base_dir)
+                except PathGuardError:
+                    logger.warning("[EXPORT] 跳过越权输出路径: %s (task=%s)", rel, tid)
+                    continue
+                if not safe_path.exists() or not safe_path.is_file():
+                    continue
+                arcname = f"{tid}/{safe_path.name}"
+                zf.write(str(safe_path), arcname)
+                written += 1
+    if written == 0:
+        raise HTTPException(404, detail="No exportable outputs found for the given task ids")
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=export.zip"},
+    )
 
 
 @router.get("/{task_id}")
@@ -117,43 +176,6 @@ async def delete_tasks(
         raise HTTPException(400, detail="No task_ids provided")
     count = history_db.delete_tasks(task_ids)
     return {"deleted": count}
-
-
-@router.get("/export")
-async def export_tasks(
-    request: Request,
-    ids: str = Query(..., description="逗号分隔的任务 ID"),
-    type: str | None = Query(None, description="original/upscaled/compare"),
-) -> StreamingResponse:
-    """GET /api/tasks/export?ids= — 打包 ZIP 导出"""
-    history_db: HistoryDB = request.app.state.history_db
-    task_ids = [t.strip() for t in ids.split(",") if t.strip()]
-    if not task_ids:
-        raise HTTPException(400, detail="No task_ids provided")
-
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        for tid in task_ids:
-            task = history_db.get_task(tid)
-            if not task:
-                continue
-            for out in task.get("outputs", []):
-                out_type = out.get("output_type", "original")
-                if type and out_type != type:
-                    continue
-                path = out.get("path", "")
-                if path:
-                    from pathlib import Path
-                    p = Path(path)
-                    if p.exists():
-                        arcname = f"{tid}/{p.name}"
-                        zf.write(str(p), arcname)
-    buf.seek(0)
-    return StreamingResponse(
-        buf,
-        media_type="application/zip",
-        headers={"Content-Disposition": "attachment; filename=export.zip"},
-    )
 
 
 @router.post("/tags")
