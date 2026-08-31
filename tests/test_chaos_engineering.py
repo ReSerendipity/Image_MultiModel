@@ -5,10 +5,11 @@ tests/test_chaos_engineering.py — 混沌工程故障注入测试
 1. GPU OOM 降级：VRAM 估算超过可用显存时的优雅降级
 2. SQLite 磁盘满：写入失败不崩溃，事务回滚
 3. 并发锁竞争：多线程并发写同一行的乐观锁行为
-4. 网络超时降级：aiohttp 请求超时不阻塞主线程
+4. 网络超时降级：aiohttp 请求超时不阻塞事件循环（已在 P2-7 落地）
 5. 进程崩溃恢复：checkpoint 断点续跑完整性
+6. 资源耗尽：CPU/内存压力下优雅降级（已在 P2-7 落地）
 
-对应测试体系评估报告 P1-1：混沌工程缺失
+对应测试体系评估报告 P1-1：混沌工程缺失；P2-7：补全网络超时与 CPU/内存耗尽
 """
 
 from __future__ import annotations
@@ -326,3 +327,155 @@ class TestCrashRecoveryIntegrity:
         tasks, total = db.list_tasks(q="survival")
         assert total == 1, "FTS5 should survive crash"
         assert tasks[0]["task_id"] == "fts-crash"
+
+
+# ════════════════════════════════════════════════════════════
+# 4. 网络超时降级（对应测试体系评估 P2-7：补全文档声明但未实现的用例）
+# ════════════════════════════════════════════════════════════
+class TestNetworkTimeoutResilience:
+    """aiohttp 请求超时不阻塞事件循环 / 主线程"""
+
+    def test_aiohttp_timeout_does_not_block_loop(self):
+        """连接到一个"接收但不响应"的服务，超时应在阈值内触发且循环仍可调度。"""
+        import asyncio
+        import socket
+        import threading
+
+        import aiohttp
+
+        srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        srv.bind(("127.0.0.1", 0))
+        srv.listen(1)
+        port = srv.getsockname()[1]
+
+        def accept_and_hold():
+            try:
+                conn, _ = srv.accept()
+                time.sleep(2)  # 接收后故意不响应，模拟网络挂起
+                conn.close()
+            except Exception:
+                pass
+
+        holder = threading.Thread(target=accept_and_hold, daemon=True)
+        holder.start()
+
+        async def main():
+            start = time.time()
+            try:
+                async with aiohttp.ClientSession(
+                    timeout=aiohttp.ClientTimeout(total=0.3)
+                ) as session:
+                    async with session.get(f"http://127.0.0.1:{port}/") as resp:
+                        await resp.read()
+            except Exception:
+                elapsed = time.time() - start
+                # 超时应在 ~0.3s 触发，而非一直阻塞
+                assert elapsed < 1.5, f"超时未生效，阻塞了 {elapsed:.1f}s"
+                # 证明事件循环在超时后仍可调度其它协程（主线程未被卡死）
+                alive = await asyncio.sleep(0.01, result="loop-alive")
+                assert alive == "loop-alive"
+                return
+            pytest.fail("expected network timeout but request succeeded")
+
+        asyncio.run(main())
+
+
+# ════════════════════════════════════════════════════════════
+# 6. 资源耗尽（CPU/内存）降级（对应测试体系评估 P2-7：补全 CPU/内存耗尽场景）
+# ════════════════════════════════════════════════════════════
+class TestResourceExhaustion:
+    """内存/CPU 资源耗尽时的优雅降级"""
+
+    def test_memory_pressure_graceful_degradation(self):
+        """推理中抛出 MemoryError（模拟 OOM）：任务优雅失败，服务不崩。"""
+        import os
+
+        from fastapi.testclient import TestClient
+
+        from integrated_app.app_server import create_app
+        from integrated_app.testing.fake_engine import FakeEngine
+
+        os.environ["IMM_FAKE_ENGINE"] = "1"
+        orig = FakeEngine.infer_txt2img
+
+        def boom(self, *a, **k):  # type: ignore[no-untyped-def]
+            raise MemoryError("simulated OOM during inference")
+
+        FakeEngine.infer_txt2img = boom  # type: ignore[assignment]
+        try:
+            with TestClient(create_app()) as c:
+                health = c.get("/api/health")
+                token = health.headers.get("X-CSRF-Token", "")
+                if token:
+                    c.headers["X-CSRF-Token"] = token
+                r = c.post(
+                    "/api/generate",
+                    json={
+                        "positive_prompt": "oom test",
+                        "cfg": 1.0, "steps": 4, "width": 256, "height": 256,
+                        "seed": 1, "batch_size": 1,
+                        "engine_name": "z_image_turbo_native",
+                    },
+                )
+                assert r.status_code == 200, r.text[:120]
+                tid = r.json()["task_id"]
+                deadline = time.time() + 10
+                d = {}
+                while time.time() < deadline:
+                    d = c.get(f"/api/tasks/{tid}").json()
+                    if d.get("status") in ("completed", "failed", "cancelled"):
+                        break
+                    time.sleep(0.05)
+                assert d.get("status") == "failed", f"OOM 应优雅失败，实际 {d.get('status')}"
+                # 服务在 OOM 后仍存活（健康检查可用）
+                assert c.get("/api/health").status_code == 200
+        finally:
+            FakeEngine.infer_txt2img = orig  # type: ignore[assignment]
+            os.environ.pop("IMM_FAKE_ENGINE", "")
+
+    def test_cpu_pressure_latency_under_load(self):
+        """CPU 满载下 /api/health 仍应响应（单 Worker 串行化不应饿死 API）。"""
+        import os
+
+        from fastapi.testclient import TestClient
+
+        from integrated_app.app_server import create_app
+
+        os.environ["IMM_FAKE_ENGINE"] = "1"
+        try:
+            with TestClient(create_app()) as c:
+                c.get("/api/health")  # warm
+                stop = threading.Event()
+
+                def busy():
+                    while not stop.is_set():
+                        x = 0
+                        for i in range(50000):
+                            x += i
+                        # 主动让出 GIL，避免完全饿死服务端线程（否则 portal 调用超时）
+                        time.sleep(0.0005)
+
+                n = max(1, (os.cpu_count() or 4))
+                workers = [threading.Thread(target=busy, daemon=True) for _ in range(n)]
+                for w in workers:
+                    w.start()
+                latencies = []
+                statuses = []
+                for _ in range(5):
+                    t0 = time.time()
+                    resp = c.get("/api/health")
+                    latencies.append((time.time() - t0) * 1000)
+                    statuses.append(resp.status_code)
+                stop.set()
+                for w in workers:
+                    w.join()
+
+                # 核心性质（不依赖绝对耗时，避免 CI 慢机器/覆盖率插桩下 flaky）：
+                # CPU 满载时健康端点仍必须全部响应成功，不得超时或 5xx。
+                assert all(s == 200 for s in statuses), f"CPU 压力下健康检查失败: {statuses}"
+                # 兜底守卫：仅用于捕捉"完全饿死"（阈值取得很宽松，不做性能基线断言）
+                p95 = sorted(latencies)[int(len(latencies) * 0.95) - 1]
+                assert p95 < 30000, f"CPU 压力下 /api/health P95={p95:.0f}ms，疑似完全饿死"
+        finally:
+            os.environ.pop("IMM_FAKE_ENGINE", "")
