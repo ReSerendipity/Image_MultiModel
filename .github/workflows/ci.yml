@@ -20,7 +20,6 @@ jobs:
     name: Lint & Compile Check
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -39,7 +38,6 @@ jobs:
     name: Type Check (Mypy)
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    continue-on-error: true
     if: always()
     steps:
       - uses: actions/checkout@v4
@@ -60,8 +58,7 @@ jobs:
         run: |
           python -m mypy app/integrated_app \
             --ignore-missing-imports \
-            --python-version 3.12 \
-            || true
+            --python-version 3.12
 
   test:
     name: Test + Coverage (Python ${{ matrix.python-version }})
@@ -88,28 +85,29 @@ jobs:
           pip check
           pip install pytest-cov pytest-asyncio pytest-timeout pytest-xdist hypothesis factory-boy
       - name: Run tests with coverage (parallel)
-        # `|| true`：覆盖率已达标（实测 >70%），测试中依赖本地 comfy/references 的失败项不阻断 CI
+        # 测试失败必须阻断 CI（对应测试体系评估 P0-1：移除 `|| true`，使覆盖率红线真正生效）
         run: |
           python -m pytest \
             --cov=app/integrated_app \
             --cov-report=xml \
             --cov-report=term-missing \
             -n auto \
-            -v || true
-      - name: Coverage Gate (>= 60%)
+            -v
+      - name: Coverage Gate (>= 70%, target 75%)
         if: always()
         run: |
           python - <<'PYEOF'
           import os, xml.etree.ElementTree as ET
           if not os.path.exists('coverage.xml'):
-              print('[WARN] coverage.xml not found - skipping gate')
-              raise SystemExit(0)
+              raise SystemExit('[FAIL] coverage.xml not found - 测试未运行或未采集覆盖率，门禁必须失败')
           rate = float(ET.parse('coverage.xml').getroot().get('line-rate'))
           pct = rate * 100
           print(f'Line coverage: {pct:.1f}%')
-          if pct < 60:
-              raise SystemExit(f'[FAIL] coverage {pct:.1f}% < 60%')
-          print('[PASS] coverage meets 60% threshold')
+          # 70% = 当前 CI 实测可达门槛（GPU/torch 依赖模块被 skip 导致无法达 75%）；
+          # 75% 为目标值，待 CI 具备 torch/comfy 后上调（需同步 pyproject.fail_under）。
+          if pct < 70:
+              raise SystemExit(f'[FAIL] coverage {pct:.1f}% < 70%')
+          print('[PASS] coverage meets 70% threshold (target: 75%)')
           PYEOF
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -121,7 +119,6 @@ jobs:
     name: SAST - pip-audit
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -137,7 +134,7 @@ jobs:
         run: pip install pip-audit
       - name: Run pip-audit (SCA) — blocks CI on high-severity CVEs
         run: |
-          pip-audit -r requirements.txt --strict || true
+          pip-audit -r requirements.txt --strict
 
   smoke:
     name: Smoke Tests
@@ -173,7 +170,6 @@ jobs:
     name: Frontend Smoke Tests (jsdom)
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -197,14 +193,15 @@ jobs:
           cp app/integrated_app/static/index.html tests/frontend/_rendered/ 2>/dev/null || true
       - name: Run frontend smoke tests
         run: |
-          node tests/frontend/smoke.js || true
+          node tests/frontend/smoke.js
 
   e2e:
     name: E2E Tests (Playwright)
-    if: false  # Disabled: requires app startup which fails in CI
+    # 对应测试体系评估 P1-4：启用 E2E + 视觉回归（此前 if:false 禁用）。
+    # 以 IMM_FAKE_ENGINE=1 启动服务端，首页/结构/视觉回归无需 GPU，可 CI 复现；
+    # 真实 GPU 生成用例标记 @pytest.mark.slow，默认不跑（手动冒烟）。
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -223,24 +220,31 @@ jobs:
       - name: Install Playwright browsers
         run: |
           python -m playwright install chromium --with-deps
-      - name: Start application in background
+      - name: Start application in background (fake engine, no GPU)
+        env:
+          IMM_FAKE_ENGINE: "1"
         run: |
           python app/clean_launch.py &
           sleep 5
           # Verify app is online
           curl -s http://127.0.0.1:8288/api/health | grep -q "ok" || exit 1
-      - name: Run E2E tests
+      - name: Run E2E (exclude slow GPU generation)
         run: |
-          python -m pytest tests/e2e -m e2e -v --timeout=60 || true
+          python -m pytest tests/e2e -m "e2e and not slow" -v --timeout=120
         env:
           E2E_BASE_URL: http://127.0.0.1:8288
+      - name: Upload snapshots (visual regression baseline, on fail)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-snapshots
+          path: tests/e2e/__snapshots__/
 
   performance:
-    name: Performance Benchmarks
-    if: false  # Disabled: requires running application for benchmarks
+    name: Performance Benchmarks (CPU profile, fake engine)
+    # 评估 §9-P0-5：E2E/performance 不应长期 if:false，至少用假引擎接入 CPU profile。
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -254,15 +258,52 @@ jobs:
             ${{ runner.os }}-pip-perf-
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt || true
-      - name: Start application in background
+          pip install -r requirements.txt
+      - name: Start application in background (fake engine, no GPU)
+        env:
+          IMM_FAKE_ENGINE: "1"
         run: |
           python app/clean_launch.py &
           sleep 5
           curl -s http://127.0.0.1:8288/api/health | grep -q "ok" || exit 1
-      - name: Run API latency benchmarks
+      - name: Run API latency benchmarks (CPU profile)
+        env:
+          IMM_FAKE_ENGINE: "1"
         run: |
-          python scripts/benchmark.py || true
+          python scripts/benchmark.py
+
+  config-refs:
+    name: Config Field Refs Integrity (P0-1)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install PyYAML
+        run: pip install pyyaml
+      - name: Check config field references
+        run: python scripts/check_config_refs.py
+
+  startup-smoke:
+    name: Startup Smoke (P0-1, fake engine)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-timeout
+      - name: Run startup smoke (boot → health → fake task → shutdown)
+        env:
+          IMM_FAKE_ENGINE: "1"
+        run: |
+          python -m pytest tests/smoke/test_startup_smoke.py -v --timeout=120
 
   # ── 安全断言（部署安全红线，2026-08-17 新增） ──────────────────
   security-assertions:
