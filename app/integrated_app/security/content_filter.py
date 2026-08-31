@@ -14,6 +14,8 @@ security/content_filter.py — CLIP 安全内容检测器
 from __future__ import annotations
 
 import logging
+import re
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -58,6 +60,66 @@ _UNSAFE_CLIP_PROMPTS: list[str] = [
     "a self-harm or suicide image",
     "an image depicting illegal drug use",
     "a weapon or explosive image",
+]
+
+# ── 提示词绕过对抗（H-03 修复：纯关键词 .lower() 可被轻易绕过）─────────────
+# 1) 同形字（Cyrillic / 数学单体等）映射到 ASCII
+_HOMOGLYPH_MAP: dict[str, str] = {
+    "а": "a", "е": "e", "о": "o", "с": "c", "і": "i", "ѕ": "s", "у": "y",
+    "х": "x", "р": "p", "қ": "k", "п": "n", "ԛ": "q", "ԝ": "w", "һ": "h",
+    "𝚊": "a", "𝚎": "e", "𝚘": "o", "𝚌": "c", "𝚒": "i", "𝚜": "s", "𝚝": "t",
+    "𝚞": "u", "𝚔": "k", "ⅰ": "i",
+}
+# 2) 莱特字符（leetspeak）映射
+_LEET_MAP: dict[str, str] = {
+    "4": "a", "1": "i", "3": "e", "0": "o", "5": "s", "7": "t",
+    "@": "a", "$": "s", "!": "i", "8": "b",
+}
+# 3) 用于"压缩匹配"的分隔符（含零宽字符），移除后检测 n a k e d 这类插入式绕过
+_SEP_CHARS = set(" \u00a0\t\n\r\u200b\u200c\u200d\u2060\ufeff._/\\|-")
+# 仅用于词内零宽字符清除（保留普通空格以维持词边界，供注入规则匹配）。
+# 对应测试体系评估 P1-5 修复：i<zw>gno<zw>re 这类词内零宽插入此前绕过注入检测。
+_ZW_CHARS = {"\u200b", "\u200c", "\u200d", "\u2060", "\ufeff"}
+
+
+def _translate(text: str, table: dict[str, str]) -> str:
+    """按字符映射表翻译字符串（同形字 / 莱特字符替换）。"""
+    return "".join(table.get(ch, ch) for ch in text)
+
+
+def _normalize_for_match(text: str) -> tuple[str, str]:
+    """为关键词/注入匹配生成两种归一化形态。
+
+    Returns:
+        (保留空格的归一化串, 去除所有分隔符的紧凑串)。
+        紧凑串用于检测 ``n a k e d`` 这类插入空格/零宽字符的绕过；
+        空格串用于检测 ``child abuse`` 这类多词关键词。
+    """
+    nfkc = unicodedata.normalize("NFKC", text)
+    t = _translate(nfkc, _HOMOGLYPH_MAP)
+    t = _translate(t, _LEET_MAP)
+    low = t.lower()
+    # 词内零宽字符清除（保留普通空格）：修复 i<zw>gno<zw>re 注入绕过
+    low = "".join(ch for ch in low if ch not in _ZW_CHARS)
+    compact = "".join(ch for ch in low if ch not in _SEP_CHARS)
+    return low, compact
+
+
+# 4) Prompt Injection 规则集（指令覆写 / 分隔符逃逸 / 越狱标记）。
+#    仅覆盖高置信度的越狱/覆写标记，避免误伤正常图像描述（如 "act as a photographer"
+#    这类 role-play 不在此拦截，交由 CLIP 与人工审核兜底）。
+_INJECTION_PATTERNS: list[re.Pattern[str]] = [
+    re.compile(r"ignore\s+(previous|prior|all\s+previous|above|earlier)\s+instructions?", re.I),
+    re.compile(r"disregard\s+(previous|prior|all\s+previous|above|earlier)", re.I),
+    re.compile(r"forget\s+(everything|all|previous|prior)", re.I),
+    re.compile(r"<\|im_start\|>|<\|im_end\|>|<\|im_system\|>"),
+    re.compile(r"<system>|\[system\]|\[/system\]"),
+    re.compile(r"system\s+prompt", re.I),
+    re.compile(r"jail ?break", re.I),
+    re.compile(r"do\s+anything\s+now", re.I),
+    re.compile(r"###\s*(system|instruction|prompt)", re.I),
+    re.compile(r"\boverride\s+(safety|filter|security|guard)\b", re.I),
+    re.compile(r"\bbypass\s+(filter|safety|security|guard|protection)\b", re.I),
 ]
 
 
@@ -216,9 +278,11 @@ class ContentSafetyFilter:
 
     # ── 提示词安全检查 ──────────────────────────────────────────
     def check_prompt(self, prompt: str) -> SafetyResult:
-        """检查提示词是否包含违规关键词。
+        """检查提示词是否包含违规关键词或注入指令。
 
-        使用关键词匹配，无需 CLIP 模型，始终可用。
+        使用归一化后的关键词匹配 + 注入规则集，无需 CLIP 模型，始终可用。
+        归一化可对抗：空格/零宽字符插入（``n a k e d``）、同形字
+        （``nаkеd``）、莱特字符（``n4k3d``）等绕过手段。
 
         Args:
             prompt: 用户输入的提示词。
@@ -226,10 +290,25 @@ class ContentSafetyFilter:
         Returns:
             SafetyResult: 安全检测结果。
         """
-        prompt_lower = prompt.lower()
+        if not prompt:
+            return SafetyResult(is_safe=True, violation_type=None, confidence=1.0, details={})
 
+        low, compact = _normalize_for_match(prompt)
+
+        # 1) Prompt Injection 规则（指令覆写 / 分隔符逃逸 / 越狱标记）
+        for pat in _INJECTION_PATTERNS:
+            hit = pat.search(low) or pat.search(compact)
+            if hit:
+                return SafetyResult(
+                    is_safe=False,
+                    violation_type="prompt_injection",
+                    confidence=0.9,
+                    details={"pattern": pat.pattern, "match": hit.group(0)},
+                )
+
+        # 2) 不安全关键词（含同形字 / 莱特 / 分隔符绕过）
         for keyword in _UNSAFE_KEYWORDS:
-            if keyword in prompt_lower:
+            if keyword in low or keyword in compact:
                 return SafetyResult(
                     is_safe=False,
                     violation_type=f"suspicious_keyword:{keyword}",
