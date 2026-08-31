@@ -213,6 +213,10 @@ async def unload_engine(request: Request) -> dict[str, Any]:
         return {"status": "ok", "message": "No active engine to unload"}
 
     engine = registry.get(active)
+    if engine is None:
+        # 幂等卸载：无活动实例时视为已卸载（对应测试体系评估 P2-9 修复
+        # factory 为 None 的 TypeError → 500 已知问题）
+        return {"status": "ok", "message": f"Engine '{active}' already unloaded"}
     try:
         await model_mgr.unload_engine(active, engine)
         return {

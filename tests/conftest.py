@@ -14,12 +14,16 @@ import pytest
 # ── 统一路径注入 ────────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 APP_DIR = PROJECT_ROOT / "app"
+TESTS_DIR = Path(__file__).resolve().parent
 
 # 避免重复插入
 if str(APP_DIR) not in sys.path:
     sys.path.insert(0, str(APP_DIR))
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+# 使 `from factories import ...`（tests/factories.py）可直接导入
+if str(TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(TESTS_DIR))
 
 
 # ── 共享 fixture ────────────────────────────────────────────
@@ -99,3 +103,19 @@ def pytest_collection_modifyitems(config, items):
         name = Path(item.path).name
         if name.startswith("test_native_") or name in _NATIVE_TEST_FILES:
             item.add_marker(skip_marker)
+
+
+# ── 反模式 #3 防护：消除测试间共享全局状态（对应测试体系评估 P2-8）────
+@pytest.fixture(autouse=True)
+def _clear_dependency_overrides():
+    """每个测试结束后重置 app.dependency_overrides，避免跨测试状态污染。
+
+    说明：路由测试沿用模块级 TestClient（函数级 `with TestClient` 会触发
+    lifespan 关闭竞争导致偶发 hang，故不强行改为函数级）。此处通过自动清理
+    FastAPI 的依赖覆盖注册表，消除"共享全局状态"这一主要污染面。
+    """
+    from integrated_app.app_server import app
+
+    yield
+    app.dependency_overrides.clear()
+

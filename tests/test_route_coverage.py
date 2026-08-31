@@ -59,11 +59,12 @@ class TestEngineRoutes:
         assert r.status_code == 200
 
     def test_unload_engine(self, client):
-        """Unload engine endpoint → 200 (无引擎加载时也返回 ok) 或 500 (factory 为 None 已知问题)"""
+        """POST /api/engine/unload（未加载引擎）→ 200 ok（回归：不再掩盖已知 bug）"""
         r = client.post("/api/engine/unload")
-        # 后端已知问题：无引擎加载时 registry.get() 会因 factory 为 None 抛 TypeError → 500
-        # 此测试验证端点可达且不返回 4xx（即路由正确注册）
-        assert r.status_code in (200, 500), f"Expected 200 or 500 for unload, got {r.status_code}"
+        # 此前用 `in (200, 500)` 弱断言掩盖了 factory 为 None 的 TypeError；
+        # 正确行为：无 active 引擎时直接返回 ok（200），不应出现 500。
+        assert r.status_code == 200, f"unload 应返回 200，实际 {r.status_code}: {r.text[:160]}"
+        assert r.json().get("status") == "ok"
 
 
     def test_load_engine_missing_body(self, client):
@@ -88,11 +89,17 @@ class TestTaskRoutes:
         assert r.status_code == 404, f"Expected 404 for cancelling missing task, got {r.status_code}"
 
     def test_export_tasks(self, client):
-        """Export tasks endpoint → 200 (ZIP file) or 404 (no tasks to export)"""
-        r = client.get("/api/tasks/export")
-        assert r.status_code in (200, 404), f"Expected 200 or 404 for export, got {r.status_code}"
-        if r.status_code == 200:
-            assert r.headers.get("content-type") is not None
+        """导出端点：缺必填 ids → 422；ids 无对应输出 → 404。
+
+        回归说明：此前 /api/tasks/export 被动态路由 /{task_id} 吞掉，恒返回 404
+        （导出功能实际已坏）。静态路由前移修复后，参数校验语义才真正生效。
+        """
+        # 缺少必填 ids → 422 校验失败
+        r_missing = client.get("/api/tasks/export")
+        assert r_missing.status_code == 422, f"缺 ids 应返回 422，实际 {r_missing.status_code}"
+        # 提供了 ids 但无对应任务/输出 → 404
+        r = client.get("/api/tasks/export", params={"ids": "nonexistent-task-id-xyz"})
+        assert r.status_code == 404, f"无输出应返回 404，实际 {r.status_code}"
 
     def test_add_tags(self, client):
         """Add tags with empty task_ids -> 400 (business validation)"""

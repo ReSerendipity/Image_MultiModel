@@ -55,7 +55,7 @@ class TestConfigLoading:
 
     def test_app_config_builds(self, app_config):
         """AppConfig 构建成功"""
-        assert app_config.version == "1.4.0"
+        assert app_config.version == "2.0.0"
         assert app_config.server.host == "127.0.0.1"
         assert app_config.server.port == 8288
         assert app_config.models.model_source_mode in ("shared", "portable")
@@ -84,10 +84,18 @@ class TestConfigLoading:
         # api_token tokens 应为空
         assert safe["security"]["api_token"]["tokens"] == []
 
-    def test_content_filter_fail_closed_default_off(self, app_config, config_yaml):
-        """CLIP 缺失降级默认 fail-open（向后兼容），可显式开启 fail-closed"""
-        assert app_config.security.content_filter.fail_closed_on_clip_missing is False
-        assert config_yaml["security"]["content_filter"]["fail_closed_on_clip_missing"] is False
+    def test_content_filter_fail_closed_default(self, app_config):
+        """CLIP 缺失降级策略：模型默认 fail-closed（True），可由配置覆盖。
+
+        注：早期版本默认 fail-open；当前版本出于安全考虑默认为 fail-closed。
+        部署配置仍可通过 config.yaml 置 false 回退为放行，故此处只断言模型
+        默认值，不断言配置文件取值（避免"部署策略"与"框架默认值"语义混淆）。
+        """
+        from integrated_app.config_models import ContentFilterConfig
+
+        assert ContentFilterConfig().fail_closed_on_clip_missing is True
+        # 配置可覆盖为任意布尔值
+        assert isinstance(app_config.security.content_filter.fail_closed_on_clip_missing, bool)
 
 
 class TestResolveModelPath:

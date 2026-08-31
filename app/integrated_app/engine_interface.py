@@ -192,13 +192,22 @@ class InMemoryEngineRegistry:
         self._configs[name] = config or {}
         logger.info(f"Engine registered: {name}")
 
-    def get(self, name: str) -> ImageEngine:
-        """获取引擎实例（懒加载）"""
+    def get(self, name: str) -> ImageEngine | None:
+        """获取引擎实例（懒加载）。
+
+        返回 None 表示尚无已构建实例（如工厂为 None 的延迟注册引擎，
+        其实际实例由 ``create_engine_instance`` 构建）。调用方应将其视为
+        "未加载" 处理。对应测试体系评估 P2-9 修复：此前 factory=None 时
+        ``None(**config)`` 抛 TypeError。
+        """
         if name not in self._factories:
             raise KeyError(f"Engine not registered: {name}")
-        if name not in self._instances:
-            factory = self._factories[name]
-            self._instances[name] = factory(**self._configs.get(name, {}))
+        if name in self._instances:
+            return self._instances[name]
+        factory = self._factories[name]
+        if factory is None:
+            return None
+        self._instances[name] = factory(**self._configs.get(name, {}))
         return self._instances[name]
 
     def list_engines(self) -> list[dict[str, Any]]:

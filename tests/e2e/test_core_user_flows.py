@@ -85,6 +85,7 @@ class TestCoreUserFlows:
     # ════════════════════════════════════════════════════════
     # Flow 1b: 填写表单并提交生成请求
     # ════════════════════════════════════════════════════════
+    @pytest.mark.slow  # 真实 GPU 推理：仅手动/慢速冒烟运行（对应测试体系评估 P0-2 去 GPU 化）
     def test_fill_form_and_submit(self, page, base_url, screenshot):
         """填写 prompt → 设置低分辨率 → 点击生成"""
         page.goto(base_url)
@@ -113,6 +114,7 @@ class TestCoreUserFlows:
     # ════════════════════════════════════════════════════════
     # Flow 1c: 等待进度条出现
     # ════════════════════════════════════════════════════════
+    @pytest.mark.slow  # 真实 GPU 推理：仅手动/慢速冒烟运行
     def test_progress_bar_appears(self, page, base_url, screenshot):
         """提交后等待进度条出现（条件等待替代固定 timeout）"""
         page.goto(base_url)
@@ -142,6 +144,7 @@ class TestCoreUserFlows:
     # ════════════════════════════════════════════════════════
     # Flow 1d: 等待输出图片
     # ════════════════════════════════════════════════════════
+    @pytest.mark.slow  # 真实 GPU 推理：仅手动/慢速冒烟运行
     def test_output_appears(self, page, base_url, screenshot):
         """等待输出图片出现（条件等待 #outGrid 内 img）"""
         page.goto(base_url)

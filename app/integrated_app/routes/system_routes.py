@@ -18,6 +18,7 @@ from fastapi.responses import StreamingResponse
 
 from ..config import get_config
 from ..gpu_utils import get_gpu_info
+from ..observability.alerts import record_health_failure, record_health_success
 from ..sse import get_sse_bus
 
 logger = logging.getLogger(__name__)
@@ -43,7 +44,20 @@ router = APIRouter(prefix="/api", tags=["system"])
 async def health_check(request: Request) -> dict[str, Any]:
     """
     GET /api/health — 后端/引擎/队列/资源状态摘要（真实数据源）
+
+    包装层记录健康检查连续成功/失败（供 MLOps P0-4 ServiceUnhealthy 告警规则）。
     """
+    try:
+        payload = await _health_check_impl(request)
+        record_health_success()
+        return payload
+    except Exception:
+        record_health_failure()
+        raise
+
+
+async def _health_check_impl(request: Request) -> dict[str, Any]:
+    """健康检查实现（无异常捕获，由 health_check 统一记录成败）。"""
     cfg = get_config()
 
     # 队列状态（来自 app.state.task_queue 实时统计）
@@ -113,7 +127,7 @@ async def health_check(request: Request) -> dict[str, Any]:
                 "active": eng_name == registry.active_engine_name,
             })
 
-    return {
+    _health_payload = {
         "status": "ok",
         "version": cfg.version,
         "timestamp": time.time(),
@@ -133,6 +147,7 @@ async def health_check(request: Request) -> dict[str, Any]:
         "engines": engines,
         "queue": queue_status,
     }
+    return _health_payload
 
 
 @router.get("/events")

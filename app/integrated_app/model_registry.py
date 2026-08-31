@@ -9,6 +9,7 @@ model_registry.py — 引擎注册表桥接 + 引擎工厂（M8 diffusers 迁移
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 from .engine_interface import ImageEngine, get_registry
@@ -109,6 +110,20 @@ class ModelRegistry:
         Raises:
             ValueError: 未知的 backend 类型
         """
+        # 测试体系评估 P0-2：假引擎测试缝。仅当显式设置 IMM_FAKE_ENGINE=1 时返回
+        # 无 GPU 的 FakeEngine，使 prompt→进度→输出 旅程在 CI 可复现。生产环境不设置
+        # 该变量，绝不生效。
+        if os.environ.get("IMM_FAKE_ENGINE") == "1":
+            from .testing.fake_engine import FakeEngine
+
+            logger.info("Using FakeEngine (IMM_FAKE_ENGINE=1) for engine: %s", engine_name)
+            return FakeEngine(
+                name=engine_name,
+                display_name=display_name,
+                display_name_en=display_name_en,
+                config=config or {},
+            )
+
         if backend == "diffusers":
             from .native.diffusers_engine import ZImageDiffusersEngine
 

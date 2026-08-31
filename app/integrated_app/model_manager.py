@@ -89,6 +89,14 @@ class ModelManager:
         if current == ModelState.UNLOADED:
             return
 
+        if engine is None or not callable(getattr(engine, "unload", None)):
+            # 无有效实例（factory 未构建 / 已释放）→ 视为已卸载，幂等返回。
+            # 对应测试体系评估 P2-9 修复：factory 为 None 时原会抛
+            # 'NoneType' object is not callable → 500 已知问题。
+            self._states[engine_name] = ModelState.UNLOADED
+            self._notify(engine_name, ModelState.UNLOADED)
+            return
+
         self._states[engine_name] = ModelState.UNLOADING
         self._notify(engine_name, ModelState.UNLOADING)
 

@@ -153,6 +153,10 @@ class ModelsConfig(BaseModel):
     default_engine: str = "z_image_turbo_native"
     shared: SharedConfig = SharedConfig()
     portable: PortableConfig = PortableConfig()
+    # P2 跨实例模型共享缓存：指向一个多实例共享的权重根目录（如挂载卷/对象存储）。
+    # 非空时，portable 模式解析权重优先使用该目录，缺失再回退 internal_models_dir，
+    # 实现「N 副本部署 = 1 份权重下载/存储」（修复反模式 #3）。
+    shared_cache_dir: str = ""
     engines: dict[str, EngineConfig] = Field(default_factory=dict)
 
 
@@ -191,12 +195,17 @@ class HistoryOutputConfig(BaseModel):
     db_path: str = "data/history.db"
     max_records: int = 50000
     keep_days: int = 0
+    # P0 留存护栏：输出目录体积上限（GB）。0 = 不按大小清理。
+    # cleanup 触发条件为 keep_days>0 OR max_gb>0（修复 history_cleanup_cron 空转）。
+    max_gb: float = 0.0
     cleanup_cron: str = "0 3 * * *"
 
 
 class UploadsConfig(BaseModel):
     cache_dir: str = "data/uploads"
     max_size_mb: int = 2000
+    # M-03: 解压炸弹防护。单图像素总量（宽×高）上限，超过即拒绝（413）。
+    max_pixels: int = 200_000_000  # 2 亿像素 ≈ 200MP
     ttl_s: int = 86400
 
 
@@ -204,7 +213,12 @@ class OutputConfig(BaseModel):
     base_dir: str = "outputs"
     naming_template: str = "{engine}_{date}_{taskid}_{seed}_{idx}"
     organize_by: str = "engine_date"
+    # P0 输出压缩：图像格式与质量（webp 可显著降低存储与带宽成本）
+    image_format: str = "png"          # png | webp | jpeg
+    image_quality: int = 95            # 仅对 webp/jpeg 生效
     save_thumbnail: bool = True
+    thumbnail_format: str = "png"      # png | webp
+    thumbnail_quality: int = 90
     thumbnail_max_side: int = 512
     history: HistoryOutputConfig = HistoryOutputConfig()
     uploads: UploadsConfig = UploadsConfig()
@@ -270,6 +284,9 @@ class RuntimeConfig(BaseModel):
     batch: BatchConfig = BatchConfig()
     sse: SSEConfig = SSEConfig()
     vram_scheduler: VRamSchedulerConfig = VRamSchedulerConfig()
+    # 空闲自动卸载引擎的等待分钟数（0 表示禁用）。对应 app_server.lifespan 与
+    # cost_governance 的 idle_unload_minutes 引用，此前缺失导致 create_app 启动失败。
+    idle_unload_minutes: int = 0
 
 
 # ──────────────────────────────────────────────────────────────
@@ -324,12 +341,29 @@ class CSRFConfig(BaseModel):
 
 class ContentFilterConfig(BaseModel):
     """内容过滤（CLIP 安全检测）配置"""
-    fail_closed_on_clip_missing: bool = False
+    fail_closed_on_clip_missing: bool = True
+
+
+class SecurityHeadersConfig(BaseModel):
+    """安全响应头配置（对应安全评估 M-02）。
+
+    Attributes:
+        enabled: 是否下发安全响应头（默认开启）。
+        csp: 自定义 CSP 策略串；为空时使用中间件内置默认策略。
+    """
+    enabled: bool = True
+    csp: str = ""
 
 
 class SecurityConfig(BaseModel):
     allowed_base_dirs: list[str] = Field(
         default_factory=lambda: ["outputs/", "data/", "workflows/", "model/"]
+    )
+    # 只读图片接口（/api/safety/check-image 等）专用白名单。
+    # 与 allowed_base_dirs 分离，避免通过图片检查接口读取 model/ 下的权重文件
+    # （对应安全评估 M-07）。留空时回退到 allowed_base_dirs。
+    image_read_base_dirs: list[str] = Field(
+        default_factory=lambda: ["outputs/", "data/"]
     )
     rate_limit: RateLimitConfig = RateLimitConfig()
     basic_auth: BasicAuthConfig = BasicAuthConfig()
@@ -339,6 +373,7 @@ class SecurityConfig(BaseModel):
     model_format: ModelFormatConfig = ModelFormatConfig()
     integrity_selfcheck: IntegritySelfcheckConfig = IntegritySelfcheckConfig()
     content_filter: ContentFilterConfig = ContentFilterConfig()
+    headers: SecurityHeadersConfig = SecurityHeadersConfig()
 
 
 # ──────────────────────────────────────────────────────────────
@@ -433,6 +468,20 @@ class EnvironmentConfig(BaseModel):
 
 
 # ──────────────────────────────────────────────────────────────
+#  13b. FinOps 预算（P3）
+# ──────────────────────────────────────────────────────────────
+class FinOpsConfig(BaseModel):
+    """成本预算阈值（反模式 #5 中的预算告警闭环）。
+
+    数值为 0 表示该项不启用预算。告警在 /api/finops/budget 与指标循环中产生。
+    """
+
+    budget_gpu_hours_per_day: float = 0.0  # 单 GPU 日均 GPU·小时预算
+    storage_gb_budget: float = 0.0         # 输出目录体积预算（GB）
+    alert_level: str = "warning"           # warning | error
+
+
+# ──────────────────────────────────────────────────────────────
 #  顶层配置模型
 # ──────────────────────────────────────────────────────────────
 class AppConfig(BaseModel):
@@ -453,6 +502,7 @@ class AppConfig(BaseModel):
     cache: CacheConfig = CacheConfig()
     acceleration: AccelerationConfig = AccelerationConfig()
     environment: EnvironmentConfig = EnvironmentConfig()
+    finops: FinOpsConfig = FinOpsConfig()
 
     # 运行时注入（非 YAML 来源）
     project_root: str = ""
@@ -515,6 +565,13 @@ def resolve_model_path(
         # ── portable 模式 ──
         sub_dir_key = model_paths.sub_dir
         sub_dir_name = config.portable.sub_dirs.get(sub_dir_key, sub_dir_key)
+        # P2 跨实例共享缓存：优先命中 shared_cache_dir，缺失再回退本地 internal_models_dir
+        shared_cache = getattr(config, "shared_cache_dir", "") or ""
+        if shared_cache:
+            cache_base = Path(shared_cache) / sub_dir_name
+            cache_cand = cache_base / model_paths.sub_path
+            if cache_cand.exists():
+                return str(cache_cand).replace("\\", "/")
         base = project_root / config.portable.internal_models_dir / sub_dir_name
     else:
         # ── shared 模式 ──
@@ -587,4 +644,16 @@ def scan_resource_files(
             if f.lower().endswith(extensions):
                 rel = Path(root, f).relative_to(base)
                 results.append(str(rel).replace("\\", "/"))
+
+    # P2 跨实例共享缓存目录也纳入扫描范围（portable 模式）
+    shared_cache = getattr(config, "shared_cache_dir", "") or ""
+    if shared_cache and config.model_source_mode == "portable":
+        extra = Path(shared_cache) / sub_dir_name
+        if extra.exists() and extra.is_dir():
+            for root, _dirs, files in os.walk(extra, followlinks=True):
+                for f in files:
+                    if f.lower().endswith(extensions):
+                        rel = Path(root, f).relative_to(extra)
+                        results.append(str(rel).replace("\\", "/"))
+
     return sorted(results)
