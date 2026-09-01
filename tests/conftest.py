@@ -122,8 +122,12 @@ def _clear_dependency_overrides():
     lifespan 关闭竞争导致偶发 hang，故不强行改为函数级）。此处通过自动清理
     FastAPI 的依赖覆盖注册表，消除"共享全局状态"这一主要污染面。
     """
-    from integrated_app.app_server import app
-
+    try:
+        from integrated_app.app_server import app
+    except ImportError:
+        # fastapi 未安装（如仅装了 pytest 的轻量 CI job），跳过依赖覆盖清理
+        yield
+        return
     yield
     app.dependency_overrides.clear()
 
