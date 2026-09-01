@@ -193,7 +193,7 @@ output:
   history:
     db_path: data/history.db
     max_records: 50000
-    keep_days: 30
+    keep_days: 90
     max_gb: 0.0
     cleanup_cron: 0 3 * * *
   uploads:

@@ -9,6 +9,7 @@
 * **routes:** 引擎切换失败自动回滚，消除「旧引擎已卸载、新引擎未加载」空窗（反模式 #6）
 * **quality:** 生成质量基准 PSNR/SSIM + golden file 回归（反模式 #4）
 * **governance:** Workflow JSON Schema 版本化（schema_version + 加载时校验，反模式 #1）+ 权重级 Model Card 元数据注册表（反模式 #3）
+* **data-governance(assessment):** 落地数据治理评估报告整改——① 血缘增强：`tasks` 表新增 `workflow_version`(workflow 内容 sha256)/`lora_checksums`(逐层权重指纹)/`error_code`(FAILED 根因聚类) 列并落库；② 生命周期：`history.keep_days` 默认启用(90) + `HistoryDB.backup()`(VACUUM INTO) 接入清理 cron 实现 DR 备份；③ 质量 SLA：`preview.assess_image_quality` 基础 artifact 检测接入输出管线 + LoRA 完整性校验失效告警；④ 指标单一来源：`metrics_quality.compute_quality_metrics` 从 history_db 聚合成功率/平均时长/LoRA 频次；⑤ 兼容性矩阵消费：`model_compat` + `scripts/compatibility_drift_check.py`；⑥ 数据字典：`docs/DATABASE_SCHEMA.md` 与 `docs/metrics_dictionary.md`
 * **cost(p0):** 输出默认 WebP 有损压缩（image_format/image_quality/thumbnail_format/thumbnail_quality）+ 留存清理护栏（keep_days/max_gb 双阈值，cron 不再空转，清理时真正删除磁盘图片）
 * **cost(p1):** GPU 指标持久化（MetricsStore 环形缓冲）+ VRAMLeakMonitor 生产接入 + VRAM 水位感知动态 batch 上限（vram_scheduler 默认启用）+ 多版本权重孤儿扫描 `/api/models/orphans`
 * **cost(p2):** 空闲自动卸载（idle_unload_minutes）+ FinOps 成本分摊报表 `/api/finops/cost-report` + 跨实例模型共享缓存（shared_cache_dir）

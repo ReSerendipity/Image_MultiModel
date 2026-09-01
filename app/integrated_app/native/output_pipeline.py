@@ -129,6 +129,17 @@ def finalize_output(
     image_format/image_quality 控制主图压缩（P0 WebP/有损）；thumb_* 控制缩略图。
     """
     save_image(path, image, is_tensor=is_tensor, image_format=image_format, quality=image_quality)
+    # 数据治理：基础生成质量/artifact 检测（§4.1 / 中期-质量 SLA），仅告警不阻断
+    try:
+        from ..native.preview import assess_image_quality
+        _qflags = assess_image_quality(image)
+        if any(_qflags.values()):
+            logger.warning(
+                "Low-quality generation detected (task=%s, path=%s): %s",
+                task_id, path.name, _qflags,
+            )
+    except Exception as e:  # noqa: BLE001
+        logger.debug("quality assessment skipped: %s", e)
     if wm_enabled:
         embed_provenance(path, product_id, task_id, image_format=image_format)
     if thumb_enabled and thumb_dir is not None:

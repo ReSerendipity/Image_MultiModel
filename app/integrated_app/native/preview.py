@@ -102,3 +102,42 @@ def publish_preview_tensor(
 
 
 PreviewPublisher = Callable[[Any, str, int, str], Awaitable[None] | None]
+
+
+def assess_image_quality(image: Any) -> dict[str, bool]:
+    """基础生成质量 / artifact 检测（数据治理 §4.1 / 中期-质量 SLA）。
+
+    非阻断：仅返回风险标志供上层记录或告警，不丢弃图像。
+
+    Args:
+        image: numpy.ndarray (H,W,C; uint8 或 float01) 或 PIL.Image。
+
+    Returns:
+        ``{"all_black", "all_white", "low_contrast", "tiny", "uniform"}`` 布尔标志。
+    """
+    import numpy as np
+
+    if hasattr(image, "convert"):
+        arr = np.asarray(image.convert("RGB"), dtype="float32")
+    else:
+        arr = np.asarray(image, dtype="float32")
+        if arr.ndim == 4:
+            arr = arr[0]
+        if arr.size and arr.max() <= 1.0:
+            arr = arr * 255.0
+
+    flags = {"all_black": False, "all_white": False, "low_contrast": False, "tiny": False, "uniform": False}
+    if arr.size == 0:
+        return flags
+    h, w = arr.shape[:2]
+    if h < 64 or w < 64:
+        flags["tiny"] = True
+    mn, mx = float(arr.min()), float(arr.max())
+    if mx <= 5.0:
+        flags["all_black"] = True
+    if mn >= 250.0:
+        flags["all_white"] = True
+    if (mx - mn) < 8.0:
+        flags["low_contrast"] = True
+        flags["uniform"] = True
+    return flags

@@ -105,6 +105,19 @@ def apply_lora_stack(
             logger.warning("No LoRA layers applied (stack size=%d)", len(stack))
         return model, clip
 
+    # 数据治理：verify_weights 开启但缺 manifest → 完整性校验静默跳过（fail-open）
+    # 及时告警，避免「以为开了校验其实没生效」的虚假安全感（报告 §3.2 / §4.11）。
+    try:
+        from ..config import get_config
+        _mfmt = get_config().security.model_format
+        if _mfmt.verify_weights and not _mfmt.weight_manifest_file:
+            logger.warning(
+                "weight integrity verify_weights=True 但 weight_manifest_file 为空："
+                "完整性校验被静默跳过（默认 fail-open），存在权重被篡改风险。"
+            )
+    except Exception:  # noqa: BLE001
+        pass
+
     source.ensure_loaded(comfy_root=comfy_root)
     import comfy.sd
     import comfy.utils
