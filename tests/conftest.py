@@ -6,6 +6,7 @@ conftest.py — pytest 共享 fixture 与路径注入
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -24,6 +25,13 @@ if str(PROJECT_ROOT) not in sys.path:
 # 使 `from factories import ...`（tests/factories.py）可直接导入
 if str(TESTS_DIR) not in sys.path:
     sys.path.insert(0, str(TESTS_DIR))
+
+# ── 无 GPU 测试环境默认启用假引擎 ──────────────────────────
+# 测试/CI 环境无可用 GPU（亦无 comfy/torch 推理栈），所有「提交生成 → worker 处理」
+# 的集成测试必须走 FakeEngine 才能可复现。生产环境不设置该变量，绝不生效。
+# 统一在此置默认，避免各测试文件各自 setdefault 的竞态导致 batch_size 被 VRAM
+# 调度器随机钳制（生成结果不确定 / flaky）。
+os.environ.setdefault("IMM_FAKE_ENGINE", "1")
 
 
 # ── 共享 fixture ────────────────────────────────────────────
