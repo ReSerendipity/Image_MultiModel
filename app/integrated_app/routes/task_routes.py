@@ -141,7 +141,9 @@ async def redraw_task(task_id: str, request: Request) -> dict[str, Any]:
 
     # 使用原始参数创建新任务
     from ..engine_interface import GenerationConfig
+    from ..lineage import compute_lora_checksums, compute_workflow_version
     gen_config = GenerationConfig.from_dict(original.get("generation_config", {}))
+    cfg = get_config()
 
     new_task_id = task_queue.generate_task_id()
     from ..task_queue import Task
@@ -159,6 +161,8 @@ async def redraw_task(task_id: str, request: Request) -> dict[str, Any]:
         prompt=original.get("prompt", ""),
         negative_prompt=original.get("negative_prompt", ""),
         generation_config=gen_config.to_dict(),
+        workflow_version=compute_workflow_version(cfg.models.engines[original["engine"]], cfg.project_root),
+        lora_checksums=compute_lora_checksums(gen_config.effective_lora_stack(), cfg),
     )
 
     await task_queue.submit(task)

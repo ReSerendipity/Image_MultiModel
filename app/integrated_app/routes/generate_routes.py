@@ -310,6 +310,7 @@ async def generate(req: GenerateRequest, request: Request) -> GenerateResponse:
 
     # 记录到历史
     from ..history_db import HistoryDB
+    from ..lineage import compute_lora_checksums, compute_workflow_version
     history_db: HistoryDB = request.app.state.history_db
     history_db.create_task(
         task_id=task_id,
@@ -318,6 +319,8 @@ async def generate(req: GenerateRequest, request: Request) -> GenerateResponse:
         prompt=req.positive_prompt,
         negative_prompt=req.negative_prompt,
         generation_config=gen_config.to_dict(),
+        workflow_version=compute_workflow_version(cfg.models.engines[engine_name], cfg.project_root),
+        lora_checksums=compute_lora_checksums(gen_config.effective_lora_stack(), cfg),
     )
 
     # 提交到队列
@@ -353,6 +356,7 @@ class BatchGenerateRequest(BaseModel):
 async def generate_batch(req: BatchGenerateRequest, request: Request) -> dict[str, Any]:
     """POST /api/generate/batch — 批量生成（Prompt 文件 × Grid 6 维）"""
     cfg = get_config()
+    from ..lineage import compute_lora_checksums, compute_workflow_version
     engine_name = req.base_config.engine_name or cfg.models.default_engine
 
 
@@ -441,6 +445,8 @@ async def generate_batch(req: BatchGenerateRequest, request: Request) -> dict[st
                 mode="batch",
                 prompt=prompt,
                 generation_config=gen_config.model_dump(exclude={"reference_image_path", "reference_image_b64"}),
+                workflow_version=compute_workflow_version(cfg.models.engines[engine_name], cfg.project_root),
+                lora_checksums=compute_lora_checksums(gen_config.effective_lora_stack(), cfg),
             )
             record_generation_submitted(engine_name)
             if await task_queue.submit(task):

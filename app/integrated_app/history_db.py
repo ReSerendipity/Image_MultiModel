@@ -46,7 +46,12 @@ class HistoryDB:
         tags             TEXT DEFAULT '[]',  -- JSON 数组
         created_at       TEXT DEFAULT (datetime('now')),
         updated_at       TEXT DEFAULT (datetime('now')),
-        interrupted_at_reboot INTEGER DEFAULT 0
+        interrupted_at_reboot INTEGER DEFAULT 0,
+        -- 血缘 / 数据治理增强列（数据治理评估报告 §3.3 / §4.1）
+        -- 作为基线列直接建表，保证全新库自带；旧库由 _apply_migrations 补齐。
+        workflow_version TEXT DEFAULT '',
+        lora_checksums   TEXT DEFAULT '[]',
+        error_code       TEXT DEFAULT ''
     );
 
     -- 输出表（一对多）
@@ -93,6 +98,18 @@ class HistoryDB:
     CREATE INDEX IF NOT EXISTS idx_outputs_path ON outputs(path);
     """
 
+    # 血缘 / 数据治理增强列（数据治理评估报告 §3.3 / §4.1）
+    # 已在 CREATE TABLE 中作为基线列提供（保证全新库自带）；
+    # 此处对旧库做向前兼容迁移。注意：SQLite 的 ALTER TABLE ADD COLUMN
+    # *不支持* IF NOT EXISTS 语法（会报 near "EXISTS": syntax error），
+    # 故改用 PRAGMA table_info 探测后逐项 ALTER，避免迁移静默失败导致
+    # create_task 写入这些列时报 "no column named ..."。
+    MIGRATION_COLUMNS = (
+        ("workflow_version", "TEXT DEFAULT ''"),
+        ("lora_checksums", "TEXT DEFAULT '[]'"),
+        ("error_code", "TEXT DEFAULT ''"),
+    )
+
     FTS_TRIGGER_SQL = """
     CREATE TRIGGER IF NOT EXISTS tasks_ai AFTER INSERT ON tasks BEGIN
         INSERT INTO tasks_fts(task_id, prompt, tags)
@@ -116,6 +133,21 @@ class HistoryDB:
         self._conn: sqlite3.Connection | None = None
         self._init_db()
 
+    def _apply_migrations(self, conn: sqlite3.Connection) -> None:
+        """对旧库补齐血缘增强列（向前兼容）。
+
+        SQLite 的 ``ALTER TABLE ... ADD COLUMN`` 不支持 ``IF NOT EXISTS`` 语法，
+        故先以 ``PRAGMA table_info`` 探测现有列，仅对缺失列执行 ALTER。
+        """
+        existing = {r[1] for r in conn.execute("PRAGMA table_info(tasks)").fetchall()}
+        for col, ddl in self.MIGRATION_COLUMNS:
+            if col in existing:
+                continue
+            try:
+                conn.execute(f"ALTER TABLE tasks ADD COLUMN {col} {ddl}")
+            except Exception as e:  # noqa: BLE001 - 单列出错不影响其它列
+                logger.warning("HistoryDB migration add column %s skipped: %s", col, e)
+
     def _init_db(self) -> None:
         """初始化数据库"""
         conn = sqlite3.connect(
@@ -128,6 +160,8 @@ class HistoryDB:
         conn.execute("PRAGMA foreign_keys=ON")
         conn.executescript(self.SCHEMA_SQL)
         conn.executescript(self.FTS_TRIGGER_SQL)
+        # 血缘增强列迁移（向前兼容旧库；全新库已在 CREATE TABLE 中自带）
+        self._apply_migrations(conn)
         conn.commit()
         self._conn = conn
         logger.info(f"HistoryDB initialized at {self.db_path}")
@@ -173,17 +207,21 @@ class HistoryDB:
         negative_prompt: str = "",
         generation_config: dict[str, Any] | None = None,
         tags: list[str] | None = None,
+        workflow_version: str = "",
+        lora_checksums: list[dict] | None = None,
     ) -> None:
         """创建新任务"""
         conn = self.conn
         conn.execute(
             "INSERT INTO tasks (task_id, engine, mode, prompt, negative_prompt, "
-            "generation_config, tags, status) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')",
+            "generation_config, tags, workflow_version, lora_checksums, status) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')",
             (
                 task_id, engine, mode, prompt, negative_prompt,
                 json.dumps(generation_config or {}, ensure_ascii=False),
                 json.dumps(tags or [], ensure_ascii=False),
+                workflow_version,
+                json.dumps(lora_checksums or [], ensure_ascii=False),
             ),
         )
         conn.commit()
@@ -196,14 +234,15 @@ class HistoryDB:
         processing_time_s: float = 0,
         output_count: int = 0,
         thumbnail: str = "",
+        error_code: str = "",
     ) -> None:
         """更新任务状态"""
         conn = self.conn
         conn.execute(
             "UPDATE tasks SET status=?, error=?, processing_time_s=?, "
-            "output_count=?, thumbnail=?, updated_at=datetime('now') "
+            "output_count=?, thumbnail=?, error_code=?, updated_at=datetime('now') "
             "WHERE task_id=?",
-            (status, error, processing_time_s, output_count, thumbnail, task_id),
+            (status, error, processing_time_s, output_count, thumbnail, error_code, task_id),
         )
         conn.commit()
 
@@ -218,6 +257,7 @@ class HistoryDB:
         task = dict(row)
         task["generation_config"] = json.loads(task.get("generation_config") or "{}")
         task["tags"] = json.loads(task.get("tags") or "[]")
+        task["lora_checksums"] = json.loads(task.get("lora_checksums") or "[]")
         # 获取关联的输出
         outputs = conn.execute(
             "SELECT * FROM outputs WHERE task_id=? ORDER BY id", (task_id,)
@@ -590,3 +630,39 @@ class HistoryDB:
         if self._conn:
             self._conn.close()
             self._conn = None
+
+    # ── 备份 / 灾难恢复（数据治理评估报告 §4.9）──────────────
+    def backup(self, dest: str | Path | None = None, keep: int = 7) -> Path:
+        """对数据库做一致性备份（SQLite VACUUM INTO）。
+
+        Args:
+            dest: 备份文件路径；默认 ``<db_dir>/<stem>.backup.<ts>.db``。
+            keep: 保留最近 N 个备份，超出则删除最旧的（按文件名时间排序）。
+
+        Returns:
+            实际备份文件路径。
+
+        Raises:
+            sqlite3.OperationalError: VACUUM INTO 失败（如目标被占用）。
+        """
+        conn = self.conn
+        if dest is None:
+            ts = int(time.time())
+            dest = self.db_path.parent / f"{self.db_path.stem}.backup.{ts}.db"
+        dest = Path(dest)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        # VACUUM INTO 不接受参数绑定，路径为项目内部受控值（非用户输入）
+        conn.execute(f"VACUUM INTO '{dest.as_posix()}'")
+        # 清理旧备份，仅保留最近 keep 个
+        try:
+            backups = sorted(
+                self.db_path.parent.glob(f"{self.db_path.stem}.backup.*.db"),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
+            for old in backups[keep:]:
+                old.unlink(missing_ok=True)
+        except Exception as e:  # noqa: BLE001 - 备份清理失败不阻断主流程
+            logger.warning("Old backup cleanup skipped: %s", e)
+        logger.info("HistoryDB backup -> %s", dest)
+        return dest

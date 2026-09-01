@@ -85,6 +85,8 @@ class FakeEngine:
             list[str]: 输出图片绝对路径列表（长度 = 实际产出数）。
         """
         batch = max(1, int(getattr(config, "batch_size", 1) or 1))
+        import sys as _sys
+        print(f"[FAKE_ENGINE] batch_size={getattr(config, 'batch_size', None)!r} -> writing {batch}", file=_sys.stderr)
         paths: list[str] = []
         for i in range(batch):
             if self._cancel_requested:

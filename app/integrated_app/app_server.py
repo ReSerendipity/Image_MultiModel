@@ -178,6 +178,15 @@ async def lifespan(app: FastAPI):
     logger.info(f"Project root: {config.project_root}")
     logger.info(f"Model mode: {config.models.model_source_mode}")
 
+    # 数据治理：配置化 workflow 文件启动期准入校验（§4.4 / 中期 Schema 治理）
+    # 拦截缺失/损坏文件并强制携带 schema_version；缺版本仅告警，不阻断启动。
+    from .workflow_governance import validate_configured_workflows
+    for _wf in validate_configured_workflows(config):
+        for _err in _wf["errors"]:
+            logger.error("[WORKFLOW-GOVERNANCE] engine=%s: %s", _wf["engine"], _err)
+        for _warn in _wf["warnings"]:
+            logger.warning("[WORKFLOW-GOVERNANCE] engine=%s: %s", _wf["engine"], _warn)
+
     # P1-1: 核心模块完整性自检（来源：Seedvr2）
     from .security.integrity_selfcheck import run_startup_selfcheck
     selfcheck_result = run_startup_selfcheck()
@@ -413,6 +422,11 @@ async def lifespan(app: FastAPI):
                 sleep_s = (next_run - now).total_seconds()
                 logger.info(f"History cleanup scheduled at {next_run}, sleeping {sleep_s:.0f}s")
                 await asyncio.sleep(sleep_s)
+                # 灾难恢复：清理前先做一致性备份（数据治理评估报告 §4.9）
+                try:
+                    history_db.backup()
+                except Exception as e:  # noqa: BLE001
+                    logger.warning("History backup before cleanup failed: %s", e)
                 # 执行清理（同步删除磁盘图片文件，真正释放存储）
                 deleted = history_db.cleanup_old_tasks(keep_days=keep_days, max_gb=max_gb)
                 logger.info(f"History cleanup: deleted {deleted} tasks (keep_days={keep_days}, max_gb={max_gb})")
@@ -538,7 +552,8 @@ async def lifespan(app: FastAPI):
             return
         except Exception as e:
             logger.exception(f"Task {task.task_id} worker error")
-            history_db.update_task_status(task.task_id, "failed", error=str(e))
+            from .lineage import classify_error
+            history_db.update_task_status(task.task_id, "failed", error=str(e), error_code=classify_error(e))
             task.error = str(e)
             raise
 

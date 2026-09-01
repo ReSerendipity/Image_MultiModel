@@ -35,6 +35,7 @@ _CORE_MODULES = [
     "model_registry.py",
     "task_queue.py",
     "history_db.py",
+    "lineage.py",
     "i18n.py",
     "gpu_utils.py",
     "sse.py",
