@@ -27,13 +27,36 @@ from fastapi.templating import Jinja2Templates
 
 from .checkpoint import TaskCheckpoint
 from .config import get_config, load_config
+from .cost_governance import (
+    get_idle_unload_manager,
+    get_metrics_store,
+    get_vram_scheduler,
+)
 from .engine_interface import GenerationConfig
-from .gpu_utils import get_gpu_info
+from .gpu_utils import VRAMLeakMonitor, get_gpu_info
 from .history_db import HistoryDB
+from .middleware.auth import AuthMiddleware
 from .middleware.csrf import CSRFMiddleware
 from .middleware.rate_limit import RateLimitMiddleware
 from .middleware.request_id import RequestIDMiddleware
+from .middleware.security_headers import SecurityHeadersMiddleware
 from .model_registry import get_model_registry
+from .observability.alerts import (
+    get_alert_engine,
+    health_unhealthy,
+)
+from .observability.generation_metrics import (
+    classify_generation_error,
+    record_generation_cancelled,
+    record_generation_completed,
+    record_generation_failed,
+    record_generation_first_preview,
+    record_generation_first_progress,
+    record_generation_started,
+    record_inference_duration,
+    record_queue_wait,
+)
+from .observability.http_metrics import MetricsMiddleware
 from .sse import get_sse_bus
 from .task_queue import Task, TaskQueue
 
@@ -159,6 +182,18 @@ async def lifespan(app: FastAPI):
     from .security.integrity_selfcheck import run_startup_selfcheck
     selfcheck_result = run_startup_selfcheck()
     app.state.integrity_selfcheck = selfcheck_result
+    # 安全评估 H-04：skipped > 0 表示有核心模块未被 manifest 覆盖。
+    # 此前这些模块被静默计入 skipped 且仍打印"自检通过"，属误导性日志，
+    # 故此处将"有失败或有跳过"统一降级为 WARNING，避免虚假的安全信心。
+    if selfcheck_result["failed"] or selfcheck_result["skipped"]:
+        failed_files = selfcheck_result["failed_files"]
+        logger.warning(
+            "[SECURITY] 完整性自检未完全覆盖：通过 %s / 失败 %s / 跳过 %s%s",
+            selfcheck_result["passed"],
+            selfcheck_result["failed"],
+            selfcheck_result["skipped"],
+            f"，失败文件: {', '.join(failed_files)}" if failed_files else "",
+        )
 
     # 初始化 HistoryDB
     db_path = Path(config.project_root) / config.output.history.db_path
@@ -181,6 +216,9 @@ async def lifespan(app: FastAPI):
     # 注册 SSE 进度/状态回调
     sse_bus = get_sse_bus()
 
+    # 每任务首进度/首预览去重（避免重复计数 first_progress/first_preview）
+    _first_seen: dict[str, set[str]] = {}
+
     async def on_progress(task_id: str, progress: int, phase: str, extra: dict):
         await sse_bus.publish("task_status", {
             "task_id": task_id,
@@ -188,8 +226,14 @@ async def lifespan(app: FastAPI):
             "phase": phase,
             **extra,
         })
-        # D4: 采样中实时预览 → SSE preview 事件
-        if "preview_b64" in extra:
+        # MLOps P0-3：记录每个任务首次进度 / 首次预览（去重）
+        flags = _first_seen.setdefault(task_id, set())
+        if "progress" not in flags:
+            flags.add("progress")
+            record_generation_first_progress(extra.get("engine", "") or "")
+        if "preview_b64" in extra and "preview" not in flags:
+            flags.add("preview")
+            record_generation_first_preview(extra.get("engine", "") or "")
             await sse_bus.publish("preview", {
                 "task_id": task_id,
                 "b64": extra["preview_b64"],
@@ -204,6 +248,30 @@ async def lifespan(app: FastAPI):
         })
         # 同时发布 queue_status 事件（§1.6 SSE 补全）
         await sse_bus.publish("queue_status", task_queue.get_queue_status())
+
+        # MLOps P0-3：生成链路生命周期指标埋点
+        task = task_queue.get_task(task_id)
+        engine = (task.engine if task else "") or (extra or {}).get("engine", "") or ""
+        st = status.value if hasattr(status, "value") else str(status)
+        if st == "processing":
+            record_generation_started(engine)
+            if task and task.started_at and task.created_at:
+                record_queue_wait(engine, task.started_at - task.created_at)
+        elif st == "completed":
+            record_generation_completed(
+                engine,
+                (task.completed_at - task.created_at) if task and task.completed_at else 0.0,
+            )
+            if task and task.completed_at and task.started_at:
+                record_inference_duration(engine, task.completed_at - task.started_at)
+            _first_seen.pop(task_id, None)
+        elif st == "failed":
+            err = ((extra or {}).get("error", "") if extra else "") or (task.error if task else "")
+            record_generation_failed(engine, classify_generation_error(err))
+            _first_seen.pop(task_id, None)
+        elif st == "cancelled":
+            record_generation_cancelled(engine)
+            _first_seen.pop(task_id, None)
 
     # TaskQueue 回调运行在 worker 线程 → 用主循环线程安全投递
     main_loop = asyncio.get_event_loop()
@@ -220,32 +288,113 @@ async def lifespan(app: FastAPI):
     # 启动 SSE 心跳
     heartbeat_task = asyncio.ensure_future(sse_bus.start_heartbeat())
 
+    # 初始化成本治理单例（配置驱动）
+    get_vram_scheduler().configure(config.runtime.vram_scheduler)
+    get_idle_unload_manager().idle_unload_minutes = config.runtime.idle_unload_minutes
+
     # 启动 GPU 状态定期推送（§1.6 SSE 补全：每 2s 发布 gpu_status）
+    # 同时持久化指标到 MetricsStore、运行泄漏监控、驱动 VRAM 动态调度（P1 成本可见性）
     async def gpu_monitor_loop():
+        store = get_metrics_store()
+        scheduler = get_vram_scheduler()
+        leak = VRAMLeakMonitor()
         while True:
             try:
                 gpu = get_gpu_info()
-                await sse_bus.publish("gpu_status", {
+                sample = {
                     "name": gpu.gpu_name,
                     "backend": gpu.backend,
                     "total_vram_gb": gpu.total_vram_gb,
                     "used_vram_gb": gpu.used_vram_gb,
                     "free_vram_gb": gpu.free_vram_gb,
-                    "timestamp": time.time(),
-                })
+                }
+                # torch 峰值分配/预留（无 torch 时缺省 0）
+                try:
+                    import torch
+
+                    if torch.cuda.is_available():
+                        sample["allocated_bytes"] = int(torch.cuda.max_memory_allocated() or 0)
+                        sample["reserved_bytes"] = int(torch.cuda.memory_reserved() or 0)
+                except Exception:
+                    pass
+                store.record_gpu(sample)
+                await sse_bus.publish("gpu_status", {**sample, "timestamp": time.time()})
+                # 显存泄漏监控（MLOps P1·可观测，生产接入）
+                leak.sample()
+                store.record_leak(leak.check_leak())
+                # VRAM 水位感知动态 batch 上限
+                free_pct = (gpu.free_vram_gb / gpu.total_vram_gb * 100.0) if gpu.total_vram_gb else None
+                scheduler.update(free_pct)
+                # MLOps P0-4：周期评估告警规则，驱动 for 时长与通知去重
+                _evaluate_alerts()
             except Exception as e:
                 logger.warning(f"GPU monitor error: {e}")
             await asyncio.sleep(2)
     gpu_monitor_task = asyncio.ensure_future(gpu_monitor_loop())
 
-    # D6: 历史清理 cron 调度
+    # MLOps P0-4：基于当前进程状态聚合告警快照并驱动 AlertEngine 状态机
+    def _evaluate_alerts() -> None:
+        from .observability.metrics import get_metrics
+
+        try:
+            cfg = get_config()
+            m = get_metrics()
+            tq = app.state.task_queue
+            maxsize = float(getattr(cfg.runtime.task_queue, "maxsize", 0) or 0)
+            fill = min(1.0, tq.queue_size / maxsize) if maxsize else 0.0
+            failed = m.generation_failed_total.total()
+            completed = m.generation_completed_total.total()
+            failure_rate = failed / (failed + completed) if (failed + completed) > 0 else 0.0
+            g = get_metrics_store().latest_gpu
+            gpu_free_pct = (
+                (g["free_vram_gb"] / g["total_vram_gb"] * 100.0)
+                if g and g.get("total_vram_gb") else None
+            )
+            disk_free_pct: float | None = None
+            try:
+                import shutil
+
+                du = shutil.disk_usage("/")
+                disk_free_pct = du.free / du.total * 100.0
+            except Exception:
+                disk_free_pct = None
+            get_alert_engine().evaluate({
+                "queue_fill_ratio": fill,
+                "generation_failure_rate": failure_rate,
+                "gpu_free_pct": gpu_free_pct,
+                "disk_free_pct": disk_free_pct,
+                "health_unhealthy": health_unhealthy(),
+                "now": time.time(),
+            })
+        except Exception as e:  # noqa: BLE001
+            logger.debug("alert evaluation skipped: %s", e)
+
+    # P2 空闲自动卸载循环：空闲超阈值后卸载常驻引擎权重，避免空载计费
+    async def idle_unload_loop():
+        mgr = get_idle_unload_manager()
+        while True:
+            try:
+                if mgr.should_unload():
+                    await unload_all_engines(config)
+                    mgr.note_unloaded()
+                    logger.info("Idle unload triggered after %s min idle", mgr.idle_minutes)
+            except Exception as e:  # noqa: BLE001
+                logger.warning("Idle unload loop error: %s", e)
+            await asyncio.sleep(30)
+
+    # unload_all_engines 定义为模块级函数（见文件末尾），便于单测回归。
+
+    idle_unload_task = asyncio.ensure_future(idle_unload_loop())
+
+    # D6: 历史清理 cron 调度（修复空转：keep_days>0 OR max_gb>0 即启用）
     async def history_cleanup_cron():
-        """按 cron 表达式定时清理超期任务"""
+        """按 cron 表达式定时清理超期任务（天数/体积双阈值）"""
         import datetime as _dt
         cron_expr = config.output.history.cleanup_cron
         keep_days = config.output.history.keep_days
-        if not cron_expr or keep_days <= 0:
-            logger.info("History cleanup cron disabled (keep_days=0 or no cron)")
+        max_gb = config.output.history.max_gb
+        if not cron_expr or (keep_days <= 0 and max_gb <= 0):
+            logger.info("History cleanup cron disabled (keep_days=0 and max_gb=0 or no cron)")
             return
         parts = cron_expr.split()
         if len(parts) != 5:
@@ -264,9 +413,9 @@ async def lifespan(app: FastAPI):
                 sleep_s = (next_run - now).total_seconds()
                 logger.info(f"History cleanup scheduled at {next_run}, sleeping {sleep_s:.0f}s")
                 await asyncio.sleep(sleep_s)
-                # 执行清理
-                deleted = history_db.cleanup_old_tasks(keep_days=keep_days)
-                logger.info(f"History cleanup: deleted {deleted} tasks (keep_days={keep_days})")
+                # 执行清理（同步删除磁盘图片文件，真正释放存储）
+                deleted = history_db.cleanup_old_tasks(keep_days=keep_days, max_gb=max_gb)
+                logger.info(f"History cleanup: deleted {deleted} tasks (keep_days={keep_days}, max_gb={max_gb})")
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -288,6 +437,8 @@ async def lifespan(app: FastAPI):
     def worker_func(task):
         logger.info(f"Worker processing task: {task.task_id} ({task.engine})")
         started = time.time()
+        # P2 标记活跃，避免推理进行中误触发空闲卸载
+        get_idle_unload_manager().mark_activity()
         try:
             cfg = get_config()
             ecfg = cfg.models.engines.get(task.engine)
@@ -374,7 +525,7 @@ async def lifespan(app: FastAPI):
             out_types = ("original", "upscaled", "compare")
             for i, p in enumerate(outputs or []):
                 history_db.add_output(
-                    task.task_id, p, "png",
+                    task.task_id, p, cfg.output.image_format,
                     output_type=out_types[i] if i < len(out_types) else "original",
                 )
 
@@ -435,14 +586,53 @@ async def lifespan(app: FastAPI):
     gpu_monitor_task.cancel()
     heartbeat_task.cancel()
     cleanup_task.cancel()
+    idle_unload_task.cancel()
     await task_queue.stop()
     sse_bus.stop()
     history_db.close()
     logger.info("=== Image MultiModel stopped ===")
 
 
-def create_app() -> FastAPI:
-    """创建 FastAPI 应用"""
+async def unload_all_engines(config) -> None:
+    """遍历所有已加载引擎并卸载常驻权重（模块级，便于单测回归）。
+
+    MLOps P1-7：在异步生命周期中直接 ``await`` 卸载，禁止在运行中的事件循环内
+    阻塞式驱动新的事件循环（会触发 RuntimeError: This event loop is already
+    running）。卸载前跳过当前 active 引擎，避免破坏在处理的请求引用。
+    """
+    try:
+        from .model_manager import get_model_manager
+
+        mm = get_model_manager()
+        registry = get_model_registry()
+        active = registry.get_active_engine_name()
+        for name in config.models.engines:
+            if name == active:
+                logger.info("Skip unloading active engine %s", name)
+                continue
+            if mm.get_state(name).value == "loaded":
+                try:
+                    inst = registry.create_engine_instance(
+                        engine_name=name,
+                        display_name=config.models.engines[name].display_name,
+                        display_name_en=config.models.engines[name].display_name_en,
+                        backend=getattr(config.models.engines[name], "backend", "native"),
+                        config=config.models.engines[name].model_dump(),
+                    )
+                    await mm.unload_engine(name, inst)
+                except Exception as e:  # noqa: BLE001
+                    logger.warning(f"Idle unload of {name} failed: {e}")
+    except Exception as e:  # noqa: BLE001
+        logger.warning("unload_all_engines error: %s", e)
+
+
+def create_app(enable_rate_limit: bool = True) -> FastAPI:
+    """创建 FastAPI 应用
+
+    Args:
+        enable_rate_limit: 是否启用速率限制中间件。压测/容量基线场景可关闭，
+            避免干扰吞吐测量；生产默认开启。
+    """
     config = load_config()
 
     app = FastAPI(
@@ -453,6 +643,16 @@ def create_app() -> FastAPI:
     )
 
     # ── 中间件 ────────────────────────────────────────────────
+    # 中间件栈按 Starlette 规则构建：**先 add 者位于最外层**。
+    # 实际执行顺序（外 → 内）：
+    #   SecurityHeaders → CORS → Auth → CSRF → RequestID → RateLimit → 路由
+    # - SecurityHeaders 置最外层，确保 401/403/429 等中间件自身响应也带安全头
+    # - Auth 置于 CSRF 之前，先确认身份再校验 CSRF token
+    # - RequestID 置于 CSRF 之后，让拒绝响应同样携带 request_id 便于追溯
+
+    # 安全响应头（CSP / nosniff / frame-ancestors，对应安全评估 M-02）
+    app.add_middleware(SecurityHeadersMiddleware, config=config)
+
     # CORS
     app.add_middleware(
         CORSMiddleware,
@@ -462,6 +662,9 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # 认证（BasicAuth / Bearer Token，对应安全评估 C-01；默认关闭）
+    app.add_middleware(AuthMiddleware, config=config)
+
     # CSRF（POST/PUT/DELETE 需 X-CSRF-Token 头，默认开启）
     if config.security.csrf.enabled:
         app.add_middleware(CSRFMiddleware)
@@ -470,12 +673,16 @@ def create_app() -> FastAPI:
     app.add_middleware(RequestIDMiddleware)
 
     # RateLimit
-    app.add_middleware(
-        RateLimitMiddleware,
-        global_per_minute=config.security.rate_limit.global_per_minute,
-        infer_per_minute=config.security.rate_limit.infer_per_minute,
-        upload_per_minute=config.security.rate_limit.upload_per_minute,
-    )
+    if enable_rate_limit:
+        app.add_middleware(
+            RateLimitMiddleware,
+            global_per_minute=config.security.rate_limit.global_per_minute,
+            infer_per_minute=config.security.rate_limit.infer_per_minute,
+            upload_per_minute=config.security.rate_limit.upload_per_minute,
+        )
+
+    # MLOps P0-2：HTTP 请求计数 / 延迟指标中间件（路径已归一化，避免高基数 label）
+    app.add_middleware(MetricsMiddleware)
 
     # ── 路由自动发现（P0-3: 来源 TTS_MultiModel） ─────────────
     routers = _auto_discover_routers()
@@ -547,6 +754,43 @@ def create_app() -> FastAPI:
 app = create_app()
 
 
+def _ssl_kwargs(config) -> dict:
+    """按 ``config.server.ssl`` 构造 uvicorn SSL 关键字参数。
+
+    对应安全评估 H-01：``server.ssl`` 此前是"死配置"——有配置项、有 Pydantic
+    模型，但无任何代码读取，导致 HTTPS 从未真正生效。本函数让它可用；
+    证书缺失时明确告警并回退 HTTP，而非静默忽略。
+
+    Returns:
+        dict: 供 ``uvicorn.run(**kwargs)`` 使用的参数；未启用时为空字典。
+    """
+    ssl_cfg = getattr(config.server, "ssl", None)
+    if not ssl_cfg or not getattr(ssl_cfg, "enabled", False):
+        return {}
+
+    certfile = str(getattr(ssl_cfg, "certfile", "") or "")
+    keyfile = str(getattr(ssl_cfg, "keyfile", "") or "")
+    if not certfile or not keyfile:
+        logger.warning("[SSL] ssl.enabled=true 但未配置 certfile/keyfile，已回退为 HTTP")
+        return {}
+
+    cert_path = Path(certfile)
+    key_path = Path(keyfile)
+    if not cert_path.is_absolute():
+        cert_path = Path(config.project_root) / certfile
+    if not key_path.is_absolute():
+        key_path = Path(config.project_root) / keyfile
+
+    if not cert_path.exists() or not key_path.exists():
+        logger.warning(
+            "[SSL] 证书文件不存在（cert=%s, key=%s），已回退为 HTTP", cert_path, key_path
+        )
+        return {}
+
+    logger.info("[SSL] 已启用 HTTPS: cert=%s", cert_path)
+    return {"ssl_certfile": str(cert_path), "ssl_keyfile": str(key_path)}
+
+
 def run():
     """直接运行"""
     import uvicorn
@@ -558,6 +802,7 @@ def run():
         port=config.server.port,
         workers=config.server.workers,
         reload=False,
+        **_ssl_kwargs(config),
     )
 
 

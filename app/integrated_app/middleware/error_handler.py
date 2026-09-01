@@ -44,8 +44,13 @@ def _build_error_response(
     status_code: int,
     detail: Any = None,
     request_id: str = "",
+    headers: dict[str, str] | None = None,
 ) -> JSONResponse:
-    """构建统一格式的错误 JSON 响应。"""
+    """构建统一格式的错误 JSON 响应。
+
+    Args:
+        headers: 可选响应头（如 Retry-After），透传到响应，不影响既有调用方。
+    """
     content: dict[str, Any] = {
         "success": False,
         "error": {
@@ -59,7 +64,11 @@ def _build_error_response(
         content["error"]["request_id"] = request_id
 
     try:
-        return JSONResponse(status_code=status_code, content=content)
+        resp = JSONResponse(status_code=status_code, content=content)
+        if headers:
+            for k, v in headers.items():
+                resp.headers[k] = v
+        return resp
     except (TypeError, ValueError, UnicodeEncodeError) as e:
         logger.error("_build_error_response JSON 序列化失败: %s", e)
         return JSONResponse(
@@ -152,6 +161,7 @@ async def _http_exception_handler(request: Request, exc: StarletteHTTPException)
             status_code=exc.status_code,
             detail=exc.detail,
             request_id=request_id,
+            headers=dict(exc.headers) if exc.headers else None,
         )
     except Exception as inner:
         logger.exception("StarletteHTTPException handler 内部异常: %s", inner)

@@ -98,11 +98,26 @@ def _peek_format(path: Path) -> str:
     return "unknown"
 
 
+def _cfg_warn_if_pickle_found() -> bool:
+    """读取 ``security.model_format.warn_if_pickle_found``（默认 True）。
+
+    该开关此前只声明在 config.yaml / config_models.py 中、无任何代码消费
+    （配置-实现错配）。现由 pickle 探测分支真正读取并据此告警。
+    """
+    try:
+        from ..config import get_config
+
+        return bool(get_config().security.model_format.warn_if_pickle_found)
+    except Exception:  # noqa: BLE001 - 配置不可用时采用安全默认值
+        return True
+
+
 def validate_weight_file(
     path: str | Path,
     *,
     expected_sha256: str | None = None,
     allow_non_safetensors: bool = False,
+    warn_if_pickle_found: bool | None = None,
 ) -> WeightCheckResult:
     """对单个权重文件做完整性校验。
 
@@ -110,6 +125,8 @@ def validate_weight_file(
         path: 权重文件路径
         expected_sha256: 期望的 SHA256（来自 manifest 或 config）；为空则不比对 hash
         allow_non_safetensors: 是否允许非 safetensors 格式（对应 ``only_safetensors=False``）
+        warn_if_pickle_found: 检测到 pickle 载荷时是否告警；None 时读取
+            ``security.model_format.warn_if_pickle_found`` 配置
 
     Returns:
         WeightCheckResult: ``ok`` 为 True 表示通过校验
@@ -134,6 +151,12 @@ def validate_weight_file(
     if fmt == "pickle":
         result.ok = False
         result.error = "pickle_payload_detected (potential CWE-502 deserialization risk)"
+        if warn_if_pickle_found is None:
+            warn_if_pickle_found = _cfg_warn_if_pickle_found()
+        if warn_if_pickle_found:
+            logger.warning(
+                "[WEIGHT-INTEGRITY] 检测到 pickle 载荷（CWE-502 反序列化风险）: %s", p
+            )
         return result
 
     if is_safetensors_ext:

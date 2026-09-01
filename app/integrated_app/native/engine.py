@@ -89,6 +89,44 @@ class NativeEngine:
         if not self._model_paths:
             raise RuntimeError(f"Engine '{self._name}' has no resolvable model paths")
 
+        # H-02 修复：默认引擎此前完全未调用 verify_weight_before_load，
+        # 导致 config 中的 verify_weights / only_safetensors 对默认引擎形同虚设。
+        # 与 diffusers_engine / lora 对齐：在加载前对每个已解析的权重文件做完整性校验。
+        # 模型按需在首次推理时落地，文件尚未就位（file_not_found）时跳过校验，
+        # 与现有懒加载行为一致；仅当配置 fail_closed_on_corrupt_weight 时对损坏权重拒绝加载。
+        mfmt = cfg.security.model_format
+        if mfmt.verify_weights and self._model_paths:
+            try:
+                from ..security.weight_integrity import (
+                    WeightIntegrityError,
+                    verify_weight_before_load,
+                )
+
+                for role, raw in self._model_paths.items():
+                    if not raw:
+                        continue
+                    try:
+                        res = verify_weight_before_load(
+                            str(raw),
+                            allow_non_safetensors=not mfmt.only_safetensors,
+                        )
+                    except Exception as e:  # noqa: BLE001 - 单文件校验异常不阻断
+                        logger.warning("[NATIVE] 权重 '%s' 校验异常（已放行）: %s", role, e)
+                        continue
+                    if not res.ok:
+                        if res.error == "file_not_found":
+                            # 权重文件尚未就位（便携模型未下载 / 懒加载），跳过，不阻断启动
+                            logger.debug("[NATIVE] 权重 '%s' 尚未就位，跳过加载前校验: %s", role, raw)
+                            continue
+                        msg = f"引擎 '{self._name}' 权重 '{role}' 完整性校验失败: {res.error}"
+                        if mfmt.fail_closed_on_corrupt_weight:
+                            raise WeightIntegrityError(msg)
+                        logger.warning("%s，跳过该权重", msg)
+            except WeightIntegrityError:
+                raise
+            except Exception as e:  # noqa: BLE001 - 校验模块不可用不阻断启动
+                logger.warning("[NATIVE] 权重完整性校验初始化失败（已跳过）: %s", e)
+
         # 装载 Comfy 源码（幂等），不在此处加载 8B 权重
         from . import source
 
@@ -169,7 +207,8 @@ class NativeEngine:
     def _save_outputs(self, images: list[Any], config: GenerationConfig) -> list[str]:
         """把解码后的图像张量落盘 + 嵌入 DCT 水印 + 生成缩略图。
 
-        输出命名：outputs/{engine}/{date}/{taskid}_{type}.png
+        输出命名：outputs/{engine}/{date}/{taskid}_{idx}.{ext}
+        ext 取自 cfg.output.image_format（P0 WebP/有损压缩）。
         """
         cfg = get_config()
         guard = PathGuard(cfg.security.allowed_base_dirs, cfg.project_root)
@@ -182,6 +221,13 @@ class NativeEngine:
         product_id = cfg.watermark.product_id
         thumb_enabled = cfg.output.save_thumbnail
         thumb_max_side = cfg.output.thumbnail_max_side
+        image_format = cfg.output.image_format
+        image_quality = cfg.output.image_quality
+        thumb_format = cfg.output.thumbnail_format
+        thumb_quality = cfg.output.thumbnail_quality
+        out_ext = image_format.lower()
+        if out_ext == "jpg":
+            out_ext = "jpeg"
         thumb_dir: Path | None = None
         if thumb_enabled:
             thumb_dir = guard.ensure_dir(Path("data") / "cache" / "thumbs")
@@ -189,7 +235,7 @@ class NativeEngine:
         saved: list[str] = []
         for idx, img_tensor in enumerate(images):
             width, height = img_tensor.shape[1], img_tensor.shape[0]
-            fname = f"{task_id[:16]}_{idx}.png"
+            fname = f"{task_id[:16]}_{idx}.{out_ext}"
             path = engine_dir / fname
             output_pipeline.finalize_output(
                 path,
@@ -200,8 +246,12 @@ class NativeEngine:
                 task_id=task_id[:16],
                 thumb_enabled=thumb_enabled,
                 thumb_dir=thumb_dir,
-                thumb_name=f"{task_id[:16]}_{idx}_thumb.png",
+                thumb_name=f"{task_id[:16]}_{idx}_thumb.{thumb_format.lower()}",
                 thumb_max_side=thumb_max_side,
+                image_format=image_format,
+                image_quality=image_quality,
+                thumb_format=thumb_format,
+                thumb_quality=thumb_quality,
             )
 
             # 存相对路径（相对 outputs/ 目录），供前端 /api/outputs/<rel> 直接访问

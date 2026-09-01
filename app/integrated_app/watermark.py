@@ -34,6 +34,10 @@ MIN_Q = 8.0               # 量化步长下限（≥8 才能在 uint8/PNG 量化
 MAX_Q = 16.0              # 量化步长上限（约束像素扰动，保证不可感知）
 
 
+class WatermarkEmbedError(RuntimeError):
+    """水印嵌入失败（fail-closed）：嵌入后无法还原溯源信息，拒绝返回图片。"""
+
+
 # ── DCT-II 基矩阵（8x8）─────────────────────────────────
 def _dct_matrix(n: int = BLOCK) -> np.ndarray:
     c = np.zeros((n, n), dtype=np.float64)
@@ -132,74 +136,103 @@ def embed_watermark(
     product_id: str,
     task_id: str,
     timestamp: float | None = None,
+    verify_after_embed: bool = True,
 ) -> np.ndarray:
     """
     将溯源水印嵌入 2D/3D 图像数组，返回新数组（不修改输入）。
 
     对 3D (H,W,C) 图像，仅嵌入到第一通道（亮度主导），其余通道不变。
     优先尝试 GPU 加速（cupy 批量向量化 DCT），失败时自动回退 CPU。
+
+    Args:
+        verify_after_embed: 嵌入后回读校验（fail-closed）。校验失败抛出
+            WatermarkEmbedError，拒绝返回无法溯源的图片（L-01/L-02）。
+
+    Raises:
+        WatermarkEmbedError: 嵌入后水印无法还原（fail-closed）。
+        ValueError: 图像过小无法承载载荷。
     """
+    # 时间戳统一计算一次，保证 GPU / CPU 两条路径与后续校验一致
+    ts = timestamp if timestamp is not None else time.time()
+
     # 优先尝试 GPU 加速（优雅降级：cupy 不可用时回退 CPU）
+    result: np.ndarray | None = None
     try:
         from .watermark_gpu import embed_watermark_gpu, is_gpu_available
+
         if is_gpu_available():
-            result = embed_watermark_gpu(image, product_id, task_id, timestamp)
-            if result is not None:
+            gpu_res = embed_watermark_gpu(image, product_id, task_id, ts)
+            if gpu_res is not None:
+                # 统一转回 numpy float64 连续数组（L-04：鲁棒性）
+                result = np.ascontiguousarray(np.asarray(gpu_res, dtype=np.float64))
                 logger.debug("Watermark embedded via GPU (cupy)")
-                return result
-            logger.debug("GPU watermark returned None, falling back to CPU")
     except Exception as e:
         logger.debug(f"GPU watermark failed, falling back to CPU: {e}")
 
-    # CPU 实现（原有路径）
-    ts = timestamp if timestamp is not None else time.time()
-    payload = _payload_string(product_id, task_id, ts)
-    key = _load_secret_key()
-    if key is not None:
-        payload = _sign_payload(payload, key)
-    else:
-        logger.debug(
-            "未配置水印签名密钥，将嵌入未签名水印（不可证伪归属）。"
-            "请运行 scripts/init_watermark_key.py 生成密钥"
-        )
-    bits = _str_to_bits(payload)
+    if result is None:
+        # CPU 实现（原有路径）
+        payload = _payload_string(product_id, task_id, ts)
+        key = _load_secret_key()
+        if key is not None:
+            payload = _sign_payload(payload, key)
+        else:
+            logger.debug(
+                "未配置水印签名密钥，将嵌入未签名水印（不可证伪归属）。"
+                "请运行 scripts/init_watermark_key.py 生成密钥"
+            )
+        bits = _str_to_bits(payload)
 
-    arr = np.asarray(image, dtype=np.float64)
-    single = arr.ndim == 2
-    work = arr if single else arr[:, :, 0]
+        arr = np.ascontiguousarray(np.asarray(image, dtype=np.float64))
+        single = arr.ndim == 2
+        work = arr if single else arr[:, :, 0]
 
-    h, w = work.shape
-    need = len(bits)
-    cols_blocks = w // BLOCK
-    rows_blocks = h // BLOCK
-    capacity = rows_blocks * cols_blocks
-    if need > capacity:
-        raise ValueError(f"Image too small for payload: need {need} blocks, have {capacity}")
+        h, w = work.shape
+        need = len(bits)
+        cols_blocks = w // BLOCK
+        rows_blocks = h // BLOCK
+        capacity = rows_blocks * cols_blocks
+        if need > capacity:
+            raise ValueError(f"Image too small for payload: need {need} blocks, have {capacity}")
 
-    out = work.copy()
-    r, c = COEF_RC
-    idx = 0
-    for bi in range(rows_blocks):
-        for bj in range(cols_blocks):
+        out = work.copy()
+        r, c = COEF_RC
+        idx = 0
+        for bi in range(rows_blocks):
+            for bj in range(cols_blocks):
+                if idx >= need:
+                    break
+                y, x = bi * BLOCK, bj * BLOCK
+                block = out[y:y + BLOCK, x:x + BLOCK]
+                coef = _dct2(block)
+                energy = float(np.abs(coef).sum()) + 1e-6
+                q = min(max(energy * QUANT_RATIO, MIN_Q), MAX_Q)
+                bit = bits[idx]
+                # 符号编码：bit=1 → +q, bit=0 → -q
+                coef[r, c] = q if bit == 1 else -q
+                out[y:y + BLOCK, x:x + BLOCK] = _idct2(coef)
+                idx += 1
             if idx >= need:
                 break
-            y, x = bi * BLOCK, bj * BLOCK
-            block = out[y:y + BLOCK, x:x + BLOCK]
-            coef = _dct2(block)
-            energy = float(np.abs(coef).sum()) + 1e-6
-            q = min(max(energy * QUANT_RATIO, MIN_Q), MAX_Q)
-            bit = bits[idx]
-            # 符号编码：bit=1 → +q, bit=0 → -q
-            coef[r, c] = q if bit == 1 else -q
-            out[y:y + BLOCK, x:x + BLOCK] = _idct2(coef)
-            idx += 1
-        if idx >= need:
-            break
 
-    if single:
-        return out
-    result = arr.copy()
-    result[:, :, 0] = out
+        if single:
+            result = out
+        else:
+            result = arr.copy()
+            result[:, :, 0] = out
+
+    # L-01/L-02: 嵌入后回读校验（fail-closed）
+    if verify_after_embed:
+        try:
+            if not verify(result, product_id, task_id, ts):
+                raise WatermarkEmbedError(
+                    "水印嵌入后无法还原溯源信息，拒绝返回未签名图片（fail-closed）"
+                )
+        except WatermarkEmbedError:
+            raise
+        except Exception as e:  # noqa: BLE001
+            # 校验过程异常也按 fail-closed 处理，不允许静默返回不可溯源图片
+            raise WatermarkEmbedError(f"水印嵌入后校验异常: {e}") from e
+
     return result
 
 

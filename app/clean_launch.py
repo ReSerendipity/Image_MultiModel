@@ -23,10 +23,12 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 APP_DIR = Path(__file__).resolve().parent
 
 # ── WinPython 自动检测 ───────────────────────────────────────
-# 优先使用项目内的 WPy64 目录，其次查找参考项目的 WinPython，
-# 再回退到系统级 CUDA Python（C:\Python312，含 cu13x PyTorch）。
+# 安全约束（M-05）：禁止硬编码其它项目 / 系统的绝对解释器路径。
+# 这类硬编码既破坏可移植性，又可能被攻击者以同名路径劫持。仅允许：
+# 项目内 .venv / 项目内 WPy64-*，以及用户通过环境变量
+# IMM_EXTRA_PYTHON_DIRS 显式指定的目录。
 def find_winpython():
-    """查找带 CUDA 的 python.exe 路径"""
+    """查找带 CUDA 的 python.exe 路径（仅限项目内 + 用户显式指定）。"""
     # 0. 项目本地 .venv（隔离模型环境，最高优先，避免回落共享全局 Python）
     venv_py = PROJECT_ROOT / ".venv" / "Scripts" / "python.exe"
     if venv_py.exists():
@@ -36,30 +38,26 @@ def find_winpython():
         py = wpy_dir / "python" / "python.exe"
         if py.exists():
             return str(py)
-    # 2. 参考项目 Seedvr2 的 WinPython
-    ref_wpy = Path(r"C:\Users\Doro\SeedVR2-lite\WPy64-312101\python\python.exe")
-    if ref_wpy.exists():
-        return str(ref_wpy)
-    # 3. 参考项目 TTS_MultiModel 的 WinPython
-    ref_wpy2 = Path(r"C:\Users\Doro\TTS_MultiModel\WPy64-312101\python\python.exe")
-    if ref_wpy2.exists():
-        return str(ref_wpy2)
-    # 4. 系统级 CUDA Python（含 cu13x PyTorch，CUDA 可用）——避免回退到 CPU 版 torch
-    for sys_py in (
-        Path(r"C:\Python312\python.exe"),
-        Path(r"C:\Users\Doro\APP\ComfyUI-aki-v3\python\python.exe"),
-    ):
-        if sys_py.exists():
-            try:
-                code = subprocess.run(
-                    [str(sys_py), "-c", "import torch; assert torch.cuda.is_available()"],
-                    capture_output=True, timeout=30,
-                )
-                if code.returncode == 0:
-                    return str(sys_py)
-            except Exception:
-                pass
-    # 5. 回退到当前 Python（如果上面都不存在）
+    # 2. 用户显式指定的额外解释器目录（环境变量，绝不使用硬编码绝对路径）
+    extra = os.environ.get("IMM_EXTRA_PYTHON_DIRS", "")
+    for raw in extra.split(os.pathsep):
+        raw = raw.strip()
+        if not raw:
+            continue
+        cand = Path(raw)
+        if cand.is_dir():
+            py = cand / "python.exe" if cand.name != "python.exe" else cand
+            if py.exists():
+                try:
+                    code = subprocess.run(
+                        [str(py), "-c", "import torch; assert torch.cuda.is_available()"],
+                        capture_output=True, timeout=30,
+                    )
+                    if code.returncode == 0:
+                        return str(py)
+                except Exception:
+                    pass
+    # 3. 回退到当前 Python（如果上面都不存在）
     return sys.executable
 
 
@@ -84,7 +82,11 @@ def check_python_version():
 
 
 def check_dependencies():
-    """检查关键依赖"""
+    """检查关键依赖。
+
+    M-05：缺失时不再「pip install <未锁定包名>」（可能拉取最新/被投毒版本），
+    而是从项目锁定的 requirements-lock.txt（版本钉死）统一安装。
+    """
     required = {
         "fastapi": "fastapi",
         "uvicorn": "uvicorn",
@@ -100,9 +102,17 @@ def check_dependencies():
             missing.append(package)
 
     if missing:
+        lock = PROJECT_ROOT / "requirements-lock.txt"
         print(f"[WARN] Missing packages: {', '.join(missing)}")
-        print("Installing...")
-        subprocess.check_call([sys.executable, "-m", "pip", "install"] + missing)
+        if lock.exists():
+            print(f"[INFO] 从锁定文件安装（版本钉死，避免投毒）: {lock}")
+            subprocess.check_call(
+                [sys.executable, "-m", "pip", "install", "-r", str(lock)]
+            )
+        else:
+            print(f"[ERROR] 依赖缺失且未找到锁定文件 {lock}，请先运行 install.bat/install.sh")
+            print("        或手动执行: pip install -r requirements-lock.txt")
+            sys.exit(1)
         print("[OK] Dependencies installed")
     else:
         print("[OK] All dependencies present")

@@ -443,8 +443,48 @@ class MCPServer:
                     "available_engines": list(cfg_obj.models.engines.keys()),
                 }
 
-            # 校验输出尺寸
+            # H-05 修复：MCP 通道此前绕过全部安全校验（内容过滤 / VRAM 预检）。
+            # 与 HTTP /api/generate 对齐，先对提示词做内容安全过滤，再预检显存。
+            from .security.content_filter import filter_image_generation
+
+            loop = asyncio.get_running_loop()
+            is_safe, reason = await loop.run_in_executor(
+                None,
+                filter_image_generation,
+                prompt,
+                None,
+                cfg_obj.security.content_filter.fail_closed_on_clip_missing,
+            )
+            if not is_safe:
+                return {"success": False, "message": f"内容安全拦截: {reason}"}
+
+            # 输出尺寸校验
             w, h = validate_output_size(width, height)
+
+            # VRAM 预检（与 /api/generate 对齐）
+            from .gpu_utils import preflight_vram
+
+            engine_cfg = cfg_obj.models.engines[engine_name]
+            vram_est = preflight_vram(
+                engine_vram_gb=getattr(engine_cfg, "vram_gb", 0.0),
+                width=w,
+                height=h,
+                batch_size=batch_size,
+                enable_seedvr2=False,
+                fallback_precision=getattr(engine_cfg, "fallback_precision", "fp8"),
+                default_precision=getattr(engine_cfg, "default_precision", "fp8"),
+                multisample_rule=getattr(cfg_obj.inference, "vram_multisample_rule", 1.5),
+                headroom_gb=getattr(cfg_obj.inference, "vram_headroom_gb", 2.0),
+                allow_tight=getattr(cfg_obj.inference, "vram_tight_continue", False),
+            )
+            if not vram_est.can_run:
+                return {
+                    "success": False,
+                    "message": (
+                        f"显存不足: 需要 {vram_est.needed_vram_gb:.1f}GB / "
+                        f"可用 {vram_est.available_vram_gb:.1f}GB"
+                    ),
+                }
 
             # 构建 GenerationConfig
             gen_config = GenerationConfig(
@@ -465,7 +505,6 @@ class MCPServer:
 
             eng = reg.get_active()
             if eng is None or getattr(eng, "name", "") != engine_name:
-                engine_cfg = cfg_obj.models.engines[engine_name]
                 eng = registry.create_engine_instance(
                     engine_name=engine_name,
                     display_name=engine_cfg.display_name,

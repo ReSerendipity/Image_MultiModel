@@ -44,9 +44,13 @@ _CORE_MODULES = [
     "security/magic_check.py",
     "security/integrity_selfcheck.py",
     "security/weight_integrity.py",
+    "security/content_filter.py",
+    "security/kernel_baseline.py",
     "middleware/csrf.py",
     "middleware/rate_limit.py",
     "middleware/request_id.py",
+    "middleware/auth.py",
+    "middleware/security_headers.py",
     "routes/config_routes.py",
     "routes/system_routes.py",
     "routes/generate_routes.py",
@@ -54,6 +58,7 @@ _CORE_MODULES = [
     "routes/output_routes.py",
     "routes/preset_routes.py",
     "routes/engine_routes.py",
+    "mcp_server.py",
 ]
 
 # 清单文件路径
@@ -71,7 +76,23 @@ class SelfCheckResult(NamedTuple):
 
 
 def _get_manifest_path() -> Path:
-    """获取清单文件路径。"""
+    """获取清单文件路径。
+
+    优先采用 ``security.integrity_selfcheck.manifest_file`` 配置（此前该配置
+    只声明、无代码消费）；未配置或读取失败时回退到模块同目录默认清单。
+    """
+    try:
+        from ..config import get_config
+
+        configured = get_config().security.integrity_selfcheck.manifest_file
+        if configured:
+            p = Path(configured)
+            if not p.is_absolute():
+                # 相对路径相对项目根解析（security/ -> integrated_app/ -> app/ -> 项目根）
+                p = Path(__file__).resolve().parents[3] / p
+            return p
+    except Exception:  # noqa: BLE001 - 配置不可用时回退默认
+        pass
     return Path(__file__).parent / _MANIFEST_FILENAME
 
 

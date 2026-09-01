@@ -54,6 +54,7 @@ class SSEBus:
         self._heartbeat_interval = heartbeat_interval_s
         self._max_duration = max_duration_s
         self._running = False
+        self._dropped_events = 0
 
     async def subscribe(self) -> asyncio.Queue:
         """订阅 SSE 事件流，返回一个 Queue"""
@@ -77,6 +78,7 @@ class SSEBus:
                 q.put_nowait(msg)
             except asyncio.QueueFull:
                 logger.warning("SSE queue full, dropping event")
+                self._dropped_events += 1
                 # 丢弃最旧的消息
                 try:
                     q.get_nowait()
@@ -97,6 +99,11 @@ class SSEBus:
     @property
     def subscriber_count(self) -> int:
         return len(self._subscribers)
+
+    @property
+    def dropped_events(self) -> int:
+        """累计因订阅者队列溢出而丢弃的事件数（供 /api/metrics 暴露）。"""
+        return self._dropped_events
 
 
 # ── 全局单例 ──────────────────────────────────────────────────

@@ -180,7 +180,7 @@ function renderBFileList(){
   box.innerHTML='';
   B_FILES.forEach(function(f,idx){
     var d=document.createElement('div');d.className='f-row';
-    d.innerHTML='<span class="nm">'+f.name.replace(/</g,'&lt;')+'</span><span class="sz">'+fmtSize(f.size)+' · '+f.lines.length+' 行</span><span class="st ok">已解析</span><button class="btn btn-sm" type="button" style="height:22px;padding:2px 8px;font-size:10px">移除</button>';
+    d.innerHTML='<span class="nm">'+escHtml(f.name)+'</span><span class="sz">'+fmtSize(f.size)+' · '+f.lines.length+' 行</span><span class="st ok">已解析</span><button class="btn btn-sm" type="button" style="height:22px;padding:2px 8px;font-size:10px">移除</button>';
     d.querySelector('button').addEventListener('click',function(){B_FILES.splice(idx,1);renderBFileList();calcBEst();});
     box.appendChild(d);
   });
@@ -417,7 +417,7 @@ function renderStatEngines(engines){
     var st=e.state||(e.ready?'loaded':'unknown');
     var chipTxt=st==='loaded'?'就绪':(st==='loading'?'加载中':(st==='error'?'错误':'未加载'));
     var chipCls=st==='loaded'?'chip ok':(st==='loading'?'chip':'chip red');
-    d.innerHTML='<b>'+e.display_name+'</b><span style="color:var(--ink-faint)">'+st+'</span><span class="'+chipCls+'">'+chipTxt+'</span>';
+    d.innerHTML='<b>'+escHtml(e.display_name)+'</b><span style="color:var(--ink-faint)">'+escHtml(st)+'</span><span class="'+chipCls+'">'+chipTxt+'</span>';
     box.appendChild(d);
   });
 }
@@ -974,7 +974,7 @@ function renderBatchQueue(batchId){
       if(!done){clearTimeout(B_BATCH_POLL);B_BATCH_POLL=setTimeout(function(){renderBatchQueue(bid);},2000);}
       else{loadRecent();}
     }else{
-      box.innerHTML='<p style="text-align:center;color:var(--ink-faint);font-size:10px;padding:10px 0">'+(r.detail||'批次不存在或已过期')+'</p>';
+      box.innerHTML='<p style="text-align:center;color:var(--ink-faint);font-size:10px;padding:10px 0">'+escHtml(r.detail||'批次不存在或已过期')+'</p>';
       try{localStorage.removeItem('imm_last_batch');}catch(e){}
     }
   }).catch(function(){box.innerHTML='<p style="text-align:center;color:var(--ink-faint);font-size:10px;padding:10px 0">查询失败</p>';});

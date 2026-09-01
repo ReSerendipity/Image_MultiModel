@@ -36,6 +36,36 @@ def _insert_path(path: Path) -> None:
         sys.path.insert(0, s)
 
 
+def resolve_custom_nodes_dir(custom_nodes_dir: str | Path) -> Path:
+    """解析并白名单校验自定义节点目录（M-04）。
+
+    自定义节点即「注入执行的源码」，必须限制在项目内，禁止从任意文件
+    系统位置加载（防路径穿越导致加载攻击者代码）。
+
+    Args:
+        custom_nodes_dir: 用户配置的自定义节点目录。
+
+    Returns:
+        解析后的绝对路径（保证位于项目根内）。
+
+    Raises:
+        RuntimeError: 目录越权（不在项目根内）或不存在。
+    """
+    from ..security.path_guard import PathGuard, PathGuardError
+
+    guard = PathGuard([str(_PROJECT_ROOT)], _PROJECT_ROOT)
+    try:
+        cnd = guard.resolve(str(custom_nodes_dir), base_dir=str(_PROJECT_ROOT))
+    except PathGuardError as e:
+        raise RuntimeError(
+            f"custom_nodes_dir 越权被拒绝（必须位于项目内）: {custom_nodes_dir} ({e})"
+        ) from e
+    if not cnd.is_dir():
+        raise RuntimeError(f"custom_nodes_dir 不存在或非目录: {custom_nodes_dir}")
+    return cnd
+
+
+
 def ensure_loaded(
     comfy_root: str | Path | None = None,
     custom_nodes_dir: str | Path | None = None,
@@ -69,9 +99,19 @@ def ensure_loaded(
 
     # 自定义节点目录（可选，Phase 3 再全量扫描）
     if custom_nodes_dir:
-        cnd = Path(custom_nodes_dir).resolve()
-        if cnd.is_dir() and str(cnd) not in sys.path:
+        # M-04: 安全白名单——自定义节点即「注入执行的源码」，必须限制在项目内，
+        # 禁止从任意文件系统位置加载（防路径穿越导致加载攻击者代码）。
+        cnd = resolve_custom_nodes_dir(custom_nodes_dir)
+        if str(cnd) not in sys.path:
             _insert_path(cnd)
+
+    # M-04: vendored 内核完整性基线（fail-open，基线文件缺失时跳过、零开销）
+    try:
+        from ..security.kernel_baseline import verify_kernel_baseline
+
+        verify_kernel_baseline(root)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[KERNEL-BASELINE] 基线校验异常，已跳过: %s", e)
 
     try:
         import comfy  # noqa: F401  # 仅为触发顶层包导入，验证可 import

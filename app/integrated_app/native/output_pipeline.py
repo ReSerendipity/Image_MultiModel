@@ -20,18 +20,45 @@ from ..watermark import embed_watermark
 logger = logging.getLogger(__name__)
 
 
-def save_png(path: Path, image: Any, *, is_tensor: bool = False) -> None:
-    """把 PIL 图像或 [0,1] 范围 (H,W,3) 张量保存为 PNG。"""
+def _normalize_format(image_format: str) -> str:
+    """把配置的图像格式归一化为 PIL 接受的格式名（大写）。"""
+    fmt = (image_format or "png").lower()
+    if fmt in ("jpg", "jpeg"):
+        return "JPEG"
+    if fmt == "webp":
+        return "WEBP"
+    return "PNG"
+
+
+def save_image(
+    path: Path,
+    image: Any,
+    *,
+    is_tensor: bool = False,
+    image_format: str = "png",
+    quality: int = 95,
+) -> None:
+    """把 PIL 图像或 [0,1] 范围 (H,W,3) 张量保存为指定格式（PNG/WebP/JPEG）。
+
+    WebP/JPEG 支持有损压缩（quality），可显著降低存储与带宽成本（P0）。
+    """
+    fmt = _normalize_format(image_format)
     if is_tensor:
         arr = image.detach().cpu().numpy()
         arr = (arr * 255.0).clip(0, 255).astype("uint8")
-        Image.fromarray(arr).save(path, format="PNG")
+        pil = Image.fromarray(arr)
     else:
-        image.save(path, format="PNG")
+        pil = image
+    if fmt == "JPEG" and pil.mode != "RGB":
+        pil = pil.convert("RGB")
+    save_kwargs: dict[str, Any] = {}
+    if fmt in ("WEBP", "JPEG"):
+        save_kwargs["quality"] = max(1, min(100, int(quality)))
+    pil.save(path, format=fmt, **save_kwargs)
 
 
-def embed_provenance(path: Path, product_id: str, task_id: str) -> None:
-    """对已保存的 PNG 嵌入来源标识（失败静默，不影响输出）。"""
+def embed_provenance(path: Path, product_id: str, task_id: str, image_format: str = "png") -> None:
+    """对已保存的图像嵌入来源标识（失败静默，不影响输出），保留原格式。"""
     try:
         img: Image.Image = Image.open(path)
         if img.mode != "RGB":
@@ -39,15 +66,27 @@ def embed_provenance(path: Path, product_id: str, task_id: str) -> None:
         arr = np.array(img).astype(np.float64)
         wm_arr = embed_watermark(arr, product_id, task_id, time.time())
         wm_img = Image.fromarray(np.clip(wm_arr, 0, 255).astype(np.uint8))
+        fmt = _normalize_format(image_format)
         buf = io.BytesIO()
-        wm_img.save(buf, format="PNG")
+        save_kwargs: dict[str, Any] = {}
+        if fmt in ("WEBP", "JPEG"):
+            # 水印后统一以较高质量回写，避免二次有损劣化
+            save_kwargs["quality"] = 95
+        wm_img.save(buf, format=fmt, **save_kwargs)
         path.write_bytes(buf.getvalue())
         logger.debug("Watermark embedded: %s", path.name)
     except Exception as e:
         logger.debug("Watermark embedding failed for %s: %s", path.name, e)
 
 
-def make_thumbnail(src: Path, thumb_dir: Path, name: str, max_side: int) -> None:
+def make_thumbnail(
+    src: Path,
+    thumb_dir: Path,
+    name: str,
+    max_side: int,
+    image_format: str = "png",
+    quality: int = 90,
+) -> None:
     """生成缩略图（失败不影响主输出）。"""
     try:
         img = Image.open(src)
@@ -59,7 +98,11 @@ def make_thumbnail(src: Path, thumb_dir: Path, name: str, max_side: int) -> None
             )
         else:
             thumb = img
-        thumb.save(thumb_dir / name, format="PNG")
+        fmt = _normalize_format(image_format)
+        save_kwargs: dict[str, Any] = {}
+        if fmt in ("WEBP", "JPEG"):
+            save_kwargs["quality"] = max(1, min(100, int(quality)))
+        thumb.save(thumb_dir / name, format=fmt, **save_kwargs)
     except Exception as e:
         logger.warning("Thumbnail generation failed: %s", e)
 
@@ -76,13 +119,23 @@ def finalize_output(
     thumb_dir: Path | None,
     thumb_name: str,
     thumb_max_side: int,
+    image_format: str = "png",
+    image_quality: int = 95,
+    thumb_format: str = "png",
+    thumb_quality: int = 90,
 ) -> None:
-    """输出管线唯一入口：落盘 + 来源标识 + 缩略图。"""
-    save_png(path, image, is_tensor=is_tensor)
+    """输出管线唯一入口：落盘 + 来源标识 + 缩略图。
+
+    image_format/image_quality 控制主图压缩（P0 WebP/有损）；thumb_* 控制缩略图。
+    """
+    save_image(path, image, is_tensor=is_tensor, image_format=image_format, quality=image_quality)
     if wm_enabled:
-        embed_provenance(path, product_id, task_id)
+        embed_provenance(path, product_id, task_id, image_format=image_format)
     if thumb_enabled and thumb_dir is not None:
-        make_thumbnail(path, thumb_dir, thumb_name, thumb_max_side)
+        make_thumbnail(
+            path, thumb_dir, thumb_name, thumb_max_side,
+            image_format=thumb_format, quality=thumb_quality,
+        )
 
 
 def generate_compare_image(img_a: Any, img_b: Any, axis: str = "horizontal") -> Any:

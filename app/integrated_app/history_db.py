@@ -500,6 +500,9 @@ class HistoryDB:
         """
         清理超期任务（保留策略：天数/大小双阈值）。
 
+        关键修复（COST_GOVERNANCE_ASSESSMENT P0）：清理任务时**同步删除磁盘上的
+        实际输出图片**，否则仅删 DB 记录无法释放存储，磁盘仍会被写满。
+
         Args:
             keep_days: 保留天数（0 = 不按天数清理）
             max_gb: 输出目录最大 GB（0 = 不按大小清理）
@@ -507,39 +510,80 @@ class HistoryDB:
         Returns:
             删除的任务数
         """
-        conn = self.conn
-        deleted = 0
+        outputs_dir = (Path(self.db_path).parent.parent / "outputs")
+        candidate_ids: list[str] = []
 
         if keep_days > 0:
             cutoff = time.time() - keep_days * 86400
             cutoff_str = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(cutoff))
-            cur = conn.execute(
-                "DELETE FROM tasks WHERE created_at < ? AND favorite=0",
+            rows = self.conn.execute(
+                "SELECT task_id FROM tasks WHERE created_at < ? AND favorite=0",
                 (cutoff_str,),
-            )
-            deleted += cur.rowcount
+            ).fetchall()
+            candidate_ids.extend(r[0] for r in rows)
 
-        if max_gb > 0:
-            # 按输出目录大小清理（删除最旧的非收藏任务）
-            import shutil as _shutil
-            outputs_dir = Path(self.db_path).parent.parent / "outputs"
-            if outputs_dir.exists():
-                try:
-                    size_gb = _shutil.disk_usage(str(outputs_dir)).used / (1024**3)
-                    if size_gb > max_gb:
-                        # 删除最旧的非收藏任务
-                        cur = conn.execute(
-                            "DELETE FROM tasks WHERE favorite=0 ORDER BY created_at ASC LIMIT ?",
-                            (max(1, int((size_gb - max_gb) * 10)),),
-                        )
-                        deleted += cur.rowcount
-                except Exception:
-                    pass
+        if max_gb > 0 and outputs_dir.exists():
+            try:
+                import shutil as _shutil
 
-        conn.commit()
+                size_gb = _shutil.disk_usage(str(outputs_dir)).used / (1024**3)
+                if size_gb > max_gb:
+                    total_rows = self.conn.execute(
+                        "SELECT task_id FROM tasks WHERE favorite=0 ORDER BY created_at ASC"
+                    ).fetchall()
+                    n = len(total_rows)
+                    if n > 0:
+                        # 近似：按超额比例删除最旧任务（至少 1 个），避免一次删光
+                        over_ratio = min(1.0, (size_gb - max_gb) / max(size_gb, 1e-6))
+                        drop = max(1, int(n * over_ratio))
+                        candidate_ids.extend(r[0] for r in total_rows[:drop])
+            except Exception:
+                pass
+
+        if not candidate_ids:
+            return 0
+        deleted = self._delete_tasks_with_files(candidate_ids, outputs_dir)
         if deleted > 0:
-            logger.info(f"Cleanup: deleted {deleted} old tasks")
+            logger.info(f"Cleanup: deleted {deleted} old tasks (keep_days={keep_days}, max_gb={max_gb})")
         return deleted
+
+    def _delete_tasks_with_files(self, task_ids: list[str], outputs_dir: Path) -> int:
+        """删除任务及其关联的磁盘输出文件（保留收藏任务不被删文件）。"""
+        task_ids = list(dict.fromkeys(task_ids))
+        if not task_ids:
+            return 0
+        placeholders = ",".join("?" * len(task_ids))
+        # 1) 删除实际图片文件
+        rows = self.conn.execute(
+            f"SELECT path FROM outputs WHERE task_id IN ({placeholders})", task_ids
+        ).fetchall()
+        for (p,) in rows:
+            try:
+                fp = outputs_dir / p
+                if fp.exists():
+                    fp.unlink()
+            except Exception as e:  # noqa: BLE001
+                logger.debug("Failed to unlink output file %s: %s", p, e)
+        # 2) 删除任务（ON DELETE CASCADE 清理 outputs 行）
+        cur = self.conn.execute(f"DELETE FROM tasks WHERE task_id IN ({placeholders})", task_ids)
+        self.conn.commit()
+        return cur.rowcount
+
+    def aggregate_cost_by_engine(self) -> list[dict[str, Any]]:
+        """按引擎聚合成本相关指标（FinOps 报表数据源）。
+
+        Returns:
+            [{"engine","tasks","completed","failed","total_processing_s","output_count"}, ...]
+        """
+        rows = self.conn.execute(
+            "SELECT engine, COUNT(*) AS tasks, "
+            "SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS completed, "
+            "SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) AS failed, "
+            "COALESCE(SUM(processing_time_s),0) AS total_processing_s, "
+            "COALESCE(SUM(output_count),0) AS output_count "
+            "FROM tasks GROUP BY engine"
+        ).fetchall()
+        return [dict(r) for r in rows]
 
     def close(self) -> None:
         """关闭数据库连接"""
