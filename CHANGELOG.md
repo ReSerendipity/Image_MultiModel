@@ -17,6 +17,16 @@
 * **cost(governance):** 成本治理观测层落地——`cost_governance.py`（GPU 时数/存储/吞吐指标采集与持久化）、`overload_policy.py`（队列分级过载 70%/85%/95%/100% 四档，大 batch 优先限流并回 `Retry-After`）、`routes/governance_routes.py`（`/api/governance/*` 资源与成本视图）、`observability/`（Prometheus 指标、告警引擎、生成指标、空闲卸载）
 * **observability:** 统一指标抓取端点 `/api/metrics`（零依赖 Prometheus exposition，标签仅低基数字段）+ 告警评估端点 `/api/alerts`（firing/pending + Runbook 链接）
 * **capacity(p1-9):** 新增 `scripts/capacity_baseline.py` 单机容量基线 runner（分辨率 × batch 矩阵，输出 P50/P95/P99、吞吐、OOM 与「最大安全队列深度 / 扩容触发点」），无 GPU 时由 `IMM_FAKE_ENGINE=1` 驱动 FakeEngine，CI 可复现
+* **service(p0-1):** 抽取 `GenerationService` 服务层，消除 Fat Controller（路由仅保留 API 契约），内置孤儿任务回滚补偿(P2-8)与幂等键(P3-10)
+* **cache(p0-2):** 落地进程内 TTL/LRU 缓存层，消费原未生效的 `CacheConfig`（CLIP 检测结果 / 模型资源目录扫描命中缓存）
+* **perf(p1-3):** `preprocess_routes` 解码/预处理/PNG 编码统一卸载至线程池，避免冻结事件循环；修复 `app.integrated_app` 绝对导入
+* **tracing(p1-5):** 依赖无关的分布式追踪抽象（OTEL 未装时降级为进程内记录）+ 请求根 span 中间件 + 引擎推理 span，支持 W3C traceparent 跨进程续接
+* **task_queue(p2-6):** 批量任务失败按 `runtime.batch.max_retries` 指数退避自动重试；修复 worker 异常被外层 except 吞掉导致重试永不触发的缺陷
+* **compat(p3-9):** 生成链路（单图+批量）强制校验 LoRA 兼容性矩阵，不兼容即 422
+* **ops(p2-11):** `scripts/post_deploy_smoke.py` + CI `post-deploy-smoke` job（起真实服务→6 项检查→拆除），smoke 失败阻断晋级
+* **ops(p2-12):** 蓝绿双槽位部署：`docker-compose.bluegreen.yml` + `scripts/deploy/bluegreen.sh` + `.github/workflows/deploy.yml`（staging smoke 门禁 + 生产晋级人工批准 + 自动回滚）
+* **ops(p2-13):** DR 状态备份 `scripts/backup_state.py` + `docs/ops/state_backup.md`
+* **docs(ops):** 运维 runbook 体系 `docs/ops/{slo,alert_rules,oncall,post_mortem_template,bluegreen,staging_smoke}.md` 与 `docs/postmortems/`
 
 ### Changed
 

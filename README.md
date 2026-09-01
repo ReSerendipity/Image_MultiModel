@@ -114,6 +114,19 @@ docker run --gpus all -p 8288:8288 \
 
 ---
 
+## 运维与部署（蓝绿 / 部署后冒烟 / DR 备份）
+
+平台提供一套零额外依赖的运维工具链，覆盖「发布门禁 → 蓝绿切换 → 灾备回滚」：
+
+- **部署后冒烟（P2-11）**：`scripts/post_deploy_smoke.py` 起真实服务后跑 6 项检查（health / config / engines / 假生成 / 队列过载保护 / SSE），失败即阻断晋级；CI 的 `post-deploy-smoke` job 复用同一脚本。
+- **蓝绿部署（P2-12）**：`docker-compose.bluegreen.yml` + `scripts/deploy/bluegreen.sh` 实现单 GPU 串行双槽位切换（`blue` 在线 / `green` idle 验证），promote 失败自动回滚到 `LAST_GOOD`；`.github/workflows/deploy.yml` 串起 staging smoke 门禁 → 生产晋级（需人工批准）。
+- **DR 状态备份（P2-13）**：`scripts/backup_state.py` 备份历史库 / 配置 / 权重指纹等运行状态，恢复时回放。
+- **运维 runbook**：`docs/ops/` 下含 SLO、告警规则、值班、事故复盘模板与蓝绿/冒烟手册；事故记录见 `docs/postmortems/`。
+
+> 上述运维文档为本地 runbook（未随 Release 发布），按需查阅 `docs/ops/` 目录。
+
+---
+
 ## 内置工作流
 
 | 工作流 | 推荐显存 | 用途 | 引擎 key |
@@ -162,7 +175,9 @@ Image_MultiModel/
 ├── data/                        # 运行时数据（预设 / 上传 / 缓存）
 ├── outputs/                     # 生成结果输出
 ├── logs/                        # 运行日志
-├── scripts/                     # 工具脚本
+├── scripts/                     # 工具脚本（含 scripts/deploy/ 蓝绿部署）
+├── docs/ops/                    # 运维 runbook（SLO / 告警 / 值班 / 复盘 / 蓝绿 / 冒烟）
+├── docs/postmortems/            # 事故复盘记录
 ├── tests/                       # pytest + Hypothesis 测试套件
 ├── start.bat / install.bat      # Windows 启动 / 安装脚本
 ├── requirements.txt / requirements-lock.txt
