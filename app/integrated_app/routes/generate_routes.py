@@ -11,6 +11,7 @@ import asyncio
 import base64
 import io
 import logging
+import os
 import uuid
 from pathlib import Path
 from typing import Any
@@ -248,8 +249,11 @@ async def generate(req: GenerateRequest, request: Request) -> GenerateResponse:
         )
 
     # P1 VRAM 水位感知动态 batch 上限：把用户请求钳制到调度器允许范围内
+    # 注：假引擎（IMM_FAKE_ENGINE=1）不消耗显存，钳制无意义；且真实 GPU 空闲水位
+    # 在测试/CI 环境波动会导致 batch_size 被随机钳制，使生成结果不确定（flaky）。
+    # 故假引擎路径跳过钳制，保留生产环境（真实 GPU）的钳制语义。
     scheduler = get_vram_scheduler()
-    if scheduler.enabled:
+    if scheduler.enabled and os.environ.get("IMM_FAKE_ENGINE") != "1":
         clamped = scheduler.clamp(req.batch_size)
         if clamped != req.batch_size:
             logger.info("VRAM scheduler clamped batch_size %s -> %s", req.batch_size, clamped)
