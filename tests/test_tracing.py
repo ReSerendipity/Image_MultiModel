@@ -11,7 +11,6 @@ from app.integrated_app.observability.tracing import (
     configure_tracing,
     format_traceparent,
     get_current_span,
-    get_recorder,
     get_tracer,
     parse_traceparent,
     recent_spans,

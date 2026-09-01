@@ -27,9 +27,10 @@ import os
 import random
 import time
 from collections import deque
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any, Iterator
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -254,9 +255,7 @@ class Tracer:
 
 
 # ── 当前 span（跨层父子串联用）─────────────────────────────────
-_current_span: contextvars.ContextVar[Span | None] = contextvars.ContextVar(
-    "current_span", default=None
-)
+_current_span: contextvars.ContextVar[Span | None] = contextvars.ContextVar("current_span", default=None)
 
 
 def set_current_span(span: Span | None) -> Any:
