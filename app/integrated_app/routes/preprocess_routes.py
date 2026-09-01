@@ -69,6 +69,15 @@ def _decode_b64_image(image_b64: str) -> np.ndarray:
 
         img_data = base64.b64decode(image_b64)
 
+        # M-03: 体积 + 解压炸弹（像素）上限校验，超过即 413
+        from ..config import get_config
+        from ..security.upload_limits import enforce_upload_limits
+
+        cfg = get_config()
+        enforce_upload_limits(
+            img_data, cfg.output.uploads.max_size_mb, cfg.output.uploads.max_pixels
+        )
+
         # SECURITY: 显式魔数校验（对齐 SeedVR2），阻断伪装/非图片数据
         from app.integrated_app.security.magic_check import validate_image_magic
         is_magic, detected_type, error = validate_image_magic(img_data)

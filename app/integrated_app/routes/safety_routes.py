@@ -79,7 +79,10 @@ async def check_image(req: CheckImageRequest, request: Request) -> CheckImageRes
     from ..security.path_guard import PathGuard, PathGuardError
 
     cfg = get_config()
-    guard = PathGuard(cfg.security.allowed_base_dirs, cfg.project_root)
+    # M-07: 只读图片接口使用独立的 image_read_base_dirs 白名单，避免通过
+    # 图片检查接口读取 model/ 下的权重文件（留空时回退到 allowed_base_dirs）。
+    read_bases = cfg.security.image_read_base_dirs or cfg.security.allowed_base_dirs
+    guard = PathGuard(read_bases, cfg.project_root)
     try:
         safe_path = guard.resolve(req.image_path)
     except PathGuardError:

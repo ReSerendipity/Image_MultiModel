@@ -19,14 +19,43 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from ..config import get_config
+from ..cost_governance import get_vram_scheduler
 from ..engine_interface import GenerationConfig
 from ..gpu_utils import preflight_vram
 from ..i18n import get_error_message
+from ..observability.generation_metrics import (
+    record_generation_accepted,
+    record_generation_rejected,
+    record_generation_submitted,
+)
+from ..observability.metrics import get_metrics
+from ..overload_policy import evaluate_overload, fill_ratio_of
 from ..task_queue import Task, TaskQueue, TaskStatus
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["generate"])
+
+
+def _maybe_reject_overload(task_queue: TaskQueue, cfg: Any, batch_size: int) -> None:
+    """P1-8 分级过载策略：入队前评估队列填充率，必要时抛 HTTPException。
+
+    - 70%：仅观察（proceed）
+    - 85%：大 batch 快速拒绝 429 + Retry-After
+    - 95%：快速拒绝 429 + Retry-After
+    - 100%：明确 503
+
+    在创建 history 记录之前调用，避免孤儿记录。
+    """
+    maxsize = cfg.runtime.task_queue.maxsize
+    fill = fill_ratio_of(task_queue.queue_size, maxsize)
+    decision = evaluate_overload(fill, batch_size)
+    if decision.action == "proceed":
+        return
+    record_generation_rejected(decision.reason)
+    get_metrics().queue_rejected_total.inc(1.0, reason=decision.reason)
+    headers = {"Retry-After": str(decision.retry_after_s)} if decision.retry_after_s else None
+    raise HTTPException(status_code=decision.status, detail=decision.message, headers=headers)
 
 
 class GenerateRequest(BaseModel):
@@ -127,6 +156,13 @@ def _resolve_reference_image(req: GenerateRequest, cfg: Any) -> str | None:
         except Exception as e:
             raise HTTPException(400, detail=f"Reference image decode failed: {e}")
 
+        # M-03: 体积 + 解压炸弹（像素）上限校验，超过即 413
+        from ..security.upload_limits import enforce_upload_limits
+
+        enforce_upload_limits(
+            img_data, cfg.output.uploads.max_size_mb, cfg.output.uploads.max_pixels
+        )
+
         # SECURITY: 魔数校验（对齐 preprocess_routes），阻断伪装/非图片数据
         from ..security.magic_check import validate_image_magic
 
@@ -159,12 +195,14 @@ async def generate(req: GenerateRequest, request: Request) -> GenerateResponse:
 
     # 验证引擎存在
     if engine_name not in cfg.models.engines:
+        record_generation_rejected("engine_not_found")
         raise HTTPException(404, detail=get_error_message("engine_not_found", name=engine_name))
 
     engine_cfg = cfg.models.engines[engine_name]
 
     # 验证 batch_size
     if req.batch_size < 1 or req.batch_size > 9999:
+        record_generation_rejected("batch_too_large")
         raise HTTPException(400, detail=get_error_message("batch_too_large"))
 
     # 内容安全过滤（P0 任务1: CLIP 安全检测集成；参考图可选，有则生成前 CLIP 图检）
@@ -181,6 +219,7 @@ async def generate(req: GenerateRequest, request: Request) -> GenerateResponse:
         cfg.security.content_filter.fail_closed_on_clip_missing,
     )
     if not is_safe:
+        record_generation_rejected("content_blocked")
         raise HTTPException(400, detail=get_error_message("content_blocked", reason=reason))
 
     # 显存预检
@@ -198,6 +237,7 @@ async def generate(req: GenerateRequest, request: Request) -> GenerateResponse:
     )
 
     if not vram_est.can_run:
+        record_generation_rejected("vram_insufficient")
         raise HTTPException(
             400,
             detail=get_error_message(
@@ -206,6 +246,14 @@ async def generate(req: GenerateRequest, request: Request) -> GenerateResponse:
                 avail=vram_est.available_vram_gb,
             ),
         )
+
+    # P1 VRAM 水位感知动态 batch 上限：把用户请求钳制到调度器允许范围内
+    scheduler = get_vram_scheduler()
+    if scheduler.enabled:
+        clamped = scheduler.clamp(req.batch_size)
+        if clamped != req.batch_size:
+            logger.info("VRAM scheduler clamped batch_size %s -> %s", req.batch_size, clamped)
+            req.batch_size = clamped
 
     # 构建 GenerationConfig
     gen_config = GenerationConfig(
@@ -248,6 +296,8 @@ async def generate(req: GenerateRequest, request: Request) -> GenerateResponse:
 
     # 获取 TaskQueue
     task_queue: TaskQueue = request.app.state.task_queue
+    # P1-8 分级过载策略：入队前评估，避免创建孤儿 history 记录
+    _maybe_reject_overload(task_queue, cfg, req.batch_size)
     task_id = task_queue.generate_task_id()
 
     # 创建任务
@@ -271,9 +321,13 @@ async def generate(req: GenerateRequest, request: Request) -> GenerateResponse:
     )
 
     # 提交到队列
+    record_generation_submitted(engine_name)
     success = await task_queue.submit(task)
     if not success:
+        record_generation_rejected("queue_full")
+        get_metrics().queue_rejected_total.inc(1.0, reason="full")
         raise HTTPException(503, detail=get_error_message("task_queue_full"))
+    record_generation_accepted(engine_name)
 
     # 估算时间
     est_time = req.batch_size * (2.0 + (3.0 if req.seedvr2_enable else 0))
@@ -304,10 +358,12 @@ async def generate_batch(req: BatchGenerateRequest, request: Request) -> dict[st
 
     # 引擎存在性校验（与单图 /generate 对齐）
     if engine_name not in cfg.models.engines:
+        record_generation_rejected("engine_not_found")
         raise HTTPException(404, detail=get_error_message("engine_not_found", name=engine_name))
 
     # batch_size 校验（与单图 /generate 对齐）
     if req.base_config.batch_size < 1 or req.base_config.batch_size > 9999:
+        record_generation_rejected("batch_too_large")
         raise HTTPException(400, detail=get_error_message("batch_too_large"))
 
     # 生成组合
@@ -356,6 +412,8 @@ async def generate_batch(req: BatchGenerateRequest, request: Request) -> dict[st
     # 批量提交
     task_queue: TaskQueue = request.app.state.task_queue
     history_db = request.app.state.history_db
+    # P1-8 分级过载策略：批量本身即「大 batch」，85% 以上档位直接拒绝
+    _maybe_reject_overload(task_queue, cfg, total)
     batch_id = task_queue.generate_task_id()
     task_ids: list[str] = []
 
@@ -384,8 +442,13 @@ async def generate_batch(req: BatchGenerateRequest, request: Request) -> dict[st
                 prompt=prompt,
                 generation_config=gen_config.model_dump(exclude={"reference_image_path", "reference_image_b64"}),
             )
-            await task_queue.submit(task)
-            task_ids.append(task_id)
+            record_generation_submitted(engine_name)
+            if await task_queue.submit(task):
+                record_generation_accepted(engine_name)
+                task_ids.append(task_id)
+            else:
+                record_generation_rejected("queue_full")
+                get_metrics().queue_rejected_total.inc(1.0, reason="full")
 
     return {
         "batch_id": batch_id,
