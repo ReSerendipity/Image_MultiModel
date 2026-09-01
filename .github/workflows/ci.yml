@@ -377,7 +377,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install test deps
-        run: pip install pytest pytest-timeout
+        run: pip install pytest pytest-timeout pyyaml
       - name: Generate release metadata + SBOM
         # --no-model-hash：CI 无模型权重，跳过哈希以控制时长
         run: python scripts/build_release_metadata.py --version 0.0.0-ci --no-model-hash
