@@ -52,6 +52,7 @@ def _make_app_with_rate_limit(
     global_per_minute: int = 5,
     infer_per_minute: int = 2,
     upload_per_minute: int = 1,
+    trusted_proxies: bool = True,
 ) -> FastAPI:
     app = FastAPI()
     app.add_middleware(
@@ -59,6 +60,7 @@ def _make_app_with_rate_limit(
         global_per_minute=global_per_minute,
         infer_per_minute=infer_per_minute,
         upload_per_minute=upload_per_minute,
+        trusted_proxies=trusted_proxies,
     )
 
     @app.get("/test")
@@ -117,6 +119,42 @@ class TestRateLimitMiddleware:
             assert r.status_code == 200
             r = client.post("/api/upload")
             assert r.status_code == 429
+
+    def test_proxy_recognition_x_forwarded_for(self):
+        """L-03：信任代理时按 X-Forwarded-For 首跳限流（不同真实客户端互不影响）。"""
+        app = _make_app_with_rate_limit(global_per_minute=1, trusted_proxies=True)
+        with TestClient(app) as client:
+            # 客户端 A（XFF=9.9.9.9）第一次通过
+            r = client.get("/test", headers={"X-Forwarded-For": "9.9.9.9"})
+            assert r.status_code == 200
+            # 客户端 A 第二次被限流
+            r = client.get("/test", headers={"X-Forwarded-For": "9.9.9.9"})
+            assert r.status_code == 429
+            # 客户端 B（不同 XFF）独立计桶，仍可通过
+            r = client.get("/test", headers={"X-Forwarded-For": "8.8.8.8"})
+            assert r.status_code == 200
+
+    def test_proxy_header_ignored_when_untrusted(self):
+        """L-03：不信任代理时忽略 X-Forwarded-For，按 TCP 对端限流。"""
+        app = _make_app_with_rate_limit(global_per_minute=1, trusted_proxies=False)
+        with TestClient(app) as client:
+            r = client.get("/test", headers={"X-Forwarded-For": "1.1.1.1"})
+            assert r.status_code == 200
+            # 伪造的 XFF 不能绕过限流
+            r = client.get("/test", headers={"X-Forwarded-For": "2.2.2.2"})
+            assert r.status_code == 429
+
+    def test_lru_bucket_is_bounded(self):
+        """L-03：_BoundedHits 超过上限时淘汰最久未用桶（防内存膨胀）。"""
+        from integrated_app.middleware.rate_limit import _BoundedHits
+
+        bh = _BoundedHits(max_buckets=3)
+        now = 1000.0
+        for ip in ("a", "b", "c", "d"):
+            bh.record(ip, now)
+        assert len(bh._data) == 3, f"桶数应被限制在 3，实际 {len(bh._data)}"
+        assert "a" not in bh._data, "最久未用桶 'a' 应被淘汰"
+        assert "d" in bh._data
 
 
 # ── 测试 CSRFMiddleware ─────────────────────────────────────

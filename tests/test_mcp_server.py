@@ -126,6 +126,16 @@ class FakeConfig:
         self.default_engine = "z_image_turbo_native"
         engine_cfg = FakeEngineCfg()
         self.engines: dict[str, FakeEngineCfg] = {engine_cfg.name: engine_cfg}
+        # mcp_server 与 HTTP 通道对齐，需读取安全配置（内容过滤 fail-closed 开关）
+        self.security = SimpleNamespace(
+            content_filter=SimpleNamespace(fail_closed_on_clip_missing=False),
+        )
+        # mcp_server 预检显存时读取推理配置项
+        self.inference = SimpleNamespace(
+            vram_multisample_rule=1.5,
+            vram_headroom_gb=2.0,
+            vram_tight_continue=False,
+        )
 
     @property
     def models(self):

@@ -145,6 +145,35 @@ class TestIntegritySelfCheck:
         manifest_path = PROJECT_ROOT / "app" / "integrated_app" / "security" / "integrity_manifest.json"
         assert manifest_path.exists(), f"Integrity manifest not found: {manifest_path}"
 
+    def test_manifest_covers_all_core_modules(self):
+        """H-04 验收：清单必须覆盖运行时自检的全部 _CORE_MODULES（无静默 skipped）。
+
+        历史上 magic_check.py / weight_integrity.py 在 _CORE_MODULES 中却不在清单，
+        导致启动时 skipped；本断言确保清单集合 == 核心模块集合，且 skipped == 0。
+        """
+        from integrated_app.security.integrity_selfcheck import (
+            _CORE_MODULES,
+            run_startup_selfcheck,
+        )
+
+        manifest_path = PROJECT_ROOT / "app" / "integrated_app" / "security" / "integrity_manifest.json"
+        import json
+
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest_files = set(manifest.get("files", {}).keys())
+
+        # 清单集合必须与核心模块集合完全一致（既不能漏也不能多）
+        assert manifest_files == set(_CORE_MODULES), (
+            f"清单与 _CORE_MODULES 不一致:\n"
+            f"  清单有但核心模块无: {manifest_files - set(_CORE_MODULES)}\n"
+            f"  核心模块有但清单无: {set(_CORE_MODULES) - manifest_files}"
+        )
+
+        # 实际运行自检，验收 skipped == 0（所有模块均有 hash 且存在）
+        result = run_startup_selfcheck()
+        assert result["skipped"] == 0, "自检存在 skipped 模块"
+        assert result["failed"] == 0, f"自检存在失败模块: {result['failed_files']}"
+
 
 # ── Checkpoint 测试（§1.3）──────────────────────────────────
 class TestCheckpoint:

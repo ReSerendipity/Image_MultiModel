@@ -70,3 +70,39 @@ def test_watermark_rgb_only_first_channel() -> None:
     # 第 2/3 通道应保持不变
     assert np.allclose(marked[:, :, 1], rgb[:, :, 1])
     assert np.allclose(marked[:, :, 2], rgb[:, :, 2])
+
+
+def test_embed_verify_after_embed_passes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """L-01/L-02：默认开启嵌入后校验，正常嵌入不抛异常。"""
+    img = _smooth_image()
+    ts = 1786200000.0
+    # 确保 verify 真实返回 True（不被其它测试副作用影响）
+    monkeypatch.setattr(watermark, "verify", lambda *a, **k: True)
+    marked = watermark.embed_watermark(img, "p", "t", ts)
+    assert marked is not None
+
+
+def test_embed_fail_closed_on_verify_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """L-01/L-02：嵌入后校验失败 → 抛 WatermarkEmbedError（fail-closed，拒绝返回）。"""
+    img = _smooth_image()
+    ts = 1786200000.0
+    monkeypatch.setattr(watermark, "verify", lambda *a, **k: False)
+    with pytest.raises(watermark.WatermarkEmbedError):
+        watermark.embed_watermark(img, "p", "t", ts)
+
+
+def test_embed_returns_contiguous_float64(monkeypatch: pytest.MonkeyPatch) -> None:
+    """L-04：返回值鲁棒性 —— 始终是连续 float64 numpy 数组。"""
+    monkeypatch.setattr(watermark, "verify", lambda *a, **k: True)
+    img = _smooth_image().astype(np.uint8)  # 非连续/非 float64 输入
+    marked = watermark.embed_watermark(img, "p", "t", 1.0)
+    assert isinstance(marked, np.ndarray)
+    assert marked.dtype == np.float64
+    assert marked.flags["C_CONTIGUOUS"]
+
+
+def test_embed_verify_after_embed_can_be_disabled() -> None:
+    """verify_after_embed=False 时不做回读校验（兼容调用方自行校验）。"""
+    img = _smooth_image()
+    marked = watermark.embed_watermark(img, "p", "t", 1.0, verify_after_embed=False)
+    assert marked is not None

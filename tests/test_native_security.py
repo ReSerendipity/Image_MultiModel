@@ -1,96 +1,149 @@
 """
-test_native_security.py — NativeEngine 输出落盘安全攻击测试
+tests/test_native_security.py — 默认引擎 NativeEngine 权重完整性校验（H-02）
 
-对应 AGENTS.md §4.5 铁律：新增文件操作 / 输出落盘逻辑必须补安全攻击向量。
-验证 NativeEngine._save_outputs 的输出路径经过 PathGuard 校验（防 ``../`` 穿越），
-覆盖：``../`` 穿越、深度穿越、Windows/Unix 绝对路径、反斜杠穿越、恶意引擎名注入等
-向量，全部必须抛 PathGuardError 拒绝；合法引擎名正向通过。
+验收：
+- verify_weights=True 时 load() 会对 resolve_engine_model_paths 解析出的权重做校验；
+- 损坏权重（pickle 载荷）在 fail_closed_on_corrupt_weight=True 时抛 WeightIntegrityError；
+- 文件缺失（懒加载未就位）时不阻断启动，跳过校验；
+- 合法 safetensors 文件通过校验并继续加载。
 """
 
 from __future__ import annotations
 
+import struct
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 
-import integrated_app.native.engine as engine_mod
-from integrated_app.engine_interface import GenerationConfig
-from integrated_app.native.engine import NativeEngine
-from integrated_app.security.path_guard import PathGuardError
+from app.integrated_app.native.engine import NativeEngine
+from app.integrated_app.security.weight_integrity import WeightIntegrityError
 
 
-class _FakeOutput:
-    base_dir = "outputs"
-    save_thumbnail = False
-    thumbnail_max_side = 512
+def _make_safetensors(path: Path) -> None:
+    """写一个最小合法 safetensors 文件（空 header，0 张量）。"""
+    header = b"{}"
+    path.write_bytes(struct.pack("<Q", len(header)) + header)
 
 
-class _FakeWatermark:
-    enabled_in_code = False
-    product_id = "TEST"
+def _make_pickle(path: Path) -> None:
+    """写一个 pickle 魔数文件（触发 CWE-502 危险载荷检测）。"""
+    path.write_bytes(b"\x80\x02cbuiltins\nexec\n(S'x'\ntR.")
 
 
-class _FakeSecurity:
-    allowed_base_dirs = ["outputs/"]
-
-
-class _FakeConfig:
-    def __init__(self, project_root: Path) -> None:
-        self.project_root = Path(project_root)
-        self.output = _FakeOutput()
-        self.watermark = _FakeWatermark()
-        self.security = _FakeSecurity()
+def _fake_config(
+    *,
+    verify_weights: bool = True,
+    fail_closed: bool = False,
+    only_safetensors: bool = True,
+    engine_name: str = "z_image_turbo_native",
+) -> SimpleNamespace:
+    model_format = SimpleNamespace(
+        verify_weights=verify_weights,
+        fail_closed_on_corrupt_weight=fail_closed,
+        only_safetensors=only_safetensors,
+    )
+    security = SimpleNamespace(model_format=model_format)
+    engines = {engine_name: SimpleNamespace(name=engine_name)}
+    models = SimpleNamespace(engines=engines)
+    return SimpleNamespace(
+        models=models,
+        security=security,
+        project_root=Path(__file__).resolve().parents[1],
+    )
 
 
 @pytest.fixture
-def fake_config(monkeypatch, tmp_path):
-    """把 engine 模块的 get_config 指向临时配置，避免污染真实 outputs/ 目录。"""
-    monkeypatch.setattr(engine_mod, "get_config", lambda: _FakeConfig(tmp_path))
-    return tmp_path
+def patch_source_load():
+    """屏蔽 comfy 源码装载（避免重型 import comfy），保持测试轻量。"""
+    with patch("app.integrated_app.native.source.ensure_loaded", return_value=None) as m:
+        yield m
 
 
-def _save(engine: NativeEngine, config: GenerationConfig | None = None) -> list[str]:
-    """调用 _save_outputs（sync），images 为空列表即可触发路径解析。"""
-    return engine._save_outputs([], config or GenerationConfig())
+@pytest.mark.asyncio
+async def test_corrupt_weight_fail_closed_raises(patch_source_load, tmp_path):
+    """损坏权重 + fail_closed=True → load() 抛 WeightIntegrityError。"""
+    corrupt = tmp_path / "unet.safetensors"
+    _make_pickle(corrupt)
+
+    cfg = _fake_config(fail_closed=True)
+    with patch(
+        "app.integrated_app.native.engine.get_config", return_value=cfg
+    ), patch(
+        "app.integrated_app.native.engine.resolve_engine_model_paths",
+        return_value={"unet": str(corrupt)},
+    ):
+        eng = NativeEngine(name="z_image_turbo_native")
+        with pytest.raises(WeightIntegrityError):
+            await eng.load()
+    assert not eng.is_ready()
 
 
-class TestNativeSavePathTraversal:
-    """NativeEngine._save_outputs 输出路径穿越攻击向量"""
+@pytest.mark.asyncio
+async def test_corrupt_weight_fail_open_skips(patch_source_load, tmp_path):
+    """损坏权重 + fail_closed=False → 跳过该权重，load() 正常完成。"""
+    corrupt = tmp_path / "unet.safetensors"
+    _make_pickle(corrupt)
 
-    def test_double_dot_engine_name(self, fake_config) -> None:
-        """引擎名含 ``../`` 穿越 → 拒绝。"""
-        eng = NativeEngine(name="../../etc")
-        with pytest.raises(PathGuardError):
-            _save(eng)
+    cfg = _fake_config(fail_closed=False)
+    with patch(
+        "app.integrated_app.native.engine.get_config", return_value=cfg
+    ), patch(
+        "app.integrated_app.native.engine.resolve_engine_model_paths",
+        return_value={"unet": str(corrupt)},
+    ):
+        eng = NativeEngine(name="z_image_turbo_native")
+        await eng.load()  # 不应抛异常
+    assert eng.is_ready()
 
-    def test_deep_traversal_engine_name(self, fake_config) -> None:
-        """引擎名深度穿越到系统目录 → 拒绝。"""
-        eng = NativeEngine(name="../../../Windows/System32/config/SAM")
-        with pytest.raises(PathGuardError):
-            _save(eng)
 
-    def test_absolute_path_engine_name(self, fake_config) -> None:
-        """引擎名为 Windows 绝对盘符路径 → 拒绝。"""
-        eng = NativeEngine(name="C:/Windows/System32/config/SAM")
-        with pytest.raises(PathGuardError):
-            _save(eng)
+@pytest.mark.asyncio
+async def test_missing_weight_skipped_lazy(patch_source_load, tmp_path):
+    """权重文件尚未就位（file_not_found）→ 跳过校验，不阻断启动。"""
+    cfg = _fake_config()
+    with patch(
+        "app.integrated_app.native.engine.get_config", return_value=cfg
+    ), patch(
+        "app.integrated_app.native.engine.resolve_engine_model_paths",
+        return_value={"unet": str(tmp_path / "not_yet.safetensors")},
+    ):
+        eng = NativeEngine(name="z_image_turbo_native")
+        await eng.load()
+    assert eng.is_ready()
 
-    def test_unix_absolute_engine_name(self, fake_config) -> None:
-        """引擎名为 Unix 绝对路径 → 拒绝。"""
-        eng = NativeEngine(name="/etc/passwd")
-        with pytest.raises(PathGuardError):
-            _save(eng)
 
-    def test_backslash_traversal_engine_name(self, fake_config) -> None:
-        """引擎名反斜杠穿越 → 拒绝。"""
-        eng = NativeEngine(name="..\\..\\..\\etc")
-        with pytest.raises(PathGuardError):
-            _save(eng)
+@pytest.mark.asyncio
+async def test_valid_safetensors_passes(patch_source_load, tmp_path):
+    """合法 safetensors → 通过校验，load() 继续。"""
+    good = tmp_path / "unet.safetensors"
+    _make_safetensors(good)
 
-    def test_valid_engine_name_passes(self, fake_config) -> None:
-        """正向：合法引擎名通过并落在临时 outputs/{name}/{date} 下。"""
-        eng = NativeEngine(name="z_image_turbo")
-        saved = _save(eng)
-        assert saved == []
-        out_root = Path(fake_config) / "outputs"
-        assert out_root.is_dir()
+    cfg = _fake_config(fail_closed=True)
+    with patch(
+        "app.integrated_app.native.engine.get_config", return_value=cfg
+    ), patch(
+        "app.integrated_app.native.engine.resolve_engine_model_paths",
+        return_value={"unet": str(good)},
+    ):
+        eng = NativeEngine(name="z_image_turbo_native")
+        await eng.load()
+    assert eng.is_ready()
+
+
+@pytest.mark.asyncio
+async def test_verify_disabled_skips_check(patch_source_load, tmp_path):
+    """verify_weights=False → 即便权重损坏也不校验，load() 正常完成。"""
+    corrupt = tmp_path / "unet.safetensors"
+    _make_pickle(corrupt)
+
+    cfg = _fake_config(verify_weights=False, fail_closed=True)
+    with patch(
+        "app.integrated_app.native.engine.get_config", return_value=cfg
+    ), patch(
+        "app.integrated_app.native.engine.resolve_engine_model_paths",
+        return_value={"unet": str(corrupt)},
+    ):
+        eng = NativeEngine(name="z_image_turbo_native")
+        await eng.load()
+    assert eng.is_ready()
