@@ -40,6 +40,15 @@ class _BoundedHits:
         return dq
 
 
+# 命中计数采用模块级（进程内共享）存储。
+# 速率限制本就是进程级策略，多中间件实例共享同一份计数在语义上完全一致；
+# 模块级存储使测试夹具可在用例间可靠地重置（见 reset_rate_limiters），
+# 而不依赖中间件实例的生命周期。
+_GLOBAL_HITS = _BoundedHits()
+_INFER_HITS = _BoundedHits()
+_UPLOAD_HITS = _BoundedHits()
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """
     简单的内存速率限制（每真实客户端 IP）。
@@ -63,9 +72,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.infer_limit = infer_per_minute
         self.upload_limit = upload_per_minute
         self.trusted_proxies = trusted_proxies
-        self._global_hits = _BoundedHits()
-        self._infer_hits = _BoundedHits()
-        self._upload_hits = _BoundedHits()
 
     @staticmethod
     def _client_ip(request: Request, trusted_proxies: bool = True) -> str:
@@ -99,7 +105,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         client_ip = self._client_ip(request, self.trusted_proxies)
 
         # 全局限制
-        if not self._check_rate(self._global_hits, client_ip, self.global_limit):
+        if not self._check_rate(_GLOBAL_HITS, client_ip, self.global_limit):
             return Response(
                 content='{"detail": "Rate limit exceeded (global)"}',
                 status_code=429,
@@ -110,7 +116,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # 推理接口限制
         path = request.url.path
         if "/api/generate" in path and request.method == "POST":
-            if not self._check_rate(self._infer_hits, client_ip, self.infer_limit):
+            if not self._check_rate(_INFER_HITS, client_ip, self.infer_limit):
                 return Response(
                     content='{"detail": "Rate limit exceeded (infer)"}',
                     status_code=429,
@@ -120,7 +126,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # 上传接口限制
         if "/api/upload" in path and request.method == "POST":
-            if not self._check_rate(self._upload_hits, client_ip, self.upload_limit):
+            if not self._check_rate(_UPLOAD_HITS, client_ip, self.upload_limit):
                 return Response(
                     content='{"detail": "Rate limit exceeded (upload)"}',
                     status_code=429,
@@ -129,3 +135,15 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 )
 
         return await call_next(request)
+
+
+def reset_rate_limiters() -> None:
+    """清空全部速率限制命中计数（测试夹具在每个用例前后调用）。
+
+    命中计数位于模块级（进程内共享），直接重建即可归零，无需追踪中间件
+    实例生命周期。生产运行时本函数不被调用，对限流语义无影响。
+    """
+    global _GLOBAL_HITS, _INFER_HITS, _UPLOAD_HITS
+    _GLOBAL_HITS = _BoundedHits()
+    _INFER_HITS = _BoundedHits()
+    _UPLOAD_HITS = _BoundedHits()
