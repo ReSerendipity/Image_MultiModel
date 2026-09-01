@@ -193,9 +193,14 @@ jobs:
           python scripts/render_pages.py || echo "render_pages.py not found or failed, creating minimal HTML"
           mkdir -p tests/frontend/_rendered
           cp app/integrated_app/static/index.html tests/frontend/_rendered/ 2>/dev/null || true
-      - name: Run frontend smoke tests
+      - name: Run frontend smoke tests (jsdom)
         run: |
           node tests/frontend/smoke.js
+      # M-06 XSS 转义回归（纯 Node，无 jsdom 依赖）。
+      # 此前 CI 只跑 smoke.js，这份安全回归测试从未被纳入流水线。
+      - name: Run frontend XSS regression
+        run: |
+          node tests/frontend/xss_regression.js
 
   e2e:
     name: E2E Tests (Playwright)
@@ -222,6 +227,16 @@ jobs:
       - name: Install Playwright browsers
         run: |
           python -m playwright install chromium --with-deps
+      # 视觉回归基线按「平台-浏览器」分桶（字体渲染跨 OS 差异大，共用基线必假阳性）。
+      # CI 每次是全新 checkout，若不缓存基线，快照会每次重新生成并 skip，
+      # 比对就沦为空转；缓存后同一 OS+browser 的连续运行才会真正做像素比对。
+      - name: Cache visual regression baselines
+        uses: actions/cache@v4
+        with:
+          path: tests/e2e/__snapshots__
+          key: ${{ runner.os }}-e2e-snapshots-${{ hashFiles('app/integrated_app/templates/index.html') }}
+          restore-keys: |
+            ${{ runner.os }}-e2e-snapshots-
       - name: Start application in background (fake engine, no GPU)
         env:
           IMM_FAKE_ENGINE: "1"

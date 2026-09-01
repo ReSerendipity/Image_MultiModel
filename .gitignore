@@ -213,3 +213,9 @@ release/*.json
 
 # 状态备份产物（P2-13，本地/部署机生成，不入库）
 backups/
+
+# 性能基准趋势日志（含时间戳与机型，本机产物，不入库）
+perf/benchmark_history.jsonl
+
+# 本地 AI 工作区状态（与既有 .catpaw/ .trae/ .qoder/ 同类，仅本机保留）
+.workbuddy-ai/
