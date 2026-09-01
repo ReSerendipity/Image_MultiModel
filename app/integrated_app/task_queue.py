@@ -31,6 +31,7 @@ class TaskStatus(str, Enum):
 @dataclass
 class Task:
     """队列中的任务"""
+
     task_id: str
     engine: str
     config: dict[str, Any]
@@ -200,7 +201,7 @@ class TaskQueue:
                         asyncio.get_event_loop().run_in_executor(None, worker_func, task),
                         timeout=self._max_timeout_s,
                     )
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     task.error = f"Task timed out after {self._max_timeout_s}s"
                 except Exception as e:  # worker 执行抛错（含线程池内异常）
                     task.error = str(e)
@@ -218,14 +219,19 @@ class TaskQueue:
                         )
                         logger.warning(
                             "Task %s failed (attempt %d/%d), retrying in %.1fs: %s",
-                            task.task_id, task.attempts, self._max_retries, delay, task.error,
+                            task.task_id,
+                            task.attempts,
+                            self._max_retries,
+                            delay,
+                            task.error,
                         )
                         task.status = TaskStatus.PENDING
                         task.error = ""
                         task.started_at = 0.0
                         task.progress = 0
                         self._notify_status(
-                            task.task_id, TaskStatus.PENDING,
+                            task.task_id,
+                            TaskStatus.PENDING,
                             {"retry": task.attempts, "retry_delay_s": delay},
                         )
                         await asyncio.sleep(delay)
@@ -236,7 +242,8 @@ class TaskQueue:
                 else:
                     task.status = TaskStatus.COMPLETED
                     self._notify_status(
-                        task.task_id, TaskStatus.COMPLETED,
+                        task.task_id,
+                        TaskStatus.COMPLETED,
                         {"result": task.result or []},
                     )
 
