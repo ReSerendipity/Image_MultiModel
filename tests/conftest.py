@@ -127,3 +127,33 @@ def _clear_dependency_overrides():
     yield
     app.dependency_overrides.clear()
 
+
+# ── 反模式 #3 防护（续）：重置限流器命中桶 ───────────────────────
+@pytest.fixture(autouse=True)
+def _reset_rate_limiters():
+    """每个用例前后清空限流器命中计数，避免模块级共享 client 累积请求
+
+    耗尽 per-IP 限流预算（infer 30/min）使后续用例误判 429。生产运行时
+    本夹具同样运行，但测试间隔内无请求累积，对行为无影响。
+
+    注意：测试环境 sys.path 同时包含 ``PROJECT_ROOT`` 与 ``PROJECT_ROOT/app``，
+    同一份 ``rate_limit.py`` 可能被加载为 ``integrated_app.middleware.rate_limit``
+    与 ``app.integrated_app.middleware.rate_limit`` 两个模块对象（取决于首个
+    导入方的写法）。运行中的中间件用哪一个，重置就必须瞄准同一个。这里两个
+    名字都尝试重置，确保无论 app 以哪种形式加载都能清空对应桶。
+    """
+    import sys
+
+    def _reset_all():
+        for modname in (
+            "integrated_app.middleware.rate_limit",
+            "app.integrated_app.middleware.rate_limit",
+        ):
+            mod = sys.modules.get(modname)
+            if mod is not None and hasattr(mod, "reset_rate_limiters"):
+                mod.reset_rate_limiters()
+
+    _reset_all()
+    yield
+    _reset_all()
+

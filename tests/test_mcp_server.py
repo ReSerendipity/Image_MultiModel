@@ -35,6 +35,30 @@ def call_params(name: str, arguments: dict[str, Any] | None = None) -> dict[str,
     return {"name": name, "arguments": arguments or {}}
 
 
+def _mock_vram_preflight(monkeypatch) -> None:
+    """MCP txt2img 会调用 preflight_vram 做显存预检，该预检依赖真实 GPU 显存
+
+    （全集顺序跑时前置测试会改变显存/全局 reserved 状态，导致 can_run 在
+    隔离跑通过、全集跑失败而 flaky）。本测试只验证 txt2img 装配逻辑，用
+    确定性结果屏蔽真实显存依赖。
+    """
+    import integrated_app.gpu_utils as _gpu
+    from integrated_app.gpu_utils import VRAMEstimate
+
+    monkeypatch.setattr(
+        _gpu,
+        "preflight_vram",
+        lambda **kw: VRAMEstimate(
+            can_run=True,
+            needed_vram_gb=0.0,
+            available_vram_gb=99.0,
+            recommended_precision="fp8",
+            recommended_chunk_size=1,
+            warning="",
+        ),
+    )
+
+
 # ── Fake 引擎 / 注册表 ───────────────────────────────────────
 
 
@@ -163,6 +187,7 @@ def fake_env(monkeypatch):
     monkeypatch.setattr(mr_mod, "get_model_registry", lambda: SimpleNamespace(
         create_engine_instance=lambda **kw: engine,
     ))
+    _mock_vram_preflight(monkeypatch)
     return SimpleNamespace(engine=engine, registry=registry, manager=manager)
 
 
@@ -430,6 +455,7 @@ class TestTxt2ImgTool:
         monkeypatch.setattr(mr_mod, "get_model_registry", lambda: SimpleNamespace(
             create_engine_instance=lambda **kw: engine,
         ))
+        _mock_vram_preflight(monkeypatch)
 
         server = MCPServer()
         resp = await server._handle_request(make_request("tools/call", call_params("txt2img", {

@@ -29,7 +29,11 @@ const MOCK = {
       engines: { z_image_turbo_native: { display_name: 'Z-Image Turbo', default_width: 1024, default_height: 1024 } }
     }
   },
-  '/api/config/loras': { loras: [{ name: 'a.safetensors' }, { name: 'b.safetensors' }] },
+  // ⚠️ 坑（2026-09-01）：后端 GET /api/config/loras 返回 **相对路径字符串数组**
+  // （config_routes.py: {"loras": files, "count": n, "mode": ...}），前端 app.js
+  // 按字符串调用 p.split('/')。此前 mock 写成对象数组，导致下拉构建时抛
+  // "TypeError: p.split is not a function"，该项被静默跳过（测试却仍显示通过）。
+  '/api/config/loras': { loras: ['a.safetensors', 'b.safetensors'], count: 2, mode: 'portable' },
   '/api/outputs': {
     outputs: [{ path: 'fake_00001_.png', engine: 'z_image_turbo_native', prompt: 'a cat', output_type: 'original', width: 1024, height: 1024, created_at: '2026-08-17T12:00:00' }],
     total: 1
@@ -74,6 +78,10 @@ FakeEventSource.prototype.dispatch = function (t, data) {
 function boot(opts) {
   opts = opts || {};
   const errors = [];
+  // ⚠️ 坑（2026-09-01）：FakeEventSource.instances 是跨 boot 共享的全局数组，
+  // 若不重置，instances[0] 永远指向**第一轮** JSDOM 的 SSE 连接，后续各测试段
+  // 的 es.dispatch() 会作用到早已废弃的 DOM 上，导致 SSE 相关断言静默失败。
+  FakeEventSource.instances = [];
   const dom = new JSDOM(fs.readFileSync(HTML_FILE, 'utf-8'), {
     runScripts: 'dangerously', pretendToBeVisual: true, url: 'http://localhost/',
     beforeParse(w) {
@@ -96,7 +104,15 @@ function boot(opts) {
 let pass = 0, fail = 0;
 function assert(c, m) { if (c) { pass++; console.log('  ok - ' + m); } else { fail++; console.log('  FAIL - ' + m); } }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const click = (d, sel) => d.querySelector(sel).dispatchEvent(new d.defaultView.MouseEvent('click', { bubbles: true, cancelable: true }));
+// 支持传入「选择器字符串」或「元素对象」。
+// ⚠️ 坑（2026-09-01）：原实现只接受选择器字符串，而 test 中 click(d, jaBtn)
+// 传入的是元素对象；querySelector(元素) 会把元素转成 "[object HTMLLIElement]"
+// 这种非法选择器，导致 nwsapi 抛 DOMException 并让整个 smoke 进程崩溃退出。
+const click = (d, target) => {
+  const el = typeof target === 'string' ? d.querySelector(target) : target;
+  if (!el) { fail++; console.log('  FAIL - click target not found: ' + target); return; }
+  el.dispatchEvent(new d.defaultView.MouseEvent('click', { bubbles: true, cancelable: true }));
+};
 
 (async () => {
   /* ============ 骨架 + 后端数据加载 ============ */
@@ -188,7 +204,11 @@ const click = (d, sel) => d.querySelector(sel).dispatchEvent(new d.defaultView.M
     click(d, '#gMasonry .g-card');
     assert(d.getElementById('viewer').classList.contains('show'), 'viewer opens on card click');
     assert(d.getElementById('vTitle').textContent === 'a cat', 'viewer title = prompt');
-    assert(d.getElementById('vImg').textContent !== '' && d.getElementById('vImg').querySelector('img'), 'viewer renders image');
+    // ⚠️ 坑（2026-09-01）：原断言额外要求 vImg.textContent !== ''，但 vImg 的
+    // innerHTML 只有一个 <img> 标签，本身不含任何文本节点，textContent 恒为空串，
+    // 该断言在任何情况下都不可能通过。改为校验 img 元素存在且 src 指向 outputs。
+    const vImgEl = d.getElementById('vImg').querySelector('img');
+    assert(!!vImgEl && vImgEl.getAttribute('src').includes('/api/outputs/'), 'viewer renders image');
     click(d, '#vClose');
     assert(!d.getElementById('viewer').classList.contains('show'), 'viewer closes');
   }
@@ -202,7 +222,10 @@ const click = (d, sel) => d.querySelector(sel).dispatchEvent(new d.defaultView.M
     assert(errors.length === 0, 'init no errors');
     const es = FakeEventSource.instances[0];
     assert(!!es, 'EventSource created');
-    es.dispatch('task_status', { task_id: 't1', status: 'processing', progress: 40, phase: 'sampling' });
+    // ⚠️ 坑（2026-09-01）：后端 native/engine.py 下发的 phase 是 **完整 i18n 键**
+    // （如 'phase_sampling'），前端 trPhase() 直接用该键查 I18N 字典；
+    // 传 'sampling' 会查不到而原样回显为英文裸键。此处需与后端契约保持一致。
+    es.dispatch('task_status', { task_id: 't1', status: 'processing', progress: 40, phase: 'phase_sampling' });
     assert(d.getElementById('progFill').style.width === '40%', 'progress bar 40%');
     assert(d.getElementById('phaseText').textContent.includes('采样中'), 'phase text translated');
     es.dispatch('task_status', { task_id: 't1', status: 'completed', result: ['fake_00001_.png'] });

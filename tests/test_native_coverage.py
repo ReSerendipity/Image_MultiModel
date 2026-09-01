@@ -191,6 +191,10 @@ def test_ensure_loaded_invalid_root_raises(monkeypatch, tmp_path):
 
 
 def test_ensure_loaded_custom_nodes_idempotent(monkeypatch, tmp_path):
+    # M-04 安全策略要求 custom_nodes_dir 必须位于项目根内（防路径穿越加载
+    # 任意位置代码）。测试将项目根重定向到 tmp_path，使 tmp 下的 custom_nodes
+    # 满足白名单，既保持安全语义不被削弱，又避免污染真实工程目录。
+    monkeypatch.setattr(source, "_PROJECT_ROOT", tmp_path.resolve())
     monkeypatch.setattr(source, "_loaded", False)
     monkeypatch.setattr(source, "_comfy_root", None)
     cnd = tmp_path / "custom_nodes"
