@@ -17,7 +17,6 @@ from pathlib import Path
 import numpy as np
 
 from integrated_app.history_db import HistoryDB
-from integrated_app.lineage import compute_lora_checksums, compute_workflow_version
 from integrated_app.metrics_quality import compute_quality_metrics
 from integrated_app.model_compat import is_lora_compatible, validate_compatibility_matrix
 from integrated_app.native.preview import assess_image_quality

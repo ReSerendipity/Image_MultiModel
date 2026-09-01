@@ -210,3 +210,6 @@ release/*.json
 
 # blue-green 槽位状态文件（本地/部署机生成，不入库）
 .imm_bluegreen
+
+# 状态备份产物（P2-13，本地/部署机生成，不入库）
+backups/
