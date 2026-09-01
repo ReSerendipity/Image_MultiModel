@@ -101,15 +101,16 @@ def test_map_phase():
 def test_tensor_to_png(tmp_path):
     img = torch.zeros(8, 16, 3)
     path = tmp_path / "a.png"
-    output_pipeline.save_png(path, img, is_tensor=True)
+    output_pipeline.save_image(path, img, is_tensor=True)
     assert path.exists() and path.stat().st_size > 0
 
 
 def test_embed_watermark_identity(monkeypatch, tmp_path):
-    import integrated_app.watermark as wm
-    monkeypatch.setattr(wm, "embed_watermark", lambda arr, pid, tid, ts: arr)
+    # output_pipeline 通过 from-import 持有 embed_watermark 的引用，
+    # 必须打在 output_pipeline 上才生效（打在 watermark 模块上对该调用点无效）。
+    monkeypatch.setattr(output_pipeline, "embed_watermark", lambda arr, pid, tid, ts: arr)
     src = tmp_path / "src.png"
-    output_pipeline.save_png(src, torch.zeros(8, 8, 3), is_tensor=True)
+    output_pipeline.save_image(src, torch.zeros(8, 8, 3), is_tensor=True)
     output_pipeline.embed_provenance(src, "PROD", "task123")
     assert src.exists() and src.stat().st_size > 0
 
@@ -120,14 +121,14 @@ def test_embed_watermark_error_on_error(monkeypatch, tmp_path):
         raise RuntimeError("wm fail")
     monkeypatch.setattr(wm, "embed_watermark", boom)
     src = tmp_path / "src.png"
-    output_pipeline.save_png(src, torch.zeros(8, 8, 3), is_tensor=True)
+    output_pipeline.save_image(src, torch.zeros(8, 8, 3), is_tensor=True)
     output_pipeline.embed_provenance(src, "PROD", "task123")
     assert src.exists()
 
 
 def test_make_thumbnail_scale_and_no_scale(tmp_path):
     src = tmp_path / "src.png"
-    output_pipeline.save_png(src, torch.zeros(8, 16, 3), is_tensor=True)
+    output_pipeline.save_image(src, torch.zeros(8, 16, 3), is_tensor=True)
     thumb_dir = tmp_path / "thumbs"
     thumb_dir.mkdir()
     output_pipeline.make_thumbnail(src, thumb_dir, "t_down.png", 8)

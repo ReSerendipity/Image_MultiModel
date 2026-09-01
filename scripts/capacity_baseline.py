@@ -169,9 +169,7 @@ def discover_lora_names(root: Path | None = None) -> list[str]:
     if not base.is_dir():
         return []
     names = [
-        p.stem
-        for p in base.iterdir()
-        if p.is_file() and p.suffix.lower() in (".safetensors", ".ckpt", ".pt", ".bin")
+        p.stem for p in base.iterdir() if p.is_file() and p.suffix.lower() in (".safetensors", ".ckpt", ".pt", ".bin")
     ]
     return sorted(names)
 
@@ -207,7 +205,9 @@ def build_matrix() -> list[tuple[str, dict]]:
     profiles: list[tuple[str, dict]] = []
     base = {
         "positive_prompt": "capacity baseline",
-        "cfg": 1.0, "steps": 4, "seed": 1,
+        "cfg": 1.0,
+        "steps": 4,
+        "seed": 1,
         "engine_name": "z_image_turbo_native",
     }
     for res in (256, 512, 1024):
@@ -262,8 +262,8 @@ def main() -> int:
             results.append(res)
             print(
                 f"  {name:22s} completed={res.completed}/{res.runs} "
-                f"p50={res.p50_s*1000:.0f}ms p95={res.p95_s*1000:.0f}ms "
-                f"p99={res.p99_s*1000:.0f}ms tput={res.throughput_tps:.2f}/s "
+                f"p50={res.p50_s * 1000:.0f}ms p95={res.p95_s * 1000:.0f}ms "
+                f"p99={res.p99_s * 1000:.0f}ms tput={res.throughput_tps:.2f}/s "
                 f"oom={res.oom} peak_vram={res.peak_vram_gb:.2f}GB"
             )
 
@@ -277,7 +277,7 @@ def main() -> int:
         "capacity": capacity,
     }
     print("\n[CAPACITY] 推导结论：")
-    print(f"  最慢 profile P95 = {capacity['slowest_p95_s']*1000:.0f} ms")
+    print(f"  最慢 profile P95 = {capacity['slowest_p95_s'] * 1000:.0f} ms")
     print(f"  最大安全队列深度 = {capacity['safe_queue_depth']}")
     print(f"  扩容触发深度(85%) = {capacity['expansion_trigger_depth']}")
     if peak > 0.0:

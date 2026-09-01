@@ -24,12 +24,11 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 import platform
 import re
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -221,7 +220,7 @@ def build_sbom(requirements_text: str, image_tag: str, git_sha_value: str) -> di
         "specVersion": "1.5",
         "version": 1,
         "metadata": {
-            "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "timestamp": datetime.now(UTC).isoformat(timespec="seconds"),
             "component": {
                 "type": "application",
                 "name": "image-multimodel",
@@ -249,7 +248,7 @@ def build_metadata(
     lock = root / "requirements-lock.txt"
     return {
         "schema_version": SCHEMA_VERSION,
-        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "image_tag": tag,
         "image_tag_valid": is_valid_image_tag(tag),
         "git": {
@@ -363,9 +362,7 @@ def main() -> int:
         return 1
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "build_metadata.json").write_text(
-        json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+    (out_dir / "build_metadata.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
 
     lock = ROOT / "requirements-lock.txt"
     lock_text = lock.read_text(encoding="utf-8") if lock.is_file() else ""
@@ -377,15 +374,16 @@ def main() -> int:
     env_path.write_text(env_text, encoding="utf-8")
 
     print(f"[INFO] 镜像 tag          : {tag}")
-    print(f"[INFO] Git SHA           : {meta['git']['sha'] or 'unknown'}"
-          f"{' (dirty)' if meta['git']['dirty'] else ''}")
+    print(f"[INFO] Git SHA           : {meta['git']['sha'] or 'unknown'}{' (dirty)' if meta['git']['dirty'] else ''}")
     print(f"[INFO] SBOM 组件数       : {len(sbom['components'])}")
     print(f"[INFO] model 文件数      : {meta['artifacts']['model']['file_count']}")
-    print(f"[INFO] comfy_kernel 摘要 : {meta['artifacts']['comfy_kernel']['digest'][:16] or 'N/A'}"
-          f" ({meta['artifacts']['comfy_kernel']['file_count']} files)")
+    print(
+        f"[INFO] comfy_kernel 摘要 : {meta['artifacts']['comfy_kernel']['digest'][:16] or 'N/A'}"
+        f" ({meta['artifacts']['comfy_kernel']['file_count']} files)"
+    )
     print(f"[INFO] 已写出 {out_dir / 'build_metadata.json'}")
     print(f"[INFO] 已写出 {out_dir / 'sbom.json'}")
-    print(f"[INFO] 已更新 .env（IMAGE_TAG / IMAGE_DIGEST）")
+    print("[INFO] 已更新 .env（IMAGE_TAG / IMAGE_DIGEST）")
     if meta["git"]["dirty"]:
         print("[WARN] 工作树为 dirty，该元数据仅可用于本地构建；正式发布前请提交全部改动")
     return 0

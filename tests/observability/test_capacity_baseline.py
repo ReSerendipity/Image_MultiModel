@@ -112,9 +112,17 @@ def test_discover_lora_names_finds_weights(mod, tmp_root):
 def test_profile_result_records_peak_vram(mod):
     """ProfileResult 必须携带峰值显存字段（无 GPU 时为 0.0）。"""
     r = mod.ProfileResult(
-        profile="x", runs=1, completed=1, failed=0, oom=0,
-        p50_s=0.1, p95_s=0.2, p99_s=0.3, throughput_tps=5.0,
-        first_preview_avg_s=0.05, persist_avg_s=0.01,
+        profile="x",
+        runs=1,
+        completed=1,
+        failed=0,
+        oom=0,
+        p50_s=0.1,
+        p95_s=0.2,
+        p99_s=0.3,
+        throughput_tps=5.0,
+        first_preview_avg_s=0.05,
+        persist_avg_s=0.01,
     )
     assert r.peak_vram_gb == 0.0
     assert "peak_vram_gb" in r.__dataclass_fields__
@@ -134,10 +142,18 @@ def test_run_profile_completes_serial(mod):
         if token:
             client.headers["X-CSRF-Token"] = token
         res = mod._run_profile(
-            client, "256px_b1",
-            {"positive_prompt": "x", "cfg": 1.0, "steps": 4, "seed": 1,
-             "width": 256, "height": 256, "batch_size": 1,
-             "engine_name": "z_image_turbo_native"},
+            client,
+            "256px_b1",
+            {
+                "positive_prompt": "x",
+                "cfg": 1.0,
+                "steps": 4,
+                "seed": 1,
+                "width": 256,
+                "height": 256,
+                "batch_size": 1,
+                "engine_name": "z_image_turbo_native",
+            },
             runs=4,
         )
     assert res.completed >= 1, f"completed={res.completed} failed={res.failed}"

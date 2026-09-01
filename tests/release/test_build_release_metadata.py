@@ -47,13 +47,13 @@ def tmp_root():
         ("v2.0.1", True),
         ("2.0.1-rc.1", True),
         ("git-ceabe3946d5b", True),
-        ("latest", False),          # 浮动 tag，必须拒绝
+        ("latest", False),  # 浮动 tag，必须拒绝
         ("", False),
         ("dev", False),
         ("stable", False),
         ("main", False),
         ("nightly", False),
-        ("git-xyz", False),         # 非十六进制
+        ("git-xyz", False),  # 非十六进制
         ("random-string", False),
     ],
 )
@@ -85,8 +85,8 @@ def test_parse_requirements(mod):
             "",
             "fastapi==0.115.0",
             "uvicorn[standard]==0.30.6",
-            "torch>=2.4.0",          # 非锁定行，跳过
-            "-r other.txt",           # 指令行，跳过
+            "torch>=2.4.0",  # 非锁定行，跳过
+            "-r other.txt",  # 指令行，跳过
             "PyYAML==6.0.2 ; python_version>='3.8'",  # 带 marker
         ]
     )
@@ -227,7 +227,7 @@ def test_verify_detects_workflow_drift(mod, tmp_root):
 
 def test_verify_strict_flags_dirty(mod, tmp_root):
     out = _write_release(mod, tmp_root, dirty=True)
-    assert mod.verify(tmp_root, out, strict=False) == []          # PR 构建允许 dirty
+    assert mod.verify(tmp_root, out, strict=False) == []  # PR 构建允许 dirty
     assert any("dirty" in p for p in mod.verify(tmp_root, out, strict=True))
 
 
