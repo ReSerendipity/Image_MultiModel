@@ -1,5 +1,16 @@
 # Image MultiModel — Docker Compose (PRD §10.6)
-# 用法: docker compose up -d
+#
+# 用法:
+#   1) 首次使用或每次发布前生成不可变 tag（写入 .env 的 IMAGE_TAG / IMAGE_DIGEST）：
+#        python scripts/build_release_metadata.py                  # 本地：git-<sha12>
+#        python scripts/build_release_metadata.py --version v2.0.1  # 发布：语义版本
+#   2) 启动（digest 固化，生产推荐）：
+#        docker compose -f docker-compose.yml -f docker-compose.release.yml up -d
+#     本地无 digest 时：
+#        docker compose up -d
+#
+# ⚠️ 镜像 tag 禁止使用 latest 等可变引用（评估 §9-P1-10）。
+#    IMAGE_TAG 未设置时 compose 会直接报错并给出修复指引，避免误用浮动 tag 上线。
 
 version: "3.8"
 
@@ -8,7 +19,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: image-multimodel:latest
+    # 必须用引号包裹：compose 插值语法 ${VAR:?message} 含冒号，裸写会被 YAML 解析为 mapping
+    image: "image-multimodel:${IMAGE_TAG:?IMAGE_TAG 未设置 —— 禁止使用浮动 tag 部署。请先运行 python scripts/build_release_metadata.py（本地）或加 --version v2.0.1（发布），该命令会把不可变 tag 写入 .env}"
     container_name: image-multimodel
     restart: unless-stopped
 

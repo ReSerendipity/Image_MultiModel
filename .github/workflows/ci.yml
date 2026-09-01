@@ -307,6 +307,39 @@ jobs:
         run: |
           python -m pytest tests/smoke/test_startup_smoke.py -v --timeout=120
 
+  # ── 不可变版本 artifact（P1-10）────────────────────────────
+  release-artifacts:
+    name: Immutable Release Artifacts (P1-10)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test deps
+        run: pip install pytest pytest-timeout
+      - name: Generate release metadata + SBOM
+        # --no-model-hash：CI 无模型权重，跳过哈希以控制时长
+        run: python scripts/build_release_metadata.py --version 0.0.0-ci --no-model-hash
+      - name: Verify release metadata
+        run: python scripts/build_release_metadata.py --verify
+      - name: Compose must not use floating image tags
+        run: |
+          if grep -nE 'image:[[:space:]]*[^$]*:latest' docker-compose.yml docker-compose.release.yml; then
+            echo "[FAIL] compose 引用了浮动 tag latest"
+            exit 1
+          fi
+          grep -q 'IMAGE_TAG:?IMAGE_TAG' docker-compose.yml || {
+            echo "[FAIL] docker-compose.yml 未强制要求不可变 IMAGE_TAG"; exit 1; }
+          grep -q 'IMAGE_DIGEST:?IMAGE_DIGEST' docker-compose.release.yml || {
+            echo "[FAIL] docker-compose.release.yml 未强制按 digest 固化镜像"; exit 1; }
+          echo "PASS: 镜像引用已按 tag/digest 固定"
+      - name: Release metadata unit tests
+        run: python -m pytest tests/release -q --timeout=120
+
   # ── 安全断言（部署安全红线，2026-08-17 新增） ──────────────────
   security-assertions:
     runs-on: ubuntu-latest
