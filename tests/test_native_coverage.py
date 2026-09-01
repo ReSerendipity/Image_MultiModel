@@ -387,6 +387,11 @@ def test_engine_load_mocked(monkeypatch):
     cfg = types.SimpleNamespace(
         models=types.SimpleNamespace(engines={"z_image_turbo": object()}),
         project_root="C:/proj",
+        security=types.SimpleNamespace(
+            model_format=types.SimpleNamespace(
+                verify_weights=False, only_safetensors=True, fail_closed_on_corrupt_weight=False
+            )
+        ),
     )
     monkeypatch.setattr(_engine, "get_config", lambda: cfg)
     monkeypatch.setattr(
