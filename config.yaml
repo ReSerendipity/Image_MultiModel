@@ -1,4 +1,4 @@
-version: 1.4.0
+version: 2.0.0
 server:
   host: 127.0.0.1
   port: 8288
@@ -31,6 +31,7 @@ models:
       lora: loras
       controlnet: controlnet
       checkpoint: checkpoints
+  shared_cache_dir: ''
   engines:
     z_image_turbo_native:
       name: z_image_turbo_native
@@ -183,16 +184,22 @@ output:
   base_dir: outputs
   naming_template: '{engine}_{date}_{taskid}_{seed}_{idx}'
   organize_by: engine_date
+  image_format: webp
+  image_quality: 90
   save_thumbnail: true
+  thumbnail_format: webp
+  thumbnail_quality: 80
   thumbnail_max_side: 512
   history:
     db_path: data/history.db
     max_records: 50000
-    keep_days: 0
+    keep_days: 30
+    max_gb: 0.0
     cleanup_cron: 0 3 * * *
   uploads:
     cache_dir: data/uploads
     max_size_mb: 2000
+    max_pixels: 200000000
     ttl_s: 86400
 presets:
   dir: data/presets
@@ -225,18 +232,22 @@ runtime:
     max_duration_s: 3600
     preview_b64_max_width: 256
   vram_scheduler:
-    enabled: false
+    enabled: true
     vram_high_watermark_pct: 90
     vram_low_watermark_pct: 70
     sample_interval_s: 0.5
     max_batch_size: 4
     min_batch_size: 1
+  idle_unload_minutes: 0
 security:
   allowed_base_dirs:
   - outputs/
   - data/
   - workflows/
   - model/
+  image_read_base_dirs:
+  - outputs/
+  - data/
   rate_limit:
     infer_per_minute: 30
     upload_per_minute: 10
@@ -255,7 +266,6 @@ security:
     allowed_origins:
     - http://127.0.0.1:8288
     - http://localhost:8288
-    - ws://127.0.0.1:*
     allow_credentials: true
   model_format:
     only_safetensors: true
@@ -267,7 +277,10 @@ security:
     enabled: true
     manifest_file: app/integrated_app/security/integrity_manifest.json
   content_filter:
-    fail_closed_on_clip_missing: false
+    fail_closed_on_clip_missing: true
+  headers:
+    enabled: true
+    csp: ''
 gpu:
   backend: auto
   device_ids:
@@ -324,3 +337,7 @@ environment:
   TRANSFORMERS_OFFLINE: '1'
   MODELSCOPE_OFFLINE: '1'
   COMFYUI_DISABLE_UPDATE_CHECK: '1'
+finops:
+  budget_gpu_hours_per_day: 0.0
+  storage_gb_budget: 0.0
+  alert_level: warning
