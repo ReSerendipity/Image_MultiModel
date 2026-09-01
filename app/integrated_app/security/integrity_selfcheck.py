@@ -98,14 +98,29 @@ def _get_manifest_path() -> Path:
 
 
 def _compute_file_sha256(filepath: Path) -> str:
-    """计算文件 SHA256。"""
+    """计算文件 SHA256（行尾归一化，跨平台稳定）。
+
+    WHY 必须归一化行尾：清单首次在 Windows 工作区生成，而 ``core.autocrlf=true``
+    使工作区 .py 文件为 CRLF；Linux CI 上 checkout 得到 LF。若直接对原始字节求
+    哈希，同一份源码在两地得到不同 SHA256 —— 结果是「本地自检全绿、CI 必红」，
+    且失败模块随机取决于当初谁在哪个平台跑过生成脚本（本次事故命中
+    model_registry.py / checkpoint.py / middleware/rate_limit.py 三个模块）。
+
+    归一化规则：删除所有 ``\\r``，即 ``\\r\\n`` 与孤立 ``\\r`` 均折算为 ``\\n``。
+    这不削弱篡改检测 —— 任何实质内容改动（含增删空行）仍会改变哈希，被消除的
+    只有与代码语义无关的行尾差异。
+
+    跨块边界安全：分块读取时若 ``\\r`` 落在块尾，删除操作逐块独立成立，
+    不存在跨块拼接问题（``\\n`` 不会被误删）。
+    """
     sha256 = hashlib.sha256()
     with open(filepath, "rb") as f:
         while True:
             chunk = f.read(8 * 1024 * 1024)
             if not chunk:
                 break
-            sha256.update(chunk)
+            # 删除 \r：CRLF/CR → LF，使 Windows 与 Linux 得到同一哈希
+            sha256.update(chunk.translate(None, b"\r"))
     return sha256.hexdigest()
 
 
@@ -216,8 +231,20 @@ def run_startup_selfcheck() -> dict:
             "    请检查上述文件是否被篡改，或运行 "
             "`python scripts/generate_integrity_manifest.py` 更新清单。\n" + "=" * 60
         )
-    elif passed > 0:
-        logger.info(f"[SELF-CHECK] 核心模块完整性自检通过: {passed}/{total} ✓")
+    if skipped > 0:
+        # L-01 修复：历史上 magic_check.py / weight_integrity.py 在 _CORE_MODULES 中
+        # 却不在清单里，被静默 skipped 后启动日志仍打印「通过 25/25」，形成假安全感
+        # （对应安全评估 H-04）。即使 manifest 已补齐，此处仍保留显式告警，确保任何
+        # 清单漂移都能立即可见，而非淹没在「通过」日志中。
+        logger.warning(
+            "=" * 60 + "\n"
+            "[SELF-CHECK] ⚠️ 核心模块完整性自检存在 %d 个模块被跳过（无哈希记录）！\n"
+            f"    通过: {passed}/{total}, 失败: {failed}, 跳过: {skipped}\n"
+            "    被跳过的模块不会参与篡改检测，等于裸奔。请运行 "
+            "`python scripts/generate_integrity_manifest.py` 重新生成清单并重启。\n" + "=" * 60
+        )
+    if passed > 0:
+        logger.info(f"[SELF-CHECK] 核心模块完整性自检通过: {passed}/{total} ✓（跳过 {skipped}）")
 
     return {
         "total": total,

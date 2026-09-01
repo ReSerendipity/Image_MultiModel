@@ -29,21 +29,21 @@ from pathlib import Path
 # （历史上生成器含 comfy/* 而运行时不含，运行时含 magic_check/weight_integrity
 # 而生成器不含 —— 导致部分模块永远 skipped）。
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "app"))
-from integrated_app.security.integrity_selfcheck import _CORE_MODULES  # noqa: E402
+from integrated_app.security.integrity_selfcheck import (  # noqa: E402
+    _CORE_MODULES,
+    _compute_file_sha256,
+)
 
 CHUNK_SIZE = 8 * 1024 * 1024  # 8MB
 
 
 def compute_sha256(filepath: Path) -> str:
-    """计算文件 SHA256。"""
-    sha256 = hashlib.sha256()
-    with open(filepath, "rb") as f:
-        while True:
-            chunk = f.read(CHUNK_SIZE)
-            if not chunk:
-                break
-            sha256.update(chunk)
-    return sha256.hexdigest()
+    """计算文件 SHA256。
+
+    委托给运行期自检的同一函数（``_compute_file_sha256``），而非在此另写一份
+    —— 否则生成器与自检的行尾处理会再次分叉，重演「本地绿 / CI 红」。
+    """
+    return _compute_file_sha256(filepath)
 
 
 def main() -> None:
