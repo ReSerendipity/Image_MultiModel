@@ -20,6 +20,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from ..cache import get_cache
+
 logger = logging.getLogger(__name__)
 
 
@@ -61,6 +63,9 @@ _UNSAFE_CLIP_PROMPTS: list[str] = [
     "an image depicting illegal drug use",
     "a weapon or explosive image",
 ]
+
+# CLIP 相似度判定阈值（提取为常量，便于缓存键随阈值变化而失效）
+_CLIP_THRESHOLD = 0.7
 
 # ── 提示词绕过对抗（H-03 修复：纯关键词 .lower() 可被轻易绕过）─────────────
 # 1) 同形字（Cyrillic / 数学单体等）映射到 ASCII
@@ -194,19 +199,61 @@ class ContentSafetyFilter:
             return False
 
     # ── 图片安全检查 ────────────────────────────────────────────
-    def check_image(self, image_path: str | Path) -> SafetyResult:
-        """检查图片是否包含违规内容。
+    def check_image(self, image_path: str | Path, use_cache: bool = True) -> SafetyResult:
+        """检查图片是否包含违规内容（带缓存）。
 
-        使用 CLIP 计算图片与不安全文本提示的相似度。
-        如果 CLIP 未安装：默认返回降级放行（is_safe=True，向后兼容）；
-        配置 fail_closed_on_clip_missing=True 时返回拦截（is_safe=False）。
-        两种情况均在 details 中记录 degraded 降级信息。
+        CLIP 推理成本高（首次加载 2-5s，后续每张百 ms 级），对同一图片的
+        重复检测走 ``safety`` 命名空间缓存。缓存键内容寻址（路径 + size +
+        mtime + 阈值 + fail-closed 策略），文件被替换即自动失效。
 
         Args:
             image_path: 图片路径（已经过 PathGuard 校验）。
+            use_cache: 是否启用缓存；False 时强制重新检测。
 
         Returns:
             SafetyResult: 安全检测结果。
+        """
+        if not use_cache:
+            return self._check_image_uncached(image_path)
+
+        key = self._cache_key(image_path)
+        if key is None:
+            return self._check_image_uncached(image_path)
+
+        cached = get_cache("safety").get(key)
+        if cached is not None:
+            return SafetyResult(**cached)
+
+        result = self._check_image_uncached(image_path)
+        # 仅缓存确定性结果：CLIP 缺失 / 检查失败等降级结果不缓存，
+        # 否则环境修复后仍会长期返回降级结论。
+        if result.violation_type not in ("clip_unavailable", "check_error"):
+            get_cache("safety").put(key, {
+                "is_safe": result.is_safe,
+                "violation_type": result.violation_type,
+                "confidence": result.confidence,
+                "details": result.details,
+            })
+        return result
+
+    def _cache_key(self, image_path: str | Path) -> str | None:
+        """构造内容寻址缓存键；无法 stat 时返回 None（退化为不缓存）。"""
+        try:
+            p = Path(image_path)
+            st = p.stat()
+            return (
+                f"{p.resolve()}|{st.st_size}|{st.st_mtime}"
+                f"|{_CLIP_THRESHOLD}|{self._fail_closed_on_clip_missing}"
+            )
+        except Exception:  # noqa: BLE001 - stat 失败即不缓存，不影响检测
+            return None
+
+    def _check_image_uncached(self, image_path: str | Path) -> SafetyResult:
+        """实际执行 CLIP 图片安全检测（无缓存层）。
+
+        如果 CLIP 未安装：默认返回降级放行（is_safe=True，向后兼容）；
+        配置 fail_closed_on_clip_missing=True 时返回拦截（is_safe=False）。
+        两种情况均在 details 中记录 degraded 降级信息。
         """
         if not self._ensure_loaded():
             details = {
@@ -246,7 +293,7 @@ class ContentSafetyFilter:
                 max_sim = similarities.max().item()
                 max_idx = similarities.argmax().item()
 
-            threshold = 0.7
+            threshold = _CLIP_THRESHOLD
             if max_sim > threshold:
                 return SafetyResult(
                     is_safe=False,

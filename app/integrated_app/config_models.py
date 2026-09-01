@@ -633,6 +633,16 @@ def scan_resource_files(
         sub_dir_name = config.shared.mount_map.get(sub_dir_key, sub_dir_key)
         base = Path(config.shared.comfy_models_dir) / sub_dir_name
 
+    # P0-2 缓存：目录遍历（尤其含 Junction 的 ComfyUI 模型目录）成本高。
+    # 结果按「子目录 + 根路径 + 扩展名 + 共享缓存目录」缓存，由 model 命名空间
+    # 的 TTL 兜底新鲜度（新放入的 LoRA 最长 1 小时内可见）。
+    from .cache import get_cache
+
+    cache_key = f"{sub_dir_key}|{base}|{sorted(extensions)}|{getattr(config, 'shared_cache_dir', '')}"
+    cached = get_cache("model").get(cache_key)
+    if cached is not None:
+        return list(cached)
+
     if not base.exists() or not base.is_dir():
         return []
 
@@ -656,4 +666,6 @@ def scan_resource_files(
                         rel = Path(root, f).relative_to(extra)
                         results.append(str(rel).replace("\\", "/"))
 
-    return sorted(results)
+    results = sorted(results)
+    get_cache("model").put(cache_key, results)
+    return results
