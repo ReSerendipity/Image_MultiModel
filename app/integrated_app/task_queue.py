@@ -45,6 +45,7 @@ class Task:
     error: str = ""
     cancel_requested: bool = False
     batch_id: str | None = None  # 批量任务的批次 ID
+    attempts: int = 0  # 已重试次数（P2-6 自动重试）
 
 
 class TaskQueue:
@@ -63,6 +64,9 @@ class TaskQueue:
         maxsize: int = 100,
         cancel_timeout_s: int = 5,
         max_timeout_s: int = 86400,
+        max_retries: int = 0,
+        retry_base_delay_s: float = 1.0,
+        retry_max_delay_s: float = 30.0,
     ) -> None:
         self._queue: asyncio.Queue[Task] = asyncio.Queue(maxsize=maxsize)
         self._tasks: dict[str, Task] = {}
@@ -71,6 +75,9 @@ class TaskQueue:
         self._cancel_event = asyncio.Event()
         self._cancel_timeout_s = cancel_timeout_s
         self._max_timeout_s = max_timeout_s
+        self._max_retries = max(0, int(max_retries))
+        self._retry_base_delay_s = float(retry_base_delay_s)
+        self._retry_max_delay_s = float(retry_max_delay_s)
         self._running = False
         self._progress_callbacks: list[Callable[[str, int, str, dict], None]] = []
         self._status_callbacks: list[Callable[[str, TaskStatus, dict | None], None]] = []
@@ -187,22 +194,45 @@ class TaskQueue:
             self._notify_status(task.task_id, TaskStatus.PROCESSING)
 
             try:
-                # 超时检测
+                # 超时检测（worker 异常也在此捕获，确保下方状态判定/重试逻辑统一执行）
                 try:
                     await asyncio.wait_for(
                         asyncio.get_event_loop().run_in_executor(None, worker_func, task),
                         timeout=self._max_timeout_s,
                     )
-                except TimeoutError:
+                except asyncio.TimeoutError:
                     task.error = f"Task timed out after {self._max_timeout_s}s"
-                    task.status = TaskStatus.FAILED
+                except Exception as e:  # worker 执行抛错（含线程池内异常）
+                    task.error = str(e)
 
                 if task.cancel_requested:
                     task.status = TaskStatus.CANCELLED
                     self._notify_status(task.task_id, TaskStatus.CANCELLED)
                 elif task.error:
-                    task.status = TaskStatus.FAILED
-                    self._notify_status(task.task_id, TaskStatus.FAILED, {"error": task.error})
+                    # P2-6 自动重试：尚未达到上限且非用户取消的任务，按指数退避重新入队
+                    if task.attempts < self._max_retries:
+                        task.attempts += 1
+                        delay = min(
+                            self._retry_base_delay_s * (2 ** (task.attempts - 1)),
+                            self._retry_max_delay_s,
+                        )
+                        logger.warning(
+                            "Task %s failed (attempt %d/%d), retrying in %.1fs: %s",
+                            task.task_id, task.attempts, self._max_retries, delay, task.error,
+                        )
+                        task.status = TaskStatus.PENDING
+                        task.error = ""
+                        task.started_at = 0.0
+                        task.progress = 0
+                        self._notify_status(
+                            task.task_id, TaskStatus.PENDING,
+                            {"retry": task.attempts, "retry_delay_s": delay},
+                        )
+                        await asyncio.sleep(delay)
+                        await self._queue.put(task)
+                    else:
+                        task.status = TaskStatus.FAILED
+                        self._notify_status(task.task_id, TaskStatus.FAILED, {"error": task.error})
                 else:
                     task.status = TaskStatus.COMPLETED
                     self._notify_status(
@@ -211,6 +241,7 @@ class TaskQueue:
                     )
 
             except Exception as e:
+                # 状态判定/重试编排自身的兜底异常（极少见）
                 task.error = str(e)
                 task.status = TaskStatus.FAILED
                 self._notify_status(task.task_id, TaskStatus.FAILED, {"error": str(e)})
