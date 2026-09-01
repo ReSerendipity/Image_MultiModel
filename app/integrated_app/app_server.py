@@ -187,6 +187,18 @@ async def lifespan(app: FastAPI):
         for _warn in _wf["warnings"]:
             logger.warning("[WORKFLOW-GOVERNANCE] engine=%s: %s", _wf["engine"], _warn)
 
+    # P0-2：按 config.yaml → cache 段初始化缓存命名空间。
+    # 此前 CacheConfig 仅有声明、无任何消费者（死配置），此处为其唯一装配点。
+    from .cache import build_caches_from_config
+
+    build_caches_from_config(config)
+
+    # P1-5 分布式追踪：按环境变量/配置初始化（降级为进程内 span 记录，
+    # 安装 opentelemetry 后自动接入导出管线）。
+    from .observability.tracing import configure_tracing
+
+    configure_tracing()
+
     # P1-1: 核心模块完整性自检（来源：Seedvr2）
     from .security.integrity_selfcheck import run_startup_selfcheck
     selfcheck_result = run_startup_selfcheck()
@@ -219,6 +231,10 @@ async def lifespan(app: FastAPI):
         maxsize=config.runtime.task_queue.maxsize,
         cancel_timeout_s=config.runtime.task_queue.cancel_timeout_s,
         max_timeout_s=config.runtime.task_queue.max_timeout_s,
+        # P2-6 批量自动重试：阈值来自 config.yaml → runtime.batch
+        max_retries=config.runtime.batch.max_retries,
+        retry_base_delay_s=config.runtime.batch.retry_base_delay_s,
+        retry_max_delay_s=config.runtime.batch.retry_max_delay_s,
     )
     app.state.task_queue = task_queue
 
@@ -686,6 +702,12 @@ def create_app(enable_rate_limit: bool = True) -> FastAPI:
 
     # RequestID
     app.add_middleware(RequestIDMiddleware)
+
+    # P1-5 分布式追踪：为每个 HTTP 请求创建根 span（注册在 RequestID 之后，
+    # 以便把 request_id 写入 span 属性；注册在 Metrics 之前，使耗时 span 覆盖完整链路）
+    from .middleware.tracing import TracingMiddleware
+
+    app.add_middleware(TracingMiddleware)
 
     # RateLimit
     if enable_rate_limit:
