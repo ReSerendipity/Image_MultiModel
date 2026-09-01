@@ -35,7 +35,14 @@ class TestEngineSwitch:
         first_item = page.query_selector("#engMenu .ip-item")
         if first_item:
             first_item.click()
-            # 条件等待：等待 engineSelect 有值
-            page.wait_for_selector("#engineSelect[value]:not([value=''])", timeout=5000)
+            # 条件等待：等待 engineSelect 有值。
+            # ⚠️ 坑（2026-09-01）：原实现用 CSS 属性选择器
+            # "#engineSelect[value]:not([value=''])"，但 app.js 是通过
+            # `el.value = x` 设置 **DOM property**，不会回写 HTML attribute，
+            # 故该选择器永不匹配、必然 5s 超时。改为等待 property 非空。
+            page.wait_for_function(
+                "() => { const el = document.getElementById('engineSelect'); return !!el && !!el.value; }",
+                timeout=5000,
+            )
             val = page.evaluate("document.getElementById('engineSelect').value")
             assert val, "Engine select should have a value"

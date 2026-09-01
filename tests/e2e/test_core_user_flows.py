@@ -35,6 +35,7 @@ def check_app_online(base_url: str) -> bool:
     """检查应用是否在线"""
     try:
         from urllib.request import urlopen
+
         with urlopen(f"{base_url}/api/health", timeout=5) as r:
             return r.status == 200
     except Exception:
@@ -45,11 +46,12 @@ def check_app_online(base_url: str) -> bool:
 def api_client():
     """API TestClient 用于预设管理等 API 级操作"""
     from app.integrated_app.app_server import create_app
+
     with TestClient(create_app()) as c:
-        _csrf_r = c.get('/api/health')
-        _csrf_tok = _csrf_r.headers.get('X-CSRF-Token', '')
+        _csrf_r = c.get("/api/health")
+        _csrf_tok = _csrf_r.headers.get("X-CSRF-Token", "")
         if _csrf_tok:
-            c.headers['X-CSRF-Token'] = _csrf_tok
+            c.headers["X-CSRF-Token"] = _csrf_tok
         yield c
 
 
@@ -71,8 +73,9 @@ class TestCoreUserFlows:
         page.wait_for_selector(".topbar")
         page.wait_for_load_state("networkidle")
 
-        assert page.title() or "Image MultiModel" in page.inner_text("body"), \
+        assert page.title() or "Image MultiModel" in page.inner_text("body"), (
             "Page title should contain 'Image MultiModel'"
+        )
 
         # 实际前端 ID 为 #posPrompt（非 #promptInput）
         prompt_input = page.query_selector("#posPrompt")
@@ -240,7 +243,13 @@ class TestCoreUserFlows:
         # Step 3: 通过 API 验证预设存在
         presets_resp = api_client.get("/api/presets")
         assert presets_resp.status_code == 200
-        presets = presets_resp.json().get("presets", [])
+        # ⚠️ 坑（2026-09-01）：GET /api/presets 实际返回 **裸数组**
+        # （与前端 app.js `fetch('/api/presets').then(presets => ...)` 一致），
+        # 而非 {"presets": [...]}；原测试直接 .get() 会抛
+        # AttributeError: 'list' object has no attribute 'get'。
+        # 此处对两种形态做兼容解析，避免未来契约调整再次击穿测试。
+        payload = presets_resp.json()
+        presets = payload if isinstance(payload, list) else payload.get("presets", [])
         preset_names = [p.get("name") for p in presets]
         assert preset_name in preset_names, f"Preset '{preset_name}' should appear in list"
 
@@ -268,8 +277,7 @@ class TestCoreUserFlows:
             theme_toggle.click()
             # 条件等待：等待 data-theme 属性变化（替代 wait_for_timeout(500)）
             page.wait_for_function(
-                f"document.documentElement.getAttribute('data-theme') !== '{initial_theme}'",
-                timeout=3000
+                f"document.documentElement.getAttribute('data-theme') !== '{initial_theme}'", timeout=3000
             )
             new_theme = page.evaluate("document.documentElement.getAttribute('data-theme')")
             screenshot(f"theme_after_{new_theme}")
@@ -343,24 +351,28 @@ class TestCoreUserFlows:
     # ════════════════════════════════════════════════════════
     def test_task_submit_and_cancel(self, api_client: TestClient):
         """任务取消：提交任务 → 立即取消 → 验证状态变更"""
-        submit_resp = api_client.post("/api/generate", json={
-            "positive_prompt": "test cancel flow",
-            "negative_prompt": "",
-            "cfg": 7.5,
-            "steps": 5,
-            "width": 128,
-            "height": 128,
-            "seed": -1,
-            "batch_size": 1,
-            "engine_name": "z_image_turbo_native",
-        })
+        submit_resp = api_client.post(
+            "/api/generate",
+            json={
+                "positive_prompt": "test cancel flow",
+                "negative_prompt": "",
+                "cfg": 7.5,
+                "steps": 5,
+                "width": 128,
+                "height": 128,
+                "seed": -1,
+                "batch_size": 1,
+                "engine_name": "z_image_turbo_native",
+            },
+        )
 
         assert submit_resp.status_code in (200, 409), f"Should accept task: {submit_resp.text}"
         task_id = submit_resp.json()["task_id"]
 
         cancel_resp = api_client.post(f"/api/tasks/{task_id}/cancel")
-        assert cancel_resp.status_code in (200, 404), \
+        assert cancel_resp.status_code in (200, 404), (
             f"Cancel should be accepted or task already done: {cancel_resp.status_code}"
+        )
 
         status_resp = api_client.get(f"/api/tasks/{task_id}")
         assert status_resp.status_code == 200

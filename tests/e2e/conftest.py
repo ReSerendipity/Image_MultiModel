@@ -15,6 +15,7 @@ import pytest
 
 try:
     import pytest_playwright  # noqa: F401
+
     HAS_PLAYWRIGHT = True
 except ImportError:
     HAS_PLAYWRIGHT = False
@@ -36,25 +37,56 @@ def screenshots_dir(tmp_path_factory):
 @pytest.fixture
 def screenshot(page, screenshots_dir):
     """截图函数 fixture"""
+
     def _screenshot(name: str):
         path = os.path.join(screenshots_dir, f"{name}.png")
         page.screenshot(path=path)
         return path
+
     return _screenshot
 
 
 # ── P2-5: 跨浏览器配置 ──────────────────────────────────────
-# 默认使用 Chromium；CI 可通过 BROWSER=firefox 切换 Firefox
-# 在 CI 中运行 Firefox：BROWSER=firefox python -m pytest tests/e2e -m e2e
-def pytest_generate_tests(metafunc):
-    """根据 BROWSER 环境变量生成浏览器参数化"""
-    if "browser_name" in metafunc.fixturenames:
-        browsers = os.environ.get("BROWSERS", "chromium").split(",")
-        metafunc.parametrize("browser_name", browsers, ids=browsers)
+# 默认使用 Chromium；切换 Firefox：BROWSERS=firefox python -m pytest tests/e2e
+# 多浏览器矩阵：BROWSERS=chromium,firefox python -m pytest tests/e2e
+#
+# ⚠️ 坑（2026-09-01）：此处曾自定义 pytest_generate_tests 对 "browser_name" 做
+# metafunc.parametrize()，与 pytest-playwright 插件自带的 browser_name 参数化
+# 冲突，报 "duplicate parametrization of 'browser_name'"，导致 6 个 e2e 文件在
+# 收集阶段全部 ERROR —— E2E 维度长期"静默不执行"。正确做法是复用官方
+# --browser 选项，仅在本 hook 中把 BROWSERS 环境变量映射过去。
+def pytest_addoption(parser):
+    """注册 E2E 专用命令行选项。
+
+    Args:
+        parser: pytest 参数解析器，用于注册自定义选项。
+    """
+    parser.addoption(
+        "--update-snapshots",
+        action="store_true",
+        default=False,
+        help="重新生成视觉回归基线快照（tests/e2e/__snapshots__/）",
+    )
+
+
+def pytest_configure(config):
+    """把 BROWSERS 环境变量映射到 pytest-playwright 的 --browser 选项。
+
+    Args:
+        config: pytest 全局配置对象，用于读取/写入命令行选项值。
+    """
+    if not HAS_PLAYWRIGHT:
+        return
+    # 命令行显式传 --browser 时以命令行为准，不被环境变量覆盖
+    if config.getoption("browser", default=None):
+        return
+    browsers = [b.strip() for b in os.environ.get("BROWSERS", "chromium").split(",") if b.strip()]
+    config.option.browser = browsers
 
 
 # 如果 playwright 未安装，自动跳过所有 E2E 测试
 if not HAS_PLAYWRIGHT:
+
     def pytest_collection_modifyitems(items):
         skip_marker = pytest.mark.skip(reason="pytest-playwright not installed")
         for item in items:
