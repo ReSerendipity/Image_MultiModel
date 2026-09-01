@@ -9,14 +9,41 @@
 * **routes:** 引擎切换失败自动回滚，消除「旧引擎已卸载、新引擎未加载」空窗（反模式 #6）
 * **quality:** 生成质量基准 PSNR/SSIM + golden file 回归（反模式 #4）
 * **governance:** Workflow JSON Schema 版本化（schema_version + 加载时校验，反模式 #1）+ 权重级 Model Card 元数据注册表（反模式 #3）
+* **cost(p0):** 输出默认 WebP 有损压缩（image_format/image_quality/thumbnail_format/thumbnail_quality）+ 留存清理护栏（keep_days/max_gb 双阈值，cron 不再空转，清理时真正删除磁盘图片）
+* **cost(p1):** GPU 指标持久化（MetricsStore 环形缓冲）+ VRAMLeakMonitor 生产接入 + VRAM 水位感知动态 batch 上限（vram_scheduler 默认启用）+ 多版本权重孤儿扫描 `/api/models/orphans`
+* **cost(p2):** 空闲自动卸载（idle_unload_minutes）+ FinOps 成本分摊报表 `/api/finops/cost-report` + 跨实例模型共享缓存（shared_cache_dir）
+* **cost(p3):** FinOps 预算告警 `/api/finops/budget` + 版本号三处同步至 2.0.0
+* **cost(governance):** 成本治理观测层落地——`cost_governance.py`（GPU 时数/存储/吞吐指标采集与持久化）、`overload_policy.py`（队列分级过载 70%/85%/95%/100% 四档，大 batch 优先限流并回 `Retry-After`）、`routes/governance_routes.py`（`/api/governance/*` 资源与成本视图）、`observability/`（Prometheus 指标、告警引擎、生成指标、空闲卸载）
+* **observability:** 统一指标抓取端点 `/api/metrics`（零依赖 Prometheus exposition，标签仅低基数字段）+ 告警评估端点 `/api/alerts`（firing/pending + Runbook 链接）
+* **capacity(p1-9):** 新增 `scripts/capacity_baseline.py` 单机容量基线 runner（分辨率 × batch 矩阵，输出 P50/P95/P99、吞吐、OOM 与「最大安全队列深度 / 扩容触发点」），无 GPU 时由 `IMM_FAKE_ENGINE=1` 驱动 FakeEngine，CI 可复现
+
+### Changed
+
+* **security:** `ContentFilterConfig.fail_closed_on_clip_missing` 默认改为 **True**（fail-closed 安全默认）：CLIP 不可用/缺失时拦截生成（`violation_type="clip_unavailable"`），`config.yaml` 同步置 `true`；需 fail-open 时显式传 `fail_closed_on_clip_missing=False`
+* **api:** `create_app()` 新增 `enable_rate_limit` 开关（默认 `True`）。压测/容量基线等高频场景可传 `False` 关闭限速；**不再**通过全局环境变量控制（避免污染同进程其他用例）
+
+### Bug Fixes
+
+* `app_server.py`：告警评估调用了未导入的 `health_unhealthy`（F821），异常被 `try` 静默吞掉导致告警逻辑完全失效——补上 `observability.alerts` 导入
+* `app_server.py`：空闲卸载调用不存在的 `registry.active_engine_name` 属性，改为 `registry.get_active_engine_name()`
+* `routes/metrics_routes.py`：补齐缺失的 `typing.Any` 导入（F821）
+* `observability/metrics.py`：`_Base` 指标基类补充 `render()` 接口声明，修复 `MetricsRegistry.render()` 的类型错误
+* `middleware/error_handler.py`：`StarletteHTTPException.headers`（`Mapping`）转为 `dict`，匹配 `_build_error_response` 签名
 
 ### Security
 
 * integrity_selfcheck 清理 M7 迁移后 comfy HTTP 引擎死引用，纳入 weight_integrity 自检；清单重生成（25 模块自检全过）
+* 核心模块完整性清单重生成至 32 模块（覆盖 `cost_governance.py` / `overload_policy.py` / `routes/*` / `middleware/*` 等新增与改动模块）
+
+### Documentation
+
+* AGENTS.md 文档↔配置漂移对账（自进化铁律 #1）：覆盖率门槛 70 → **65**（`pyproject.toml` 实际值）；lint/format 命令路径 `bin tests` → `app tests scripts`（`bin` 目录不存在）；对应项目版本 v1.4.0 → **v2.0.0**
+* `docs/project/AI_DEV_SOPS.md` 追加 Gotcha #37-#41（manifest 重生成、全局变量开关污染、限流截断压测、fail-closed 陈旧断言、验证顺序）与 SOP-6（压测脚本 + 核心模块改动流程）
 
 ### Tests
 
 * 新增 6 个测试模块共 60+ 用例；conftest 增加环境感知跳过（torch/comfy_aimdo 缺失时跳过引擎栈相关测试）
+* 全量回归：**646 passed / 0 failed**（164 skipped）；`ruff check app tests scripts` 0 error；`mypy app/integrated_app` 76 文件 0 error；覆盖率 69.34%（≥ `fail_under` 65）；`scripts/check_spec_refs.py` 退出码 0
 
 ## [1.5.1](https://github.com/ReSerendipity/Image_MultiModel/compare/v1.5.0...v1.5.1) (2026-08-22)
 
