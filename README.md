@@ -192,6 +192,10 @@ Image_MultiModel/
 ├── data/                        # 运行时数据（预设 / 上传 / 缓存）
 ├── outputs/                     # 生成结果输出
 ├── logs/                        # 运行日志
+├── prototypes/                  # UI 原型（figma / figma-refactor / layout 对比）
+├── examples/                    # 使用示例（文生图 / 批量 / SSE / 预设）
+├── perf/                        # 性能基准与监控
+├── release/                     # 发布产物（SBOM / 构建元数据）
 ├── scripts/                     # 工具脚本（含 scripts/deploy/ 蓝绿部署）
 ├── docs/ops/                    # 运维 runbook（SLO / 告警 / 值班 / 复盘 / 蓝绿 / 冒烟）
 ├── docs/postmortems/            # 事故复盘记录
