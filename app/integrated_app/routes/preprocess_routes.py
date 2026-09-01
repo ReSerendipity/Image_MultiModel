@@ -12,6 +12,7 @@ routes/preprocess_routes.py — ControlNet 预处理 API 路由
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import io
 import logging
@@ -79,7 +80,7 @@ def _decode_b64_image(image_b64: str) -> np.ndarray:
         )
 
         # SECURITY: 显式魔数校验（对齐 SeedVR2），阻断伪装/非图片数据
-        from app.integrated_app.security.magic_check import validate_image_magic
+        from ..security.magic_check import validate_image_magic
         is_magic, detected_type, error = validate_image_magic(img_data)
         if not is_magic:
             raise HTTPException(400, detail=f"Image decode failed: {error}")
@@ -117,6 +118,39 @@ def _encode_b64_image(image: np.ndarray, fmt: str = "PNG") -> str:
     return base64.b64encode(buf.getvalue()).decode("ascii")
 
 
+async def _run_preprocess(pp: Any, image_b64: str, name: str) -> PreprocessResponse:
+    """在线程池中执行「解码 → 预处理 → 编码」，避免阻塞事件循环（反模式 #3）。
+
+    Canny / MiDaS / OpenPose 均为 CPU（或 GPU）密集型同步算子，图片解码与
+    PNG 编码同样阻塞；直接在 async 路由中调用会冻结整个服务，导致 SSE 心跳、
+    进度推送与其他请求全部停顿。此处统一卸载到默认线程池执行。
+
+    Args:
+        pp: 预处理器实例（需实现 ``process(ndarray) -> ndarray``）。
+        image_b64: Base64 图片数据。
+        name: 预处理器名称（写入响应）。
+
+    Raises:
+        HTTPException: 解码失败(400) / 预处理失败(500)。
+    """
+    loop = asyncio.get_running_loop()
+    image = await loop.run_in_executor(None, _decode_b64_image, image_b64)
+    try:
+        result = await loop.run_in_executor(None, pp.process, image)
+        result_b64 = await loop.run_in_executor(None, _encode_b64_image, result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, detail=get_error_message("preprocess_failed", detail=str(e)))
+
+    return PreprocessResponse(
+        preprocessor=name,
+        result_b64=result_b64,
+        width=result.shape[1],
+        height=result.shape[0],
+    )
+
+
 # ── 路由 ────────────────────────────────────────────────────────
 @router.get("/list")
 async def list_available() -> dict[str, Any]:
@@ -148,18 +182,7 @@ async def preprocess_canny(req: PreprocessRequest) -> PreprocessResponse:
             detail=get_error_message("preprocess_not_available", name="canny"),
         )
 
-    image = _decode_b64_image(req.image_b64)
-    try:
-        edges = pp.process(image)
-        result_b64 = _encode_b64_image(edges)
-        return PreprocessResponse(
-            preprocessor="canny",
-            result_b64=result_b64,
-            width=edges.shape[1],
-            height=edges.shape[0],
-        )
-    except Exception as e:
-        raise HTTPException(500, detail=get_error_message("preprocess_failed", detail=str(e)))
+    return await _run_preprocess(pp, req.image_b64, "canny")
 
 
 @router.post("/depth", response_model=PreprocessResponse)
@@ -174,18 +197,7 @@ async def preprocess_depth(req: PreprocessRequest) -> PreprocessResponse:
             detail=get_error_message("preprocess_not_available", name="midas"),
         )
 
-    image = _decode_b64_image(req.image_b64)
-    try:
-        depth = pp.process(image)
-        result_b64 = _encode_b64_image(depth)
-        return PreprocessResponse(
-            preprocessor="midas",
-            result_b64=result_b64,
-            width=depth.shape[1],
-            height=depth.shape[0],
-        )
-    except Exception as e:
-        raise HTTPException(500, detail=get_error_message("preprocess_failed", detail=str(e)))
+    return await _run_preprocess(pp, req.image_b64, "midas")
 
 
 @router.post("/pose", response_model=PreprocessResponse)
@@ -200,15 +212,4 @@ async def preprocess_pose(req: PreprocessRequest) -> PreprocessResponse:
             detail=get_error_message("preprocess_not_available", name="openpose"),
         )
 
-    image = _decode_b64_image(req.image_b64)
-    try:
-        pose = pp.process(image)
-        result_b64 = _encode_b64_image(pose)
-        return PreprocessResponse(
-            preprocessor="openpose",
-            result_b64=result_b64,
-            width=pose.shape[1],
-            height=pose.shape[0],
-        )
-    except Exception as e:
-        raise HTTPException(500, detail=get_error_message("preprocess_failed", detail=str(e)))
+    return await _run_preprocess(pp, req.image_b64, "openpose")

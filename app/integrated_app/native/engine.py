@@ -171,22 +171,37 @@ class NativeEngine:
         def cancel_cb() -> None:
             cancel_flag[0] = True
 
+        # P1-5 分布式追踪：推理作为独立 span，父链可来自 HTTP 根 span
+        # （跨线程上下文不自动传播，故此处直接打开根 span，仅记录引擎/批次维度）
+        from ..observability.tracing import get_tracer
+
+        tracer = get_tracer("native_engine")
+
         # 推理为同步阻塞（线程池隔离事件循环），支持取消
         loop = asyncio.get_event_loop()
-        fut = loop.run_in_executor(
-            None,
-            lambda: executor.txt2img(
-                config, self._model_paths, on_progress=on_progress, cancel_flag=cancel_flag
-            ),
-        )
+        with tracer.start_span(
+            "infer_txt2img",
+            attributes={
+                "engine": self._name,
+                "batch_size": getattr(config, "batch_size", None),
+                "width": getattr(config, "width", None),
+                "height": getattr(config, "height", None),
+            },
+        ):
+            fut = loop.run_in_executor(
+                None,
+                lambda: executor.txt2img(
+                    config, self._model_paths, on_progress=on_progress, cancel_flag=cancel_flag
+                ),
+            )
 
-        # 注册取消：内部标志置位 + 取消 future
-        watcher = asyncio.create_task(self._watch_cancel(fut, cancel_cb))
-        try:
-            images = await fut
-        finally:
-            watcher.cancel()
-            self._cancel_requested = False
+            # 注册取消：内部标志置位 + 取消 future
+            watcher = asyncio.create_task(self._watch_cancel(fut, cancel_cb))
+            try:
+                images = await fut
+            finally:
+                watcher.cancel()
+                self._cancel_requested = False
 
         return self._save_outputs(images, config)
 
