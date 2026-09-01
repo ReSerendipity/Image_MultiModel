@@ -532,12 +532,12 @@ class GenerationService:
         矩阵约定见 ``model_compat.is_lora_compatible``：显式声明的 LoRA 仅在与
         列表中的引擎组合时兼容；未声明的 LoRA 默认兼容（社区 LoRA 免注册部署）。
         """
-        incompatible = [
-            (lora.get("name") if isinstance(lora, dict) else lora)
-            for lora in lora_stack
-            if isinstance(lora, dict) and lora.get("name")
-            and not is_lora_compatible(engine_cfg, lora.get("name"))
-        ]
+        incompatible: list[str] = []
+        for lora in lora_stack:
+            if isinstance(lora, dict) and lora.get("name"):
+                name = str(lora.get("name"))
+                if not is_lora_compatible(engine_cfg, name):
+                    incompatible.append(name)
         if incompatible:
             record_generation_rejected("lora_incompatible")
             raise HTTPException(

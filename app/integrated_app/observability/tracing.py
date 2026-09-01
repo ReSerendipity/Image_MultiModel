@@ -96,11 +96,11 @@ class Span:
     def __enter__(self) -> Span:
         return self
 
-    def __exit__(self, exc_type, exc, tb) -> bool:
+    def __exit__(self, exc_type, exc, tb) -> None:
         if exc is not None:
             self.record_exception(exc)
         self.finish()
-        return False  # 不吞异常
+        return None  # 返回 None 表示不吞异常
 
     def finish(self) -> None:
         """结束 span 并回写记录器。"""
