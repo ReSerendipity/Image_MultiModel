@@ -22,42 +22,14 @@
 import datetime
 import hashlib
 import json
-import os
 import sys
 from pathlib import Path
 
-
-# 核心安全模块清单 (相对于 app/integrated_app/)
-CORE_MODULES = [
-    "app_server.py",
-    "config.py",
-    "config_models.py",
-    "engine_interface.py",
-    "model_manager.py",
-    "model_registry.py",
-    "task_queue.py",
-    "history_db.py",
-    "i18n.py",
-    "gpu_utils.py",
-    "sse.py",
-    "watermark.py",
-    "checkpoint.py",
-    "security/path_guard.py",
-    "security/integrity_selfcheck.py",
-    "middleware/csrf.py",
-    "middleware/rate_limit.py",
-    "middleware/request_id.py",
-    "comfy/client.py",
-    "comfy/engine.py",
-    "comfy/workflow.py",
-    "routes/config_routes.py",
-    "routes/system_routes.py",
-    "routes/generate_routes.py",
-    "routes/task_routes.py",
-    "routes/output_routes.py",
-    "routes/preset_routes.py",
-    "routes/engine_routes.py",
-]
+# 单一事实来源：直接复用运行期自检清单，避免生成器与运行时列表"两张皮"
+# （历史上生成器含 comfy/* 而运行时不含，运行时含 magic_check/weight_integrity
+# 而生成器不含 —— 导致部分模块永远 skipped）。
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "app"))
+from integrated_app.security.integrity_selfcheck import _CORE_MODULES  # noqa: E402
 
 CHUNK_SIZE = 8 * 1024 * 1024  # 8MB
 
@@ -81,7 +53,7 @@ def main() -> None:
     manifest_path = app_dir / "security" / "integrity_manifest.json"
 
     files: dict[str, str] = {}
-    for module_rel in CORE_MODULES:
+    for module_rel in _CORE_MODULES:
         module_path = app_dir / module_rel
         if not module_path.exists():
             print(f"  [SKIP] 核心模块不存在: {module_rel}")

@@ -1,8 +1,9 @@
 """E1: Portable mode API verification script - safely tests and reverts config."""
-import sys
-import yaml
 import shutil
+import sys
 from pathlib import Path
+
+import yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "app"))
@@ -15,7 +16,7 @@ shutil.copy2(config_path, backup_path)
 
 try:
     # Read and modify config
-    with open(config_path, "r", encoding="utf-8") as f:
+    with open(config_path, encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
     cfg["models"]["model_source_mode"] = "portable"
     with open(config_path, "w", encoding="utf-8") as f:
@@ -24,8 +25,9 @@ try:
     # Now test with TestClient
     from integrated_app.config import load_config
     load_config()  # Force reload with new config
-    from integrated_app.app_server import create_app
     from fastapi.testclient import TestClient
+
+    from integrated_app.app_server import create_app
 
     with TestClient(create_app()) as c:
         r = c.get("/api/config/loras")
