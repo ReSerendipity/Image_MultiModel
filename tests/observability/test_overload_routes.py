@@ -50,7 +50,7 @@ def _payload(**kw):
 
 
 def test_95_rejected_with_retry_after(client: TestClient, monkeypatch) -> None:
-    import app.integrated_app.routes.generate_routes as gr
+    import app.integrated_app.services.generation_service as gr
 
     monkeypatch.setattr(
         gr, "evaluate_overload",
@@ -68,7 +68,7 @@ def test_95_rejected_with_retry_after(client: TestClient, monkeypatch) -> None:
 
 
 def test_queue_full_returns_503(client: TestClient, monkeypatch) -> None:
-    import app.integrated_app.routes.generate_routes as gr
+    import app.integrated_app.services.generation_service as gr
 
     monkeypatch.setattr(
         gr, "evaluate_overload",
@@ -85,7 +85,7 @@ def test_queue_full_returns_503(client: TestClient, monkeypatch) -> None:
 
 
 def test_normal_water_proceeds(client: TestClient, monkeypatch) -> None:
-    import app.integrated_app.routes.generate_routes as gr
+    import app.integrated_app.services.generation_service as gr
 
     monkeypatch.setattr(
         gr, "evaluate_overload",

@@ -307,6 +307,48 @@ jobs:
         run: |
           python -m pytest tests/smoke/test_startup_smoke.py -v --timeout=120
 
+  # ── P2-11：post-deploy smoke（起真实服务 → 跑 6 项检查 → 拆除）──
+  post-deploy-smoke:
+    name: Post-Deploy Smoke Drill (P2-11)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install uvicorn
+      - name: Boot service (fake engine)
+        env:
+          IMM_FAKE_ENGINE: "1"
+        run: |
+          nohup python -m uvicorn app.integrated_app.app_server:app --host 127.0.0.1 --port 8288 > server.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8288/api/health >/dev/null 2>&1; then
+              echo "[OK] service up after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "[FAIL] service not up within 60s"; tail -100 server.log; exit 1
+      - name: Run post-deploy smoke
+        run: |
+          python scripts/post_deploy_smoke.py \
+            --base-url http://127.0.0.1:8288 \
+            --timeout 15 --generation-timeout 120 \
+            --output smoke_report.json
+      - name: Upload smoke report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-smoke-report
+          path: smoke_report.json
+      - name: Stop service
+        if: always()
+        run: pkill -f "uvicorn app.integrated_app" || true
+
   # ── 不可变版本 artifact（P1-10）────────────────────────────
   release-artifacts:
     name: Immutable Release Artifacts (P1-10)
@@ -328,7 +370,7 @@ jobs:
         run: python scripts/build_release_metadata.py --verify
       - name: Compose must not use floating image tags
         run: |
-          if grep -nE 'image:[[:space:]]*[^$]*:latest' docker-compose.yml docker-compose.release.yml; then
+          if grep -nE 'image:[[:space:]]*[^$]*:latest' docker-compose.yml docker-compose.release.yml docker-compose.bluegreen.yml; then
             echo "[FAIL] compose 引用了浮动 tag latest"
             exit 1
           fi
@@ -339,6 +381,17 @@ jobs:
           echo "PASS: 镜像引用已按 tag/digest 固定"
       - name: Release metadata unit tests
         run: python -m pytest tests/release -q --timeout=120
+      # ── P2-12 blue-green 静态门禁 ──
+      - name: Blue-green compose and script lint (P2-12)
+        run: |
+          python -c "import yaml; d=yaml.safe_load(open('docker-compose.bluegreen.yml')); assert set(d['services'])=={'imm-blue','imm-green'}, d['services'].keys()"
+          bash -n scripts/deploy/bluegreen.sh
+          for sub in deploy rollback promote-only status; do
+            grep -q "\"$sub\"\|$sub)" scripts/deploy/bluegreen.sh || { echo "[FAIL] bluegreen.sh 缺少 $sub 子命令"; exit 1; }
+          done
+          grep -q 'FORBIDDEN_TAG_RE' scripts/deploy/bluegreen.sh || { echo "[FAIL] 未拒绝可变 tag"; exit 1; }
+          grep -q 'do_rollback' scripts/deploy/bluegreen.sh || { echo "[FAIL] 缺少一键回滚"; exit 1; }
+          echo "PASS: blue-green 静态检查通过"
 
   # ── 安全断言（部署安全红线，2026-08-17 新增） ──────────────────
   security-assertions:
