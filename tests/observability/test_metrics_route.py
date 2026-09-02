@@ -52,6 +52,21 @@ def _wait_terminal(c: TestClient, task_id: str, timeout_s: float = 10.0) -> dict
     pytest.fail(f"task {task_id} timeout, last {d.get('status')}")
 
 
+def _wait_metric(m, before: float, timeout_s: float = 5.0) -> None:
+    """轮询等待生成计数指标实际增长。
+
+    与 ``_wait_terminal`` 配合：status=completed 落到 HistoryDB 后，异步埋点的
+    计数器可能尚未在主循环执行。这里显式等待计数器越过 ``before``，消除
+    「读到 completed 但指标未增」的竞态（flaky）。
+    """
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        if m.generation_completed_total.total() > before:
+            return
+        time.sleep(0.02)
+    pytest.fail("generation_completed_total 未在超时内增长（生成可能 failed）")
+
+
 def test_metrics_endpoint_exposes_core_series(client: TestClient) -> None:
     body = client.get("/api/metrics/prometheus").text
     for name in (
@@ -77,6 +92,11 @@ def test_generation_lifecycle_counters_increment(client: TestClient) -> None:
     assert r.status_code == 200, r.text[:200]
     tid = r.json()["task_id"]
     _wait_terminal(client, tid)
+    # 指标埋点（record_generation_completed）经由事件循环异步投递
+    # （task_queue worker 线程 → run_coroutine_threadsafe 到主循环），可能略晚于
+    # /api/tasks 读到的 completed 状态。轮询等待计数器实际增长，避免与异步埋点
+    # 竞争的偶发误判（flaky）。若生成确实 failed，计数器不会增长，此处会如实失败。
+    _wait_metric(m, before, timeout_s=5.0)
     after = m.generation_completed_total.total()
     assert after > before, "generation_completed_total did not increment"
     # 端到端延迟直方图应有样本

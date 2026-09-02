@@ -6,8 +6,11 @@ conftest.py — pytest 共享 fixture 与路径注入
 
 from __future__ import annotations
 
+import atexit
 import os
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -156,4 +159,43 @@ def _reset_rate_limiters():
     _reset_all()
     yield
     _reset_all()
+
+
+# ── 反模式 #4 防护：隔离 HistoryDB，消除 xdist 跨 worker 共享 DB 的锁竞争 ──
+@pytest.fixture(autouse=True, scope="session")
+def _isolate_history_db_for_tests():
+    """测试/CI 环境：将应用 HistoryDB 重定向到每进程（每 xdist worker）临时目录。
+
+    根因：``create_app()`` 复用全局配置单例，其 ``output.history.db_path`` 默认
+    为 ``data/history.db``（项目根下的固定相对路径）。pytest-xdist 多 worker 并
+    行时，每个 worker 进程都打开同一个物理文件，并发写入触发 SQLite
+    ``database is locked``；生成 worker 捕获该异常后将任务标记为 ``failed``，
+    于是 ``generation_completed_total`` 不增（``test_generation_lifecycle_counters_
+    increment`` 偶发失败），``test_run_profile_completes_serial`` 也偶发 sqlite 锁
+    失败。这都是共享 DB 竞争的表象，而非被测逻辑缺陷。
+
+    修复：按 worker 进程（pid）分配独立临时目录，使各 worker 的 HistoryDB 互不
+    干扰；worker 内测试串行执行，无锁竞争。生产不加载本 conftest，且 db_path 仅
+    在测试期被覆盖，生产行为不受影响。
+
+    注意：刻意不使用 pytest 的 tmp_path/tmp_path_factory —— Windows 上其
+    ``pytest-current`` 符号链接清理会抛 PermissionError [WinError 5]（与被测代码
+    无关，见 test_capacity_baseline._make_root 的同类规避）。
+    """
+    from integrated_app.config import get_config
+
+    cfg = get_config()
+    original_db_path = cfg.output.history.db_path
+    worker_tmp = Path(tempfile.mkdtemp(prefix=f"imm-hist-{os.getpid()}-"))
+    cfg.output.history.db_path = str(worker_tmp / "history.db")
+
+    def _cleanup():
+        shutil.rmtree(worker_tmp, ignore_errors=True)
+
+    atexit.register(_cleanup)
+    try:
+        yield
+    finally:
+        cfg.output.history.db_path = original_db_path
+        _cleanup()
 

@@ -385,7 +385,7 @@ jobs:
         # integrated_app.app_server（FastAPI 入口），需要 fastapi 及其运行依赖；
         # 该 job 仅做发布元数据校验，无需 torch，故只装轻量 web/运行时依赖
         # （全量 requirements.txt 含 torch，会超出本 job 10 分钟超时）。
-        run: pip install pytest pytest-timeout pyyaml fastapi pydantic jinja2 numpy prometheus-client python-multipart
+        run: pip install pytest pytest-timeout pyyaml fastapi pydantic jinja2 numpy prometheus-client python-multipart pillow
       - name: Generate release metadata + SBOM
         # --no-model-hash：CI 无模型权重，跳过哈希以控制时长
         run: python scripts/build_release_metadata.py --version 0.0.0-ci --no-model-hash
