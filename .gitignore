@@ -39,6 +39,10 @@ data/uploads/
 data/cache/
 outputs/
 logs/
+backups/
+
+# 本地独享文档（治理/分析报告，仅本地保留、不上远程，2026-09-02）
+docs/
 
 # ── Model Files (大文件不提交) ──────────────────────────────
 *.safetensors
