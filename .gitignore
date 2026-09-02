@@ -29,6 +29,9 @@ ENV/
 .workbuddy-ai/
 .zcode/
 
+# AI 规范（仅本地保留，不上远程，家族统一约定）
+AGENTS.md
+
 # ── Testing ─────────────────────────────────────────────────
 .pytest_cache/
 .pytest_tmp/
