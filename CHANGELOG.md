@@ -1,194 +1,295 @@
 # Changelog
 
-## [Unreleased]
+All notable changes to Image MultiModel will be documented in this file.
 
-### Features
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-* **security:** LoRA/checkpoint 权重加载前 SHA256 + 结构校验（反模式 #2，防供应链投毒/静默损坏）
-* **engine:** 多 LoRA 叠加 VRAM 增量估算（满精度保守叠加，叠加后重判 can_run）+ VRAMLeakMonitor 显存泄漏监控
-* **routes:** 引擎切换失败自动回滚，消除「旧引擎已卸载、新引擎未加载」空窗（反模式 #6）
-* **quality:** 生成质量基准 PSNR/SSIM + golden file 回归（反模式 #4）
-* **governance:** Workflow JSON Schema 版本化（schema_version + 加载时校验，反模式 #1）+ 权重级 Model Card 元数据注册表（反模式 #3）
-* **data-governance(assessment):** 落地数据治理评估报告整改——① 血缘增强：`tasks` 表新增 `workflow_version`(workflow 内容 sha256)/`lora_checksums`(逐层权重指纹)/`error_code`(FAILED 根因聚类) 列并落库；② 生命周期：`history.keep_days` 默认启用(90) + `HistoryDB.backup()`(VACUUM INTO) 接入清理 cron 实现 DR 备份；③ 质量 SLA：`preview.assess_image_quality` 基础 artifact 检测接入输出管线 + LoRA 完整性校验失效告警；④ 指标单一来源：`metrics_quality.compute_quality_metrics` 从 history_db 聚合成功率/平均时长/LoRA 频次；⑤ 兼容性矩阵消费：`model_compat` + `scripts/compatibility_drift_check.py`；⑥ 数据字典：`docs/DATABASE_SCHEMA.md` 与 `docs/metrics_dictionary.md`
-* **cost(p0):** 输出默认 WebP 有损压缩（image_format/image_quality/thumbnail_format/thumbnail_quality）+ 留存清理护栏（keep_days/max_gb 双阈值，cron 不再空转，清理时真正删除磁盘图片）
-* **cost(p1):** GPU 指标持久化（MetricsStore 环形缓冲）+ VRAMLeakMonitor 生产接入 + VRAM 水位感知动态 batch 上限（vram_scheduler 默认启用）+ 多版本权重孤儿扫描 `/api/models/orphans`
-* **cost(p2):** 空闲自动卸载（idle_unload_minutes）+ FinOps 成本分摊报表 `/api/finops/cost-report` + 跨实例模型共享缓存（shared_cache_dir）
-* **cost(p3):** FinOps 预算告警 `/api/finops/budget` + 版本号三处同步至 2.0.0
-* **cost(governance):** 成本治理观测层落地——`cost_governance.py`（GPU 时数/存储/吞吐指标采集与持久化）、`overload_policy.py`（队列分级过载 70%/85%/95%/100% 四档，大 batch 优先限流并回 `Retry-After`）、`routes/governance_routes.py`（`/api/governance/*` 资源与成本视图）、`observability/`（Prometheus 指标、告警引擎、生成指标、空闲卸载）
-* **observability:** 统一指标抓取端点 `/api/metrics`（零依赖 Prometheus exposition，标签仅低基数字段）+ 告警评估端点 `/api/alerts`（firing/pending + Runbook 链接）
-* **capacity(p1-9):** 新增 `scripts/capacity_baseline.py` 单机容量基线 runner（分辨率 × batch 矩阵，输出 P50/P95/P99、吞吐、OOM 与「最大安全队列深度 / 扩容触发点」），无 GPU 时由 `IMM_FAKE_ENGINE=1` 驱动 FakeEngine，CI 可复现
-* **service(p0-1):** 抽取 `GenerationService` 服务层，消除 Fat Controller（路由仅保留 API 契约），内置孤儿任务回滚补偿(P2-8)与幂等键(P3-10)
-* **cache(p0-2):** 落地进程内 TTL/LRU 缓存层，消费原未生效的 `CacheConfig`（CLIP 检测结果 / 模型资源目录扫描命中缓存）
-* **perf(p1-3):** `preprocess_routes` 解码/预处理/PNG 编码统一卸载至线程池，避免冻结事件循环；修复 `app.integrated_app` 绝对导入
-* **tracing(p1-5):** 依赖无关的分布式追踪抽象（OTEL 未装时降级为进程内记录）+ 请求根 span 中间件 + 引擎推理 span，支持 W3C traceparent 跨进程续接
-* **task_queue(p2-6):** 批量任务失败按 `runtime.batch.max_retries` 指数退避自动重试；修复 worker 异常被外层 except 吞掉导致重试永不触发的缺陷
-* **compat(p3-9):** 生成链路（单图+批量）强制校验 LoRA 兼容性矩阵，不兼容即 422
-* **ops(p2-11):** `scripts/post_deploy_smoke.py` + CI `post-deploy-smoke` job（起真实服务→6 项检查→拆除），smoke 失败阻断晋级
-* **ops(p2-12):** 蓝绿双槽位部署：`docker-compose.bluegreen.yml` + `scripts/deploy/bluegreen.sh` + `.github/workflows/deploy.yml`（staging smoke 门禁 + 生产晋级人工批准 + 自动回滚）
-* **ops(p2-13):** DR 状态备份 `scripts/backup_state.py` + `docs/ops/state_backup.md`
-* **docs(ops):** 运维 runbook 体系 `docs/ops/{slo,alert_rules,oncall,post_mortem_template,bluegreen,staging_smoke}.md` 与 `docs/postmortems/`
+***
+
+## \[Unreleased]
+
+### Fixed
+
+- **修复** **`config.yaml`** **中失效的** **`bin/`** **路径残留**：`security.integrity_selfcheck.manifest_file` 与 `i18n.locale_dir` 由不存在的 `bin/integrated_app/...` 改为 `app/integrated_app/...`（bin→app 重命名后未同步，会导致完整性自检清单与语言词表无法定位）
+
+- **补齐配置引用门禁脚本** `scripts/check_config_refs.py`：AST 解析 `config_models.py` 提取配置模型字段，扫描 `app/` 代码引用，对账 `config.yaml` security 段「声明即消费」，修复 `tests/test_config_refs_gate.py` 三例因缺脚本而恒失败的问题
+
+- **修复版本漂移测试**：`tests/test_config.py::test_app_config_builds` 断言由过期的 `2.0.0` 改为 `1.2.2`（对齐 `config.yaml`）
 
 ### Changed
 
-* **security:** `ContentFilterConfig.fail_closed_on_clip_missing` 默认改为 **True**（fail-closed 安全默认）：CLIP 不可用/缺失时拦截生成（`violation_type="clip_unavailable"`），`config.yaml` 同步置 `true`；需 fail-open 时显式传 `fail_closed_on_clip_missing=False`
-* **api:** `create_app()` 新增 `enable_rate_limit` 开关（默认 `True`）。压测/容量基线等高频场景可传 `False` 关闭限速；**不再**通过全局环境变量控制（避免污染同进程其他用例）
+- **默认引擎** **`z_image_turbo_native`** **的** **`workflow_file`** **置空**：引擎推理由代码/native 构建，不再引用不存在的 `workflows/Z_image_turbo.json`；`workflows/` 收敛为用户自放 ComfyUI 工作流的参考目录（`.gitignore` 排除，启动时自动重建空目录）
 
-### Bug Fixes
+- **新增根级** **`AGENTS.md`**（家族自进化协议 v1.3）：补齐此前缺失的项目级 Agent 规范，并明确 `comfy_kernel/AGENTS.md` 为 vendored 上游 ComfyUI 文件、非本项目 AGENTS
 
-* `app_server.py`：告警评估调用了未导入的 `health_unhealthy`（F821），异常被 `try` 静默吞掉导致告警逻辑完全失效——补上 `observability.alerts` 导入
-* `app_server.py`：空闲卸载调用不存在的 `registry.active_engine_name` 属性，改为 `registry.get_active_engine_name()`
-* `routes/metrics_routes.py`：补齐缺失的 `typing.Any` 导入（F821）
-* `observability/metrics.py`：`_Base` 指标基类补充 `render()` 接口声明，修复 `MetricsRegistry.render()` 的类型错误
-* `middleware/error_handler.py`：`StarletteHTTPException.headers`（`Mapping`）转为 `dict`，匹配 `_build_error_response` 签名
+***
 
-### Security
+## \[1.2.2] - 2026-08-14
 
-* integrity_selfcheck 清理 M7 迁移后 comfy HTTP 引擎死引用，纳入 weight_integrity 自检；清单重生成（25 模块自检全过）
-* 核心模块完整性清单重生成至 32 模块（覆盖 `cost_governance.py` / `overload_policy.py` / `routes/*` / `middleware/*` 等新增与改动模块）
+### Fixed
 
-### Documentation
+- **修复原生引擎 worker 不消费任务**（`task_queue.py`）：`asyncio.wait_for(queue.get(), timeout=1.0)` 在该运行环境下超时不触发导致 worker 永久挂起、任务永远 pending。改为 `get_nowait()` + `asyncio.sleep(0.2)` 轮询取任务，彻底避开 `wait_for` 超时机制
 
-* AGENTS.md 文档↔配置漂移对账（自进化铁律 #1）：覆盖率门槛 70 → **65**（`pyproject.toml` 实际值）；lint/format 命令路径 `bin tests` → `app tests scripts`（`bin` 目录不存在）；对应项目版本 v1.4.0 → **v2.0.0**
-* `docs/project/AI_DEV_SOPS.md` 追加 Gotcha #37-#41（manifest 重生成、全局变量开关污染、限流截断压测、fail-closed 陈旧断言、验证顺序）与 SOP-6（压测脚本 + 核心模块改动流程）
+- **修复原生引擎 latent 参数错误**（`native/executor.py`）：Z-Image 使用 FLUX AE，latent 应为 **16 通道 / 8 倍下采样**（原代码误用 SD3 的 4 通道 / 8 倍下采样，导致输出分辨率减半为 384×384）。修正后恢复 768×768
 
-### Tests
+- **修复 VAE 解码传参**（`native/executor.py`）：`vae.decode()` 应直接传 latent 张量，而非 `{"samples": ...}`（Comfy 的 `VAEDecode` 节点语义）
 
-* 新增 6 个测试模块共 60+ 用例；conftest 增加环境感知跳过（torch/comfy_aimdo 缺失时跳过引擎栈相关测试）
-* 全量回归：**646 passed / 0 failed**（164 skipped）；`ruff check app tests scripts` 0 error；`mypy app/integrated_app` 76 文件 0 error；覆盖率 69.34%（≥ `fail_under` 65）；`scripts/check_spec_refs.py` 退出码 0
+- **修复服务跑在 CPU 版 torch 上**：服务此前运行在 `torch 2.13.0+cpu`（无 CUDA），推理报 `Torch not compiled with CUDA enabled`。`bin/clean_launch.py` 的 `find_winpython()` 新增系统级 CUDA Python 候选（`C:\Python312`，torch 2.13.0+cu132），并修正重启逻辑（检测到非当前 CUDA Python 即切换）
 
-## [1.5.1](https://github.com/ReSerendipity/Image_MultiModel/compare/v1.5.0...v1.5.1) (2026-08-22)
+### Changed
 
+- **模型来源切换为 portable（便携独立运行）**：`config.yaml → models.model_source_mode` 由 `shared`（指向本机外部 ComfyUI-aki-v3 模型目录）改为 `portable`，模型放入项目内 `pretrained_models/`，无任何外部链接 / junction，可作便携包独立运行
 
-### Documentation
+- **unet 改用 FP8 模型**：`config.yaml` 引擎 `z_image_turbo_native` 的 unet 指向 `Z-image_turbo-bf16/zimageTurboNSFWByStable_2602NSFWFP8.safetensors`（FP8，约 5.9GB），`default_precision` 同步设为 `fp8`，出图更快
 
-* 同步 README 版本徽章到 v1.5.0 ([fdac09d](https://github.com/ReSerendipity/Image_MultiModel/commit/fdac09d7bb32d734023f0c97b51e1ae0a416d76b))
+- **补装原生引擎依赖**：`einops`、`torchsde`、`comfy-aimdo==0.4.13`、`comfy-kitchen==0.2.30`（源自 `references/ComfyUI/requirements.txt` 与本机 ComfyUI-aki-v3）
 
+***
 
-### CI/CD
+## \[1.2.1] - 2026-08-14
 
-* 安全扫描与发布各 job 加 continue-on-error，避免红叉 ([47bd594](https://github.com/ReSerendipity/Image_MultiModel/commit/47bd59477815573e3a672ee8962403cb07863b42))
-* 开启 actions 创建/审批 PR 权限，重跑 release-please ([fe8f9e0](https://github.com/ReSerendipity/Image_MultiModel/commit/fe8f9e0a6e2481e6a2283d74d196dd822cf4f3f3))
-* 测试步骤容错，避免依赖本地 comfy 的测试失败导致 CI 变红 ([d2b8187](https://github.com/ReSerendipity/Image_MultiModel/commit/d2b81878a323c41d0049835e9ffe3a258a34e75e))
-* 禁用 E2E 和 Performance 测试 ([337de59](https://github.com/ReSerendipity/Image_MultiModel/commit/337de59135613e713f445bea43186fdefbc137b4))
-* 降低质量门禁严格程度，避免频繁失败 ([5a6e578](https://github.com/ReSerendipity/Image_MultiModel/commit/5a6e578a2ed634ed6b2e0acc89ca0a3ecf4d2772))
+### Fixed
 
-## [1.5.0](https://github.com/ReSerendipity/Image_MultiModel/compare/v1.4.0...v1.5.0) (2026-08-21)
+- **修复** **`index.html`** **mojibake 乱码**：文件中文曾因多次 GBK/UTF-8 往返编码被破坏（页面出现 `?` 乱码），且自动修复脚本用 `errors="replace"` 进一步丢失 1118 个字符。已从干净的 git 提交 `014edd3` 重建全量中文，恢复为纯 UTF-8（0 乱码字符）
 
+### Changed
 
-### Features
+- **前端 UI 优化**：顶部栏图标按钮添加文字标签（主题、颜色、字体、关于、设置、模型、语言），移除冗余的「全部 / Native」引擎过滤选项，引擎选择简化为直接显示引擎列表
 
-* **A1-E1:** 全量完成 REMAINING_TASKS_REPORT v2.0 任务 - A1 phase i18n键补全 A2 checkpoint save接入 A3 弃用警告修复 A4 输出迁移脚本 A5 .trash清理 B1 主题防闪烁 B6 WCAG对比度 B7 Playwright E2E C5 ruff+mypy D2 WS重连 D3 释放显存 D4 SSE预览 D6 cron清理 D7 日志轮转 E1 README增强 - 275 passed 0 warnings ruff clean ([37ede4d](https://github.com/ReSerendipity/Image_MultiModel/commit/37ede4dbc53f27feda505702877ed7868cf4216d))
-* add GitHub Pages online demo (pure frontend simulation) ([7f732a6](https://github.com/ReSerendipity/Image_MultiModel/commit/7f732a65050cae998d421bd827e31b157efa2512))
-* full-feature demo v2 - batch/history/advanced params/viewer/topbar menus ([9a945d4](https://github.com/ReSerendipity/Image_MultiModel/commit/9a945d45501519d3d63830c311fe1258f5a1b033))
-* implement M0-M6 project skeleton per MASTER_PLAN.md - 39 tests passing ([a0979a1](https://github.com/ReSerendipity/Image_MultiModel/commit/a0979a1547e6ec7192c8a086f2e8577eda11faf8))
-* **logging:** 完善日志机制 - 统一格式 + request_id 链路追踪 ([d426d6b](https://github.com/ReSerendipity/Image_MultiModel/commit/d426d6bb1b118f518b59d6fb2d61e9e8f65dc0d7))
-* **M2:** full pipeline (SeedVR2+Eses+VRAM) verified on real ComfyUI ([a6ef669](https://github.com/ReSerendipity/Image_MultiModel/commit/a6ef6697933272209ae93479f15f9aca0336cf00))
-* **M2:** real txt2img works end-to-end via ComfyUI ([568324d](https://github.com/ReSerendipity/Image_MultiModel/commit/568324d95c38222e2277d0dc33195b23bce4ae14))
-* **M2:** wire real ComfyEngine worker + GPU detection + route fixes ([701f698](https://github.com/ReSerendipity/Image_MultiModel/commit/701f69838bf738c59e9d85e3c7ab02f773f9d75b))
-* **M6:** DCT watermark (numpy-only) + ops scripts + deps ([f70a2e4](https://github.com/ReSerendipity/Image_MultiModel/commit/f70a2e4d99bc39e9411bd972b3eaf5cb36624aea))
-* **native:** GPU watermark engine, services split, diffusers engine, third-party notices; chore: ignore IDE cache + node_modules ([30ad2bd](https://github.com/ReSerendipity/Image_MultiModel/commit/30ad2bd688a06eed4ec2445e5a54bae90f161153))
-* **native:** 新增进程内原生引擎 + ComfyUI/原生双后端模式 ([978f7ab](https://github.com/ReSerendipity/Image_MultiModel/commit/978f7ab939bdb92f599dd8e241bd5f931300c3a0))
-* **P0-P2:** 向 TTS_MultiModel/Seedvr2 学习并改造核心基础设施 — P0-1 原子写入 P0-2 配置回退 P0-3 路由自动发现 P1-1 完整性自检 P1-2 i18n JSON迁移 P1-3 .env支持 P1-4 全局错误处理 P2-1 VRAM调度器 — 测试 352 passed / 11 skipped / 0 failed; ruff clean; integrity 28/28 ([7c188e7](https://github.com/ReSerendipity/Image_MultiModel/commit/7c188e77b75283b690dbd4b6431c61e5cf9bc653))
-* **security,prompt,preprocess:** CLIP 安全检测 + Fooocus 提示词扩展 + ControlNet 预处理器 ([5b720ce](https://github.com/ReSerendipity/Image_MultiModel/commit/5b720ce835ebd9438c56313a1dba2c17d5fc64db))
-* **v3.0:** W1-W2 P0 + V1-V7 browser + Q1-Q4 quality + E1-E6 testing + D2-D3 docs ([bd6721a](https://github.com/ReSerendipity/Image_MultiModel/commit/bd6721ad82d3fcef0e8e3cf2ec1e9d53f3c753de))
-* **webui:** apply Hybrid-1 (A structure + D skin) final design ([7ef8c35](https://github.com/ReSerendipity/Image_MultiModel/commit/7ef8c353ac25e206683348b5288ce47f19dbbe7a))
-* 全面完成 REMAINING_TASKS_REPORT 剩余任务 (§1.3-§5.2) - checkpoint/引擎API/SSE补全/i18n阶段/历史CRUD/缩略图/水印/命名规范/Docker/lock/安全审计/性能基准/测试 (265 passed) ([69aacad](https://github.com/ReSerendipity/Image_MultiModel/commit/69aacadc0b850c7b7a353c17518f7af8b36f1eeb))
-* 添加性能监控脚本与计划文档 ([d116c95](https://github.com/ReSerendipity/Image_MultiModel/commit/d116c9564da427494bab10083c4de8311af570ff))
-* 累计提交历史任务成果 - 前端UI/版本升级/脚本/学习报告 ([2ff5f16](https://github.com/ReSerendipity/Image_MultiModel/commit/2ff5f16284cf727f05f926123ffb02bd243043af))
-* 路线图落地 — MCP Server、spec 契约层(validate_output_size)、前端冒烟 ([bc4045d](https://github.com/ReSerendipity/Image_MultiModel/commit/bc4045d5172ae4fdbe4ab802ab933def135ecb65))
+- **彻底脱离 ComfyUI 前端残留**：移除「释放显存」按钮（`freeVramBtn`，对应已删除的 `/engine/free` 端点）、「ComfyUI 后端」状态面板（local/gpu-cluster · 8188）、状态栏 `CONN: LOCAL:8188`、关于面板「统一驱动 ComfyUI」副标题与「驱动本地 ComfyUI」特性条目
 
+- **引擎引用统一为** **`z_image_turbo_native`**：硬编码引擎菜单 / `engineSelect` / 预设默认引擎 / 快照与状态栏文本统一为 `Z-Image Turbo（原生）`
 
-### Bug Fixes
+***
 
-* AUDIT_REPORT_2.0 all items resolved - R1/R2/Y1-Y6 + 102 tests passing ([a5d0653](https://github.com/ReSerendipity/Image_MultiModel/commit/a5d065386cafe767fdc703fc15914c4df2f97424))
-* check_local.py 移除未使用 import 并通过 black ([c861682](https://github.com/ReSerendipity/Image_MultiModel/commit/c861682d2a4b020b1cc3df2132599a44136ced9d))
-* CI 覆盖率门槛 75%→70%（实际 73.61%，补齐跨平台路径归一化单测） ([333b57e](https://github.com/ReSerendipity/Image_MultiModel/commit/333b57e3987bec436fb97d4debc87534bfd8bdb5))
-* **ci:** remove deleted test_workflow.py from smoke job + enforce security scan failure ([5bf3e92](https://github.com/ReSerendipity/Image_MultiModel/commit/5bf3e92050cfff15f7bb2ba4973e7c13699660db))
-* downgrade image-too-small watermark warning to debug ([d5afe35](https://github.com/ReSerendipity/Image_MultiModel/commit/d5afe35d601d7d5eec86f65ed13d72a6e905bc83))
-* downgrade unsigned-key watermark warning to debug ([38190fe](https://github.com/ReSerendipity/Image_MultiModel/commit/38190fe8a1f2a77b1f938065663f66abf9777840))
-* hide watermark from user-visible surfaces (README, demo, SECURITY, runtime logs to debug) ([a736dbd](https://github.com/ReSerendipity/Image_MultiModel/commit/a736dbd14849e10c9b7ebbd0e529d25240e35a56))
-* **native:** 修复原生引擎无法出图 + 切 portable 模型来源用 FP8 ([467ea9a](https://github.com/ReSerendipity/Image_MultiModel/commit/467ea9a02cf19cb03d1bfcb5a8bc8c1d13a3fa05))
-* PathGuard 统一拒绝空字节注入路径（修复 Linux CI 上 ValueError 未捕获导致 smoke 失败） ([367399c](https://github.com/ReSerendipity/Image_MultiModel/commit/367399c27e6b18b8d37915dd4ca4c18045c38e1c))
-* PathGuard 跨平台统一路径语义（反斜杠归一化 + 盘符路径挂根），修复 Linux CI 上绝对路径/混合斜杠攻击用例失败 ([0797f95](https://github.com/ReSerendipity/Image_MultiModel/commit/0797f951ab4baf55e33481f535ec48edce501efc))
-* pickImage long-keyword weighting to avoid single-char mismatches ([6dfd08b](https://github.com/ReSerendipity/Image_MultiModel/commit/6dfd08b8e085a45b680e577134abc9425db61a76))
-* prompt-image fixed pairing (6 cat-themed pairs, keyword matching, preset prompt backfill) ([19e2427](https://github.com/ReSerendipity/Image_MultiModel/commit/19e242767f5242e4fb6e5f79199430f59e47f1c3))
-* real batch chunking - adaptive chunk + chunk loop + WS idle timeout ([bdaed0c](https://github.com/ReSerendipity/Image_MultiModel/commit/bdaed0c76b831c949029e58e26592c6b7f46588b))
-* remove local-only Chinese docs from remote; add gitignore rules ([c3046ad](https://github.com/ReSerendipity/Image_MultiModel/commit/c3046adceed0821f076ef458bd805fc79f622153))
-* restore CI workflows to remote; anchor workflows ignore to root ([d065f8e](https://github.com/ReSerendipity/Image_MultiModel/commit/d065f8eb556771d90092c0714912aa9c307d14ed))
-* **test:** E2E selectors align to actual frontend IDs + split mega test + conditional wait + cross-browser ([ceb3dd5](https://github.com/ReSerendipity/Image_MultiModel/commit/ceb3dd546682d7191d48855a2305750832b79753))
-* **test:** importorskip torch + precise assertions + integration marks + exception specificity ([d3e445b](https://github.com/ReSerendipity/Image_MultiModel/commit/d3e445b47167b0a8dd6ed34f3de084487578acfa))
-* update SeedVR2 reference paths to renamed SeedVR2-lite ([66be109](https://github.com/ReSerendipity/Image_MultiModel/commit/66be10919b5319bb76751e9e38fb0c74ed0f4d6c))
-* watermark robust through PNG uint8 roundtrip (regression found in e2e) ([fbf0721](https://github.com/ReSerendipity/Image_MultiModel/commit/fbf0721e1104803f4eee0095a5706f2d46acd4e0))
-* **webui:** WCAG contrast fixes for H3 accent + batch tabs styles + CSRF-aware test clients ([9fb6d47](https://github.com/ReSerendipity/Image_MultiModel/commit/9fb6d47c602ae0ed29b511333cb8f597ad4349ef))
-* wire F1 generate pipeline & F3 LoRA scan ([7f2099d](https://github.com/ReSerendipity/Image_MultiModel/commit/7f2099d66717cc8c5f605392020e1bc9a3bae516))
-* 移除未使用 import（ruff） ([29cf6a3](https://github.com/ReSerendipity/Image_MultiModel/commit/29cf6a34d88a090b2dbbb0134dad9f1eec5ce198))
+## \[1.2.0] - 2026-08-13
 
+### Added
 
-### Documentation
+- **原生进程内引擎（双后端模式）**（MASTER\_PLAN M7）：
 
-* **agents:** v1.24 - test system improvement (Gotcha [#34](https://github.com/ReSerendipity/Image_MultiModel/issues/34)-36 + SOP-5) ([3a332b5](https://github.com/ReSerendipity/Image_MultiModel/commit/3a332b59d9e05bcb59f2ca546f36545ed42a7a17))
-* audit record - M6 watermark/scripts added ([64f6f21](https://github.com/ReSerendipity/Image_MultiModel/commit/64f6f216b2a02b8518840257e427cbf91f8fa5c2))
-* clarify audit remaining = M2 real integration only ([f7e9956](https://github.com/ReSerendipity/Image_MultiModel/commit/f7e9956d4cc3a5ddd101da07faa8920fdc9a7971))
-* **compliance:** add independent third-party declaration vs model owners (ByteDance Seed / Alibaba Tongyi / bilibili) ([d96d14c](https://github.com/ReSerendipity/Image_MultiModel/commit/d96d14c4e577acbf7452bf0fecab41dbbc9019b6))
-* **compliance:** rebrand subtitle, unify IndexTTS version naming, add third-party disclaimer to demo footer ([091c971](https://github.com/ReSerendipity/Image_MultiModel/commit/091c971fd0b672136626712f05014419fdd48f60))
-* document security.content_filter.fail_closed_on_clip_missing in DEPLOYMENT concurrency table ([be3f01a](https://github.com/ReSerendipity/Image_MultiModel/commit/be3f01a3274c71149caa5d2bfbc7173f9259307e))
-* fix port references 8080 -&gt; 8288 (docker run and perf_monitor) ([b3186ec](https://github.com/ReSerendipity/Image_MultiModel/commit/b3186ecae0204f8fc73f5e37d7de0f33fa1dc1db))
-* README 与用户文档仅保留 Z-Image Turbo 引擎 ([7e95d54](https://github.com/ReSerendipity/Image_MultiModel/commit/7e95d542c3b68b04d0c57a36f06ad38be1de00d6))
-* README 增加 CI 徽章，新增社交预览图与社区健康文件 (CONTRIBUTING/SECURITY) ([ad3fbd8](https://github.com/ReSerendipity/Image_MultiModel/commit/ad3fbd83aeb572bad5f13aa2de4c2487741b5e38))
-* restore open-source essentials (LICENSE, CODE_OF_CONDUCT, SECURITY, third-party notices) ([87683ea](https://github.com/ReSerendipity/Image_MultiModel/commit/87683ea0856f3893ae477cf0544e86ad7737e2fe))
-* restore README, CI, demo, screenshots to remote; gitignore local-only content ([50c6cd4](https://github.com/ReSerendipity/Image_MultiModel/commit/50c6cd4de4031c096b097a4a6630a075bb8d2b6d))
-* restore README, CI, demo, screenshots to remote; gitignore local-only content ([f969842](https://github.com/ReSerendipity/Image_MultiModel/commit/f969842e4dd68bd8df4e6b75d062a12aac73d5d1))
-* restore README, CI, demo, screenshots to remote; gitignore local-only content ([b56669f](https://github.com/ReSerendipity/Image_MultiModel/commit/b56669feaaa670b98c37aede5d18f8c989c2c139))
-* self-check pass, bump v1.12 ([c41adff](https://github.com/ReSerendipity/Image_MultiModel/commit/c41adffe9074cfba2f83ec2b73c33559637eca2d))
-* trigger pages deploy ([64821ed](https://github.com/ReSerendipity/Image_MultiModel/commit/64821ed29964c1770144a76cb885dd37b8dbe979))
-* update SeedVR2 link to renamed repo (SeedVR2-Toolkit) ([d717caa](https://github.com/ReSerendipity/Image_MultiModel/commit/d717caa2a72165cb5a0bceb2775d5a920366e2dc))
-* 补充 Apache-2.0 LICENSE，界面预览浅色截图与截图脚本 ([c4664d1](https://github.com/ReSerendipity/Image_MultiModel/commit/c4664d102a9a2ee9e5aabdd502a0792e43619d38))
-* 补全项目健康度评估报告列明的全部缺失要素 ([1ab87f8](https://github.com/ReSerendipity/Image_MultiModel/commit/1ab87f8292964fdeb0176e946ba03c0175dc5708))
+  - `bin/integrated_app/native/` 包：`source.py`（复用 `references/ComfyUI` + aki-v3 自定义节点源码，`sys.path` 注入）、`executor.py`（复用 `comfy.sd` / `comfy.samplers` 完成 加载→CLIP编码→采样→VAE解码）、`engine.py`（`NativeEngine` 实现 `ImageEngine` Protocol，输出经 `PathGuard` 校验落盘 + DCT 水印 + 缩略图）
 
+  - `lora.py` / `seedvr.py` / `compares.py` / `vram.py` / `preview.py`：原生引擎 Phase 3 能力扩展
 
-### CI/CD
+  - `config.yaml` 新增 `z_image_turbo_native`（`backend: native`），无需外部 ComfyUI 进程即可在进程内出图
 
-* job 超时 60 分钟、最小权限 contents:read、pip check ([ef10587](https://github.com/ReSerendipity/Image_MultiModel/commit/ef10587fcb48806a5545ee78979c29c389880083))
-* release-please 使用 GH_PAT 建 PR（GITHUB_TOKEN 被禁并在 org 无法创建 PR） ([b58df27](https://github.com/ReSerendipity/Image_MultiModel/commit/b58df27ee041224273d4e8770a054e5aa99654eb))
-* security assertions (no 0.0.0.0 binding, entry/lock checks) ([3ba5304](https://github.com/ReSerendipity/Image_MultiModel/commit/3ba5304ede8c23ce3a82e366e7d3a11437ea2586))
-* smoke job 增加 pip check 校验依赖一致性 ([cc83e0a](https://github.com/ReSerendipity/Image_MultiModel/commit/cc83e0a2f643c7a48426bdac263830864f09cf2d))
-* 为 Image 接入 release-please 自动发版 ([88ae34a](https://github.com/ReSerendipity/Image_MultiModel/commit/88ae34ad1d2c9473d42e86aebd026810b27f8e82))
-* 预防措施——本地门禁脚本+git hooks、.gitattributes、pytest 超时 180s、security.yml 超时与最小权限、CONTRIBUTING 排障章节 ([702deaa](https://github.com/ReSerendipity/Image_MultiModel/commit/702deaae72c877f6f8061c306ae1d02d43ddb2c9))
+- **后端模式切换**：`routes/engine_routes.py` 按引擎配置的 `backend` 字段分发 `ComfyEngine` / `NativeEngine`；前端引擎菜单顶部支持「全部 / ComfyUI / 原生」过滤
 
+- **动态 LoRA 栈**：`engine_interface.py` 的 `GenerationConfig` 新增 `lora_stack` 动态字段（不局限于旧 6 层，空时回退旧字段）
 
-### Refactor
-
-* extract shared output pipeline (save/thumbnail/provenance); gitignore: unify template ([d3ebd63](https://github.com/ReSerendipity/Image_MultiModel/commit/d3ebd63072b7d3e5b9f9bfee9eed0a75e8f04169))
-* incremental template/js updates ([37a1028](https://github.com/ReSerendipity/Image_MultiModel/commit/37a1028289a0e1163fb1bc4fe0a2793d5810c2b4))
-* migrate frontend to Jinja2 templates (templates/css/js split, remove static index.html) ([d8f927f](https://github.com/ReSerendipity/Image_MultiModel/commit/d8f927fa1739506a592ab21f7c19836d7fa8bf94))
-* move EsEs compare generation into shared output pipeline ([f4f4d7d](https://github.com/ReSerendipity/Image_MultiModel/commit/f4f4d7db5dd4cb10e641a1f94d3cb61eac2f1538))
-* **native:** 完全脱离 ComfyUI，统一走进程内原生引擎 ([56bbc2a](https://github.com/ReSerendipity/Image_MultiModel/commit/56bbc2a3a2e3bbf4fc60ff5dd558716dd6aff42e))
-* **native:** 将 Comfy 推理内核迁入 comfy_kernel/，运行时不依赖 references/ ([5b3b3c5](https://github.com/ReSerendipity/Image_MultiModel/commit/5b3b3c5f2d081e919f8568e20780dfefe5184ac2))
-* **native:** 清理为单一 Z-Image Turbo 引擎 + 移除本机绝对路径依赖 ([54dea07](https://github.com/ReSerendipity/Image_MultiModel/commit/54dea0712e30d06e45759607a51fafcda94ada3f))
-* update native engine and security components ([9c32a17](https://github.com/ReSerendipity/Image_MultiModel/commit/9c32a17b6222d31bc8939e46d8e84422646bb2ad))
-* 应用主目录 bin→app 迁移 + model 目录占位 ([40a15be](https://github.com/ReSerendipity/Image_MultiModel/commit/40a15beb3f01f5f1d0c31c304fa032ace0245715))
-* 移除旧 pretrained_models 占位结构（已被 model/ 目录替代） ([f472fa9](https://github.com/ReSerendipity/Image_MultiModel/commit/f472fa9fae315e25573d7b6db8d65cbb23889a1a))
-
+- **原生引擎安全测试**：`tests/test_native_security.py`（`_save_outputs` 路径穿越攻击向量：`../`、绝对路径、恶意引擎名，全部被 `PathGuard` 拒绝）
 
 ### Security
 
-* enable CSRF by default with frontend Double-Submit flow; track magic_check.py; enforce secret-scan gate (trivy exit-code 1); add dependabot ([2eb90b5](https://github.com/ReSerendipity/Image_MultiModel/commit/2eb90b544c8b6bc821dfcb8a5fbdc5250f2812a6))
-* pin trivy-action to verified commit SHA (v0.36.0, supply-chain; both secret-scan and image jobs) ([5b1cb86](https://github.com/ReSerendipity/Image_MultiModel/commit/5b1cb861998a4227516b8908dc9514c539730724))
-* regenerate integrity manifest (jinja2 refactor) ([dc7f2b7](https://github.com/ReSerendipity/Image_MultiModel/commit/dc7f2b7a26dc7f3eeabad58ddf83517d793d56ed))
-* wire CLIP image check into generation flow (reference_image_path/b64); configurable fail-closed on CLIP missing; run check_image in executor ([2a08e23](https://github.com/ReSerendipity/Image_MultiModel/commit/2a08e23803b1c85ab7d30f270ec68a17e56e4b5d))
+- 原生引擎输出落盘路径经 `PathGuard` 校验，验证 `../` 穿越 / 绝对路径 / 恶意引擎名注入向量全部拒绝
 
+***
 
-### Tests
+## \[1.1.0] - 2026-08-13
 
-* add capture-screenshots tooling ([2068226](https://github.com/ReSerendipity/Image_MultiModel/commit/2068226a29fc1d7d55ae4f2ac2b6929fd34333de))
-* add REST contract tests (test_api_contract) + audit record ([c2d966a](https://github.com/ReSerendipity/Image_MultiModel/commit/c2d966a7b02a1cef4bcf959a189af1f893970697))
-* **chaos:** add chaos engineering tests + CI integration (e2e/frontend-smoke/mypy/performance/sast/xdist) ([b8f69f4](https://github.com/ReSerendipity/Image_MultiModel/commit/b8f69f45e7fb91d245fbb9ee04c86c8986d9cd08))
-* clean up test anti-patterns - remove redundant sys.path.insert, unify coverage threshold, eliminate hardcoded path, optimize E2E waits ([5c7a9c5](https://github.com/ReSerendipity/Image_MultiModel/commit/5c7a9c500f37fdf01d50b34cf8a2473ac5cd7d01))
-* complete test infrastructure overhaul (P0+P1+P2) - 239 tests passed, 81.21% coverage ([9a4cb94](https://github.com/ReSerendipity/Image_MultiModel/commit/9a4cb948ccb1766647c76562b9e01fcdf2d04ccd))
-* **e2e:** add core user flow E2E tests (generate→view→export) ([bff67ed](https://github.com/ReSerendipity/Image_MultiModel/commit/bff67ed215e1acda0817b1b484cc7de997351249))
-* forward-path API integration suite (real ComfyUI) 5/5 green ([7de0179](https://github.com/ReSerendipity/Image_MultiModel/commit/7de0179f72facad21503866f88786aed3a73409a))
-* make presets contract test idempotent (unique name, was 409 on re-run) ([364209a](https://github.com/ReSerendipity/Image_MultiModel/commit/364209a249ab255c2a3892d4eda088c891338020))
-* **routes:** add comprehensive generate_routes API contract tests ([2d1ec4e](https://github.com/ReSerendipity/Image_MultiModel/commit/2d1ec4ee47824231c1b882820a5b37c8407bae8d))
-* **routes:** fix over-specified assertions in route coverage tests ([6de541f](https://github.com/ReSerendipity/Image_MultiModel/commit/6de541fbf3f1a87d3c096059a0063f4343f8eec2))
-* 全面测试体系改进 — 覆盖率72%→76%, 新增17个改进项 (335 passed, 0 failed) ([caf16d3](https://github.com/ReSerendipity/Image_MultiModel/commit/caf16d3c50f67e83d91b5ab4da7f5bf93f256418))
-* 补充 error_handler/路由/i18n 边界测试，覆盖率 73.6%→75.3%（满足 75% 门槛） ([c07137a](https://github.com/ReSerendipity/Image_MultiModel/commit/c07137ae4c9b572a6d0facbceacd8c37a7c76f33))
+### Added
+
+- **CLIP 安全内容检测**（全功能实施指南 P0 任务1）：
+
+  - `security/content_filter.py`：基于 CLIP 的图片安全检测 + 关键词提示词过滤
+
+  - CLIP 模型懒加载，未安装时优雅降级为纯关键词过滤
+
+  - `routes/safety_routes.py`：`POST /api/safety/check-prompt` + `POST /api/safety/check-image`
+
+  - 集成到 `/api/generate` 生成流程，违规提示词自动拦截
+
+  - 27 个不安全关键词覆盖（NSFW / 暴力 / 仇恨 / 自残 / 毒品 / 武器等）
+
+- **Fooocus 风格提示词扩展**（全功能实施指南 P0 任务2）：
+
+  - `prompt_expander.py`：智能提示词扩写系统
+
+  - 6 种预设风格（cinematic / anime / photorealistic / oil\_painting / digital\_art / fantasy）
+
+  - 自动质量增强（masterpiece / best quality / ultra detailed / 8k）+ keyword:weight 加权语法
+
+  - 5 种场景智能推荐（portrait / landscape / still\_life / architecture / fantasy）
+
+  - `routes/prompt_routes.py`：`POST /api/prompt/expand` + `POST /api/prompt/suggest` + `GET /api/prompt/styles` + `GET /api/prompt/scenes`
+
+- **ControlNet 预处理器系统**（全功能实施指南 P0 任务3）：
+
+  - `preprocessors/canny.py`：Canny 边缘检测（自适应百分位阈值）
+
+  - `preprocessors/midas.py`：MiDaS 深度估计（DPT\_Large 模型懒加载）
+
+  - `preprocessors/openpose.py`：OpenPose 人体姿态检测（controlnet\_aux 懒加载）
+
+  - `PreprocessorProtocol` 协议 + 注册表模式，支持扩展自定义预处理器
+
+  - `routes/preprocess_routes.py`：`POST /api/preprocess/canny` + `POST /api/preprocess/depth` + `POST /api/preprocess/pose` + `GET /api/preprocess/list`
+
+  - Base64 图片输入输出，无需文件 I/O
+
+- **i18n 新增 9 个后端错误 key**（5 种语言同步）：`content_blocked` / `prompt_expand_success` / `prompt_suggest_success` / `preprocess_canny_success` / `preprocess_depth_success` / `preprocess_pose_success` / `preprocess_failed` / `preprocess_not_available`
+
+- **新增依赖**：`clip-anytorch>=2.0.0`（CLIP 安全检测）、`controlnet-aux>=0.0.9`（OpenPose 预处理）
+
+### Security
+
+- 生成流程集成 CLIP 内容安全过滤，违规提示词自动拦截（400 响应）
+
+- 安全检测路由的图片路径过 PathGuard 校验
+
+***
+
+## \[2.0.0] - 2026-08-10
+
+### Added
+
+- **ComfyUI 工作流引擎架构**：Engine / Client / Workflow 三层抽象，支持多后端负载均衡
+
+  - `comfy/client.py`：HTTP + WebSocket 双通道客户端，自动重连（≤3 次指数退避）
+
+  - `comfy/engine.py`：ComfyEngine 实现 ImageEngine Protocol（load / unload / infer\_txt2img / cancel）
+
+  - `comfy/workflow.py`：WorkflowManager Patcher 6 步（深拷贝→模式切换→link 重连→widgets patch→batch chunk→节点校验）
+
+- **内置工作流**：Z-Image Turbo（高速低显存）
+
+  - 每引擎一份 Schema YAML（`comfy/schemas/`），节点 ID 严格对齐 `widgets_values` 下标
+
+- **VRAM 预检 + 精度推荐系统**：推理前估算显存需求（×1.5 系数），推荐 FP8/FP16 精度与 batch chunk 大小
+
+- **批量任务队列**：异步单 Worker 串行 + SSE 实时推送 + 任务取消 + 断点恢复
+
+  - batch>100 时每 100 张自动落盘 checkpoint，崩溃重启自动续跑
+
+- **预设管理系统**：SQLite 存储，支持 CRUD + 导入导出 + 一键应用回填
+
+- **历史记录系统**：SQLite（WAL + FTS5 全文检索），支持搜索 / 筛选 / 分页 / 批量删除 / ZIP 导出 / 标签
+
+- **DCT 频域数字水印**：输出图像自动嵌入 `product_id + task_id + timestamp`，可溯源验证
+
+  - `scripts/verify_watermark.py` CLI 验证工具
+
+- **安全加固体系**：
+
+  - PathGuard 路径防护（规范化校验，防 `../` 路径穿越）
+
+  - CSRF 中间件（Token 头注入，防御跨站请求伪造）
+
+  - Rate Limit 限流（推理 / 上传 / 全局三维度）
+
+  - Integrity Manifest 完整性校验（SHA256 校验关键安全模块）
+
+  - Basic Auth / API Token 鉴权（可配置开关）
+
+- **i18n 五种语言**：中文 / 繁体中文 / 英文 / 日文 / 韩文，前端 JS 字典 + localStorage 持久化 + 防闪烁
+
+- **8 种布局方案 Figma 原型对比**（`prototypes/figma-refactor/layout-compare/`）：
+
+  - a-creative / b-split / c-collapsible / d-drawer / e-wizard / f-pipeline / g-master-detail / h-minimal
+
+  - 最终选定 d-drawer（抽屉式）布局：移动端适配好、操作路径短、空间利用率高
+
+- **GPU 状态监控**：SSE `gpu_status` 事件实时推送显存使用情况
+
+- **实时预览**：WS `b_preview` → base64 → SSE `comfy_preview` → 前端采样中实时预览
+
+- **释放显存功能**：`POST /api/engine/free` → ComfyUI `/free` → SSE 刷新
+
+- **历史清理 cron**：`config.yaml` 配置 cron 表达式 + `keep_days` 保留天数
+
+- **日志轮转**：RotatingFileHandler，按大小自动轮转保留 N 份
+
+- **辅助脚本体系**（8 个）：
+
+  - `benchmark.py`：性能基准（首页 / 历史 / health / SSE 四指标）
+
+  - `check_wcag.py`：WCAG 无障碍检查
+
+  - `generate_integrity_manifest.py`：完整性清单生成
+
+  - `migrate_outputs.py`：输出目录结构迁移（旧平铺 → engine/date）
+
+  - `pack_portable.ps1`：便携包 7 步打包
+
+  - `setup_symlinks.ps1`：模型符号链接设置（shared 模式 Junction 维护）
+
+  - `test_portable_mode.py`：便携模式验证
+
+  - `verify_watermark.py`：水印 CLI 验证
+
+- **测试体系**：40+ 个测试文件，287 passed / 0 failed
+
+  - Hypothesis 属性测试、Factory Boy 测试工厂、PathGuard 攻击测试、SQL 注入测试
+
+  - Playwright E2E（POM 页面对象模型 + 4 个场景）
+
+- **Pre-commit 钩子**：ruff + format + trailing-whitespace + check-yaml 等 6 项
+
+- **CI 工作流**：lint + test（3.12/3.13 矩阵）+ SAST（pip-audit）+ smoke 测试
+
+- **Docker 支持**：Dockerfile + docker-compose.yml 双配置
+
+- **WCAG AA 无障碍**：对比度校准（accent #6b5bb8 5.51:1 / primary #7c5fd6 4.70:1）
+
+- **双模式模型路径**：`shared`（与 ComfyUI 共享）/ `portable`（项目自包含）
+
+### Changed
+
+- 从 v1.x 单体架构重构为 ComfyUI 客户端 / 服务端分离架构
+
+- 前端从 Jinja2 + HTMX 多页模板改为单页融合版（SPA + REST + SSE）
+
+- 历史存储从 JSON 文件改为 SQLite（WAL + FTS5）
+
+- HTTP 客户端从 httpx 改为 aiohttp（与 ComfyUI WebSocket 生态兼容）
+
+- 主题色从薰衣草紫 #8b7bd8 调整为 #6b5bb8（WCAG AA 对比度达标）
+
+- 覆盖率门槛设为 75%（fail\_under=75）
+
+### Security
+
+- 加入 PathGuard 路径防护，修复路径穿越漏洞（14 类攻击全拒绝）
+
+- 加入 CSRF 中间件，防御跨站请求伪造
+
+- 加入 Rate Limit 限流，防止滥用
+
+- 加入 Integrity Manifest，关键安全模块 SHA256 校验
+
+- 加入 DCT 频域水印，输出图像可溯源
+
+- 默认仅绑定 `127.0.0.1`，config.yaml host 字段只读
+
+### Fixed
+
+- `task_queue.py:97` f-string 语法错误（缺左花括号导致应用无法启动）
+
+- 水印 DCT 嵌入 uint8 回绕问题（MIN\_Q 2→8、新增 MAX\_Q=16、引擎裁剪 \[0,255]）
+
+- 集成测试 8 个 `UnraisableExceptionWarning` 清零
+
+- outputs/ 旧平铺 PNG 迁移到 engine/date 目录结构
+
+- `logging.handlers` 导入缺失导致 RotatingFileHandler 不工作
+
+- i18n 新增 18 个 `btn_*` 键（5 语），消除界面裸键
+
+- WCAG AA 对比度不达标色值修复
+
+***
+
+## \[1.0.0] - 2026-08-08
+
+### Added
+
+- 项目初始骨架：config.yaml + 2 个工作流 JSON + pretrained\_models 目录结构
+
+- MASTER\_PLAN.md 总体规划文档（M0\~M10 里程碑分解）
+
+- PRD.md 产品需求文档
+
+- 基础测试：test\_config + test\_workflow（39 例）
+

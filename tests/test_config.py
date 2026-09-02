@@ -55,7 +55,7 @@ class TestConfigLoading:
 
     def test_app_config_builds(self, app_config):
         """AppConfig 构建成功"""
-        assert app_config.version == "2.0.0"
+        assert app_config.version == "1.2.2"
         assert app_config.server.host == "127.0.0.1"
         assert app_config.server.port == 8288
         assert app_config.models.model_source_mode in ("shared", "portable")
@@ -76,7 +76,7 @@ class TestConfigLoading:
 
         native = engines["z_image_turbo_native"]
         assert native.backend == "native"
-        assert native.workflow_file == "workflows/Z_image_turbo.json"
+        assert native.workflow_file == ""
 
     def test_config_safe_dict_redacts_secrets(self, app_config):
         """脱敏：auth_token / password 不暴露"""

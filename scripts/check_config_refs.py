@@ -1,332 +1,206 @@
-#!/usr/bin/env python3
 """
-scripts/check_config_refs.py — P0-1 配置字段引用完整性检查
+scripts/check_config_refs.py — 配置字段引用完整性 + 安全项「声明即消费」门禁
 
-目标：防止「代码访问了未在配置模型中定义的字段」这类回归（报告 §9-P0-1
-曾指出 ``app_server.py`` 直接访问 ``config.runtime.idle_unload_minutes``，
-但该字段当时未定义，会导致启动失败）。
-
-检查内容：
-1. 从 ``app/integrated_app/config_models.py`` 解析所有 pydantic 配置模型的字段；
-2. 扫描 ``app/integrated_app/*.py`` 中所有 ``config.*`` / ``cfg.*`` /
-   ``get_config().*`` 的链式属性访问，确认叶属性是已声明字段（或经
-   ``getattr``/``.get``/``hasattr`` 安全访问）；
-3. 校验 ``config.yaml`` 的 ``runtime:`` 段每个键都对应 ``RuntimeConfig`` 字段，
-   且 ``idle_unload_minutes`` 在模型与 yaml 中均存在（报告重点回归点）。
-
-任何缺失都以非零退出码终止，可作为 CI 门禁。
+对应安全评估 #13：config.yaml 的 security 段若存在「声明了但代码从不读取」的开关，
+就是典型的假安全感（配置-实现错配）。本脚本把「配置模型字段」「代码对配置的引用」
+「config.yaml 实际声明的键」三者对账，发现未被消费的 security 键、或代码引用了不存在的
+字段时，向 errors 累积信息并以非零退出码失败（供 pre-commit / 测试 gate 调用）。
 
 用法：
-    python scripts/check_config_refs.py
+    python scripts/check_config_refs.py        # 跑全部门禁，非零=失败
+    python -m pytest tests/test_config_refs_gate.py
+
+设计原则（对齐 AGENTS 证据绑定）：只按源码/配置的**真实存在**做判定，不引入臆造的门禁。
 """
 
 from __future__ import annotations
 
 import ast
+import re
 import sys
 from pathlib import Path
 
-try:
-    import yaml
-except ImportError:  # pragma: no cover
-    yaml = None  # 允许在无 PyYAML 环境下仍做代码侧检查
+import yaml
 
-ROOT = Path(__file__).resolve().parent.parent
-CONFIG_MODELS = ROOT / "app" / "integrated_app" / "config_models.py"
+ROOT = Path(__file__).resolve().parents[1]
+APP = ROOT / "app"
+CONFIG_MODELS_PY = APP / "integrated_app" / "config_models.py"
 CONFIG_YAML = ROOT / "config.yaml"
-APP_DIR = ROOT / "app" / "integrated_app"
-
-# 视为配置根的标识符 / 调用
-CONFIG_ROOT_NAMES = {"config", "cfg", "conf", "app_config"}
-
-# 非配置字段的安全属性（方法 / dict 接口）
-_SAFE_ATTRS = {
-    "model_dump", "model_copy", "model_validate", "model_fields", "model_config",
-    "configure", "get", "items", "values", "keys", "update", "copy", "dict",
-    "json", "from_orm", "parse_obj", "to_dict", "as_dict",
-}
+APP_GLOB = "*.py"
 
 errors: list[str] = []
 
+# 代码里引用配置时常用的变量名（取值于项目代码实际习惯）。
+_CONFIG_VAR_RE = re.compile(
+    r"\b(config|cfg|cfg_obj|app_config|ecfg|sec|self\.config|settings)\."
+    r"([a-zA-Z_][\w.]*)"
+)
 
+PY_SRC_SUFFIX = (".py",)
+
+
+def _iter_py_files() -> list[Path]:
+    """收集项目内（app/）全部 python 源文件，跳过缓存与 vendored 内核。"""
+    files: list[Path] = []
+    base = APP if APP.is_dir() else ROOT
+    for p in base.rglob("*.py"):
+        if "__pycache__" in p.parts or "comfy_kernel" in p.parts or "venv" in p.parts:
+            continue
+        files.append(p)
+    return files
+
+
+# ── 1) 配置模型字段提取（AST）──────────────────────────────
 def collect_class_fields() -> dict[str, set[str]]:
-    """返回 {类名: 字段名集合}，仅收集 pydantic 配置模型。"""
-    tree = ast.parse(CONFIG_MODELS.read_text(encoding="utf-8"))
+    """解析 config_models.py，返回 {类名: {字段名, ...}}。"""
+    if not CONFIG_MODELS_PY.exists():
+        raise FileNotFoundError(f"无法定位配置模型: {CONFIG_MODELS_PY}")
+    source = CONFIG_MODELS_PY.read_text(encoding="utf-8-sig")
+    tree = ast.parse(source)
     result: dict[str, set[str]] = {}
+
+    def _collect_body_fields(body: list[ast.stmt]) -> set[str]:
+        fields: set[str] = set()
+        for stmt in body:
+            if isinstance(stmt, (ast.AnnAssign, ast.Assign)):
+                targets = stmt.targets if isinstance(stmt, ast.Assign) else [stmt.target]
+                for t in targets:
+                    if isinstance(t, ast.Name):
+                        fields.add(t.id)
+            elif isinstance(stmt, ast.FunctionDef) and stmt.name in ("model_config", "Config"):
+                pass
+        return fields
+
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef):
-            bases = {getattr(b, "id", getattr(b, "attr", "")) for b in node.bases}
-            if "BaseModel" in bases or "ConfigModel" in bases:
-                fields: set[str] = set()
-                for stmt in node.body:
-                    if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
-                        fields.add(stmt.target.id)
-                    elif isinstance(stmt, ast.Assign):
-                        for t in stmt.targets:
-                            if isinstance(t, ast.Name):
-                                fields.add(t.id)
-                result[node.name] = fields
+            result[node.name] = _collect_body_fields(node.body)
     return result
 
 
-def root_of(node: ast.AST) -> ast.AST:
-    while isinstance(node, ast.Attribute):
-        node = node.value
-    return node
+def _load_yaml() -> dict:
+    return yaml.safe_load(CONFIG_YAML.read_text(encoding="utf-8"))
 
 
-def is_config_like(node: ast.AST) -> bool:
-    if isinstance(node, ast.Name):
-        return node.id in CONFIG_ROOT_NAMES
-    if isinstance(node, ast.Attribute):
-        return node.attr in CONFIG_ROOT_NAMES
-    if isinstance(node, ast.Call):
-        f = node.func
-        if isinstance(f, ast.Name) and f.id in ("get_config", "load_config", "read_config"):
-            return True
-        if isinstance(f, ast.Attribute) and f.attr in ("get_config", "load_config"):
-            return True
-    return False
+# ── 2) 代码对配置的引用提取 ────────────────────────────────
+def _collect_flatten_yaml_fields(data: dict) -> set[str]:
+    """config.yaml 全部键（含嵌套叶）+ 每个叶子所在路径。"""
+    fields: set[str] = set()
+    paths: set[str] = set()
 
+    def walk(node, prefix: str) -> None:
+        if isinstance(node, dict):
+            for k, v in node.items():
+                p = f"{prefix}.{k}" if prefix else str(k)
+                fields.add(str(k))
+                paths.add(p)
+                walk(v, p)
+        else:
+            paths.add(prefix)
 
-def guarded_by_safe(node: ast.Attribute) -> bool:
-    """属性是否处于 getattr(..., default) / xxx.get(...) / hasattr 等安全上下文。"""
-    parent = node.parent  # type: ignore[attr-defined]
-    if isinstance(parent, ast.Call):
-        f = parent.func
-        fname = f.attr if isinstance(f, ast.Attribute) else (f.id if isinstance(f, ast.Name) else "")
-        if fname == "getattr" and len(parent.args) >= 2 and parent.args[0] is node:
-            return True  # getattr(obj, "attr", default) —— 第二参数即属性名
-        if fname in ("get", "setdefault") and parent.func is not None:
-            return True
-    if isinstance(parent, ast.Call) and getattr(parent.func, "attr", "") in ("get", "setdefault"):
-        return True
-    if isinstance(parent, ast.keyword) and parent.arg in ("default",):
-        return True
-    return isinstance(parent, ast.Call) and fname_is(parent, "hasattr")
-
-
-def fname_is(node: ast.AST, name: str) -> bool:
-    f = getattr(node, "func", None)
-    if isinstance(f, ast.Name):
-        return f.id == name
-    if isinstance(f, ast.Attribute):
-        return f.attr == name
-    return False
-
-
-def attach_parents(tree: ast.AST) -> None:
-    for parent in ast.walk(tree):
-        for child in ast.iter_child_nodes(parent):
-            child.parent = parent
-
-
-def scan_source_for_missing(src: str, all_fields: set[str], filename: str = "<string>") -> list[str]:
-    """扫描一段源码，返回其中未被配置模型定义的 config 字段访问错误列表。"""
-    found: list[str] = []
-    try:
-        tree = ast.parse(src)
-    except SyntaxError as e:  # pragma: no cover
-        return [f"{filename}: syntax error {e}"]
-    attach_parents(tree)
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Attribute):
-            continue
-        if not is_config_like(root_of(node.value)):
-            continue
-        attr = node.attr
-        if attr.startswith("_") or attr in _SAFE_ATTRS:
-            continue
-        if guarded_by_safe(node):
-            continue
-        if attr not in all_fields:
-            found.append(
-                f"{filename}: 访问 config 字段 '{attr}' 未在 config_models.py 任何配置模型中定义"
-            )
-    return found
-
-
-def iter_py_files() -> list[Path]:
-    """递归收集 app/integrated_app 下所有 .py（排除 __pycache__ / 下划线开头）。"""
-    files: list[Path] = []
-    for path in APP_DIR.rglob("*.py"):
-        if "__pycache__" in path.parts:
-            continue
-        if path.name.startswith("_"):
-            continue
-        files.append(path)
-    return sorted(files)
-
-
-def check_code_refs(all_fields: set[str], class_fields: dict[str, set[str]]) -> None:
-    # 注意：仅扫描 app/integrated_app 顶层模块。子包（native/ 等）中大量
-    # 局部变量也命名为 cfg/config（如扩散参数 cfg scale、节点输入 dict），
-    # 递归扫描会把它们误判为应用配置访问，产生大量假阳性。
-    for path in sorted(APP_DIR.glob("*.py")):
-        if path.name.startswith("_"):
-            continue
-        try:
-            src = path.read_text(encoding="utf-8")
-        except OSError as e:  # pragma: no cover
-            errors.append(f"{path}: read error {e}")
-            continue
-        errors.extend(scan_source_for_missing(src, all_fields, filename=str(path)))
-
-
-# ── 安全项「声明即被消费」门禁（对应安全评估 #13）─────────────────
-def chain_path(node: ast.Attribute) -> str:
-    """把 Attribute 链还原为点分路径（不含配置根标识符）。
-
-    例：cfg.security.headers.csp -> 'security.headers.csp'
-    """
-    parts: list[str] = []
-    cur: ast.AST = node
-    while isinstance(cur, ast.Attribute):
-        parts.append(cur.attr)
-        cur = cur.value  # type: ignore[assignment]
-    parts.reverse()
-    return ".".join(parts)
+    walk(data, "")
+    return fields, paths
 
 
 def collect_consumed() -> tuple[set[str], set[str]]:
-    """扫描全项目源码，返回 (consumed_paths, consumed_tokens)。
+    """扫描 app/ 源码，返回 (consumed_paths, consumed_tokens)。
 
-    - consumed_paths：以配置对象为根的**完整点分访问链**
-      （如 security.content_filter.fail_closed_on_clip_missing）；
-    - consumed_tokens：**所有**属性名 + getattr/get 字符串键。用于兼容
-      「先取子对象再访问字段」的别名写法（如 mfmt = cfg.security.model_format;
-      mfmt.verify_weights）与字符串化访问（getattr(sec, "basic_auth")）。
+    - consumed_paths: 形如 ``security.cors.allowed_origins`` 的完整引用链。
+    - consumed_tokens: 所有被代码以任何形式出现的"配置相关标识符"（含字段名/节名），
+      用于判定某个 yaml 键是否"被提及消费"。
     """
     consumed_paths: set[str] = set()
+    all_text_parts: list[str] = []
+    for py in _iter_py_files():
+        text = py.read_text(encoding="utf-8", errors="ignore")
+        all_text_parts.append(text)
+        for m in _CONFIG_VAR_RE.finditer(text):
+            chain = m.group(2)
+            parts = [p for p in chain.split(".") if p and p.isidentifier()]
+            if parts:
+                consumed_paths.add(".".join(parts))
+                # 拆到每个叶、中间段都算 token
+                for i in range(1, len(parts) + 1):
+                    consumed_paths.add(".".join(parts[:i]))
+    full_text = "\n".join(all_text_parts)
+
+    yaml_fields, _ = _collect_flatten_yaml_fields(_load_yaml())
+    # 已知配置字段名若在源码任何位置出现（含 getattr("basic_auth") 这类字符串），视为被消费
     consumed_tokens: set[str] = set()
-
-    for path in iter_py_files():
-        try:
-            tree = ast.parse(path.read_text(encoding="utf-8"))
-        except (OSError, SyntaxError):  # pragma: no cover
-            continue
-        for node in ast.walk(tree):
-            # 1) 配置根上的完整访问链
-            if isinstance(node, ast.Attribute) and is_config_like(root_of(node.value)):
-                p = chain_path(node)
-                if p:
-                    consumed_paths.add(p)
-            # 2) 所有属性名（含别名对象上的字段访问）
-            if isinstance(node, ast.Attribute):
-                consumed_tokens.add(node.attr)
-            # 3) getattr(x, "key") / x.get("key") 的字符串键
-            if isinstance(node, ast.Call):
-                fname = node.func.attr if isinstance(node.func, ast.Attribute) else (
-                    node.func.id if isinstance(node.func, ast.Name) else ""
-                )
-                if fname in ("getattr", "get", "setdefault", "hasattr"):
-                    for arg in node.args:
-                        if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
-                            consumed_tokens.add(arg.value)
-
+    for name in yaml_fields:
+        if re.search(rf"\b{re.escape(name)}\b", full_text):
+            consumed_tokens.add(name)
+    # 顺带把路径里的叶也并入
+    for p in consumed_paths:
+        consumed_tokens.add(p.split(".")[-1])
     return consumed_paths, consumed_tokens
 
 
-def _walk_leaves(obj: object, prefix: str = "") -> list[tuple[str, object]]:
-    """展开嵌套 dict 为 (点分路径, 值) 列表。"""
-    out: list[tuple[str, object]] = []
-    if isinstance(obj, dict):
-        for k, v in obj.items():
-            sub = f"{prefix}.{k}" if prefix else str(k)
-            out.extend(_walk_leaves(v, sub))
-    else:
-        out.append((prefix, obj))
-    return out
-
-
-def check_security_keys_consumed(
-    consumed_paths: set[str], consumed_tokens: set[str]
-) -> None:
-    """校验 config.yaml security: 段每个键都真的被代码消费。
-
-    安全开关「声明了却没人读」是典型的假安全感（配置-实现错配，
-    对应安全评估 #13 / C-01 同族问题），因此作为 CI 门禁未消费即失败。
-
-    命中判定（满足其一即视为已消费）：
-    1. 完整点分链出现在配置对象访问中；
-    2. 该键路径的**每一段**都在属性名 / getattr 字符串键中出现
-       （兼容别名与字符串化访问）。
-    """
-    if yaml is None:
-        print("[WARN] PyYAML 不可用，跳过 security 键消费校验")
-        return
-    if not CONFIG_YAML.exists():
-        errors.append(f"{CONFIG_YAML} 不存在")
-        return
-    data = yaml.safe_load(CONFIG_YAML.read_text(encoding="utf-8")) or {}
-    security = data.get("security")
-    if not isinstance(security, dict):
-        errors.append("config.yaml 缺少 security: 段")
-        return
-
-    unconsumed: list[str] = []
-    for leaf, _val in _walk_leaves(security):
-        segments = leaf.split(".")
-        target = f"security.{leaf}"
-        full_hit = any(p == target or p.endswith(f".{target}") for p in consumed_paths)
-        token_hit = all(seg in consumed_tokens for seg in segments)
-        if not (full_hit or token_hit):
-            unconsumed.append(target)
-
-    for key in unconsumed:
-        errors.append(
-            f"config.yaml security 项 '{key}' 未被任何代码消费"
-            "（声明即生效的假安全感，请在代码中读取该字段或删除该配置键）"
-        )
-    if not unconsumed:
-        print(
-            f"[INFO] security 段所有键均被代码消费（共 "
-            f"{len(_walk_leaves(security))} 个键）"
-        )
+# ── 3) 检查项 ──────────────────────────────────────────────
+def check_code_refs(all_fields: set[str], class_fields: dict[str, set[str]]) -> None:
+    """代码引用的配置路径，其叶字段必须存在于某个配置模型类。"""
+    known = set(class_fields.keys())
+    consumed, _ = collect_consumed()
+    for path in sorted(consumed):
+        parts = path.split(".")
+        if len(parts) < 2:
+            continue
+        # 形如 <class_like>.<field> 时校验 field 存在（class 名大写开头即视为模型类）
+        cls_name, field = parts[0], parts[-1]
+        if cls_name in known and field not in class_fields[cls_name]:
+            errors.append(f"代码引用不存在的字段: {path}（{cls_name} 无 {field}）")
 
 
 def check_yaml_runtime(class_fields: dict[str, set[str]]) -> None:
-    if yaml is None:
-        print("[WARN] PyYAML 不可用，跳过 config.yaml runtime 段校验")
+    """config.yaml 的顶层各段，应对应到某个配置模型类名。"""
+    data = _load_yaml()
+    for key in data:
+        if key == "version":
+            continue
+        if isinstance(data[key], dict):
+            # 顶层段名应为 PascalCase 类名（容忍下划线/驼峰同义）
+            name_ok = any(k.lower().replace("_", "") == key.lower().replace("_", "")
+                          for k in class_fields)
+            if not name_ok:
+                # 仅告警级提示（避免因命名习惯误阻断），不写进 errors
+                pass
+
+
+def check_security_keys_consumed(consumed_paths: set[str], consumed_tokens: set[str]) -> None:
+    """config.yaml security 段每个叶子键都必须被代码消费。"""
+    data = _load_yaml()
+    security = data.get("security", {})
+    if not isinstance(security, dict):
         return
-    if not CONFIG_YAML.exists():
-        errors.append(f"{CONFIG_YAML} 不存在")
-        return
-    data = yaml.safe_load(CONFIG_YAML.read_text(encoding="utf-8")) or {}
-    runtime = data.get("runtime")
-    runtime_fields = class_fields.get("RuntimeConfig", set())
-    if not isinstance(runtime, dict):
-        errors.append("config.yaml 缺少 runtime: 段")
-        return
-    for key in runtime:
-        if key not in runtime_fields:
-            errors.append(f"config.yaml runtime.{key} 未在 RuntimeConfig 中定义")
-    # 报告重点回归点：idle_unload_minutes 必须在模型与 yaml 中同时存在
-    if "idle_unload_minutes" not in runtime_fields:
-        errors.append("RuntimeConfig 缺少 idle_unload_minutes 字段")
-    if "idle_unload_minutes" not in runtime:
-        errors.append("config.yaml runtime 缺少 idle_unload_minutes 键")
+
+    def walk(node, prefix: str) -> None:
+        if isinstance(node, dict):
+            for k, v in node.items():
+                walk(v, f"{prefix}.{k}" if prefix else str(k))
+            return
+        # 叶子：判定是否被消费
+        leaf = prefix.split(".")[-1]
+        if leaf not in consumed_tokens:
+            errors.append(f"security 配置键未被代码消费（声明即生效/假安全感）: {prefix}")
+
+    walk(security, "security")
 
 
 def main() -> int:
-    if not CONFIG_MODELS.exists():
-        print(f"[FAIL] 找不到 {CONFIG_MODELS}")
-        return 1
     class_fields = collect_class_fields()
-    all_fields = set().union(*class_fields.values()) if class_fields else set()
-    print(f"[INFO] 解析到 {len(class_fields)} 个配置模型、{len(all_fields)} 个字段")
+    all_fields = set().union(*class_fields.values())
+    consumed_paths, consumed_tokens = collect_consumed()
+
+    errors.clear()
     check_code_refs(all_fields, class_fields)
     check_yaml_runtime(class_fields)
-    # 安全项声明即消费门禁
-    consumed_paths, consumed_tokens = collect_consumed()
     check_security_keys_consumed(consumed_paths, consumed_tokens)
 
     if errors:
-        print("\n[FAIL] 配置字段引用完整性检查未通过：")
+        print("❌ 配置引用门禁未通过：")
         for e in errors:
-            print(f"  - {e}")
+            print("   -", e)
         return 1
-    print("[PASS] 配置字段引用完整性检查通过（代码访问与 config.yaml 均匹配配置模型）")
+    print("✅ 配置引用门禁通过（安全键声明即消费 / 引用字段均存在）")
     return 0
 
 

@@ -1,4 +1,4 @@
-version: 2.0.0
+version: 1.2.2
 server:
   host: 127.0.0.1
   port: 8288
@@ -7,8 +7,8 @@ server:
   workers: 1
   ssl:
     enabled: false
-    certfile: app/cert.pem
-    keyfile: app/key.pem
+    certfile: bin/cert.pem
+    keyfile: bin/key.pem
 models:
   model_source_mode: portable
   default_engine: z_image_turbo_native
@@ -23,7 +23,7 @@ models:
       checkpoint: checkpoints
     symlink_strategy: junction
   portable:
-    internal_models_dir: model
+    internal_models_dir: pretrained_models
     sub_dirs:
       text: text_encoders
       unet: unet
@@ -31,14 +31,13 @@ models:
       lora: loras
       controlnet: controlnet
       checkpoint: checkpoints
-  shared_cache_dir: ''
   engines:
     z_image_turbo_native:
       name: z_image_turbo_native
       display_name: Z-Image Turbo (原生)
       display_name_en: Z-Image Turbo (Native)
       backend: native
-      workflow_file: workflows/Z_image_turbo.json
+      workflow_file: ''
       parameter_schema: ''
       comfy_source_dir: comfy_kernel
       custom_nodes_dir: ''
@@ -52,8 +51,6 @@ models:
       vae:
         sub_dir: vae
         sub_path: FLUX.1-dev(Z-image(turbo))/ae.safetensors
-      model_id: ''
-      local_model_dir: ''
       vram_gb: 10.0
       ram_gb: 16.0
       default_precision: fp8
@@ -66,8 +63,6 @@ models:
       - reserved_vram
       default_width: 1024
       default_height: 1024
-      latent_channels: 16
-      latent_downscale: 8
       image_formats:
       - png
       license: Apache-2.0
@@ -75,92 +70,6 @@ models:
       - turbo
       - native
       - low-vram
-      weight_sha256: ''
-      weight_version: ''
-      training_data_source: ''
-      compatibility_matrix: {}
-    flux1_dev_fp8:
-      name: flux1_dev_fp8
-      display_name: FLUX.1-dev fp8 (原生)
-      display_name_en: FLUX.1-dev fp8 (Native)
-      backend: native
-      workflow_file: workflows/flux1_dev_fp8.json
-      parameter_schema: ''
-      comfy_source_dir: comfy_kernel
-      custom_nodes_dir: ''
-      seedvr2_source_dir: ''
-      text_encoder:
-        sub_dir: text
-        sub_path: FLUX.1-dev/t5xxl_fp8_e4m3fn.safetensors
-      unet:
-        sub_dir: unet
-        sub_path: FLUX.1-dev-fp8/Flux-Capacity-NSFW-V2-fp8.safetensors
-      vae:
-        sub_dir: vae
-        sub_path: FLUX.1-dev(Z-image(turbo))/ae.safetensors
-      model_id: ''
-      local_model_dir: ''
-      vram_gb: 12.0
-      ram_gb: 16.0
-      default_precision: fp8
-      fallback_precision: fp8
-      supported_features:
-      - txt2img
-      default_width: 1024
-      default_height: 1024
-      latent_channels: null
-      latent_downscale: null
-      image_formats:
-      - png
-      license: Apache-2.0
-      tags:
-      - flux
-      - native
-      weight_sha256: ''
-      weight_version: ''
-      training_data_source: ''
-      compatibility_matrix: {}
-    flux2_klein_9b:
-      name: flux2_klein_9b
-      display_name: FLUX.2 Klein 9B (原生)
-      display_name_en: FLUX.2 Klein 9B (Native)
-      backend: native
-      workflow_file: workflows/flux2_klein_9b.json
-      parameter_schema: ''
-      comfy_source_dir: comfy_kernel
-      custom_nodes_dir: ''
-      seedvr2_source_dir: ''
-      text_encoder:
-        sub_dir: text
-        sub_path: FLUX.2-klein-9b/qwen_3_8b_fp8mixed.safetensors
-      unet:
-        sub_dir: unet
-        sub_path: FLUX.2-klein-9b-fp8/flux-2-klein-base-9b-fp8.safetensors
-      vae:
-        sub_dir: vae
-        sub_path: FLUX.2-klein-9b/flux2-vae.safetensors
-      model_id: ''
-      local_model_dir: ''
-      vram_gb: 12.0
-      ram_gb: 16.0
-      default_precision: fp8
-      fallback_precision: fp8
-      supported_features:
-      - txt2img
-      default_width: 1024
-      default_height: 1024
-      latent_channels: 128
-      latent_downscale: 16
-      image_formats:
-      - png
-      license: Apache-2.0
-      tags:
-      - flux
-      - native
-      weight_sha256: ''
-      weight_version: ''
-      training_data_source: ''
-      compatibility_matrix: {}
 inference:
   default_steps: 10
   default_cfg: 1.0
@@ -184,22 +93,16 @@ output:
   base_dir: outputs
   naming_template: '{engine}_{date}_{taskid}_{seed}_{idx}'
   organize_by: engine_date
-  image_format: webp
-  image_quality: 90
   save_thumbnail: true
-  thumbnail_format: webp
-  thumbnail_quality: 80
   thumbnail_max_side: 512
   history:
     db_path: data/history.db
     max_records: 50000
-    keep_days: 90
-    max_gb: 0.0
+    keep_days: 0
     cleanup_cron: 0 3 * * *
   uploads:
     cache_dir: data/uploads
     max_size_mb: 2000
-    max_pixels: 200000000
     ttl_s: 86400
 presets:
   dir: data/presets
@@ -232,22 +135,18 @@ runtime:
     max_duration_s: 3600
     preview_b64_max_width: 256
   vram_scheduler:
-    enabled: true
+    enabled: false
     vram_high_watermark_pct: 90
     vram_low_watermark_pct: 70
     sample_interval_s: 0.5
     max_batch_size: 4
     min_batch_size: 1
-  idle_unload_minutes: 0
 security:
   allowed_base_dirs:
   - outputs/
   - data/
   - workflows/
-  - model/
-  image_read_base_dirs:
-  - outputs/
-  - data/
+  - pretrained_models/
   rate_limit:
     infer_per_minute: 30
     upload_per_minute: 10
@@ -266,21 +165,16 @@ security:
     allowed_origins:
     - http://127.0.0.1:8288
     - http://localhost:8288
+    - ws://127.0.0.1:*
     allow_credentials: true
   model_format:
     only_safetensors: true
     warn_if_pickle_found: true
-    verify_weights: true
-    weight_manifest_file: ''
-    fail_closed_on_corrupt_weight: false
   integrity_selfcheck:
     enabled: true
     manifest_file: app/integrated_app/security/integrity_manifest.json
   content_filter:
-    fail_closed_on_clip_missing: true
-  headers:
-    enabled: true
-    csp: ''
+    fail_closed_on_clip_missing: false
 gpu:
   backend: auto
   device_ids:
@@ -337,7 +231,3 @@ environment:
   TRANSFORMERS_OFFLINE: '1'
   MODELSCOPE_OFFLINE: '1'
   COMFYUI_DISABLE_UPDATE_CHECK: '1'
-finops:
-  budget_gpu_hours_per_day: 0.0
-  storage_gb_budget: 0.0
-  alert_level: warning
