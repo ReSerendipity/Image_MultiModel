@@ -12,17 +12,7 @@
 
 *浅色主题 — 生图工作台主页 / 高级参数 / 预设管理 / 历史记录 / 图片展示 / 批量模式*
 
-![主页浅色](docs/screenshots/current/light/01-home-full.png)
-
-![高级参数浅色](docs/screenshots/current/light/02-advanced-params-drawer.png)
-
-![预设管理浅色](docs/screenshots/current/light/03-presets-drawer.png)
-
-![历史记录浅色](docs/screenshots/current/light/04-history-drawer.png)
-
-![图片展示浅色](docs/screenshots/current/light/05-gallery-drawer.png)
-
-![批量模式浅色](docs/screenshots/current/light/06-batch-drawer.png)
+> 界面截图：主页、高级参数、预设管理、历史记录、图片展示、批量模式共六张，存放于本地 `docs/screenshots/current/light/`（C0：`docs/` 为本地保留、未随仓库发布，故此处不内嵌图片链接）。
 
 ---
 
@@ -66,7 +56,7 @@
 3. 双击运行 **`install.bat`**（会自动检测系统 Python，安装 PyTorch CUDA 版 + 全部依赖）
 4. **（可选）配置环境变量**  
    - **新手**：跳过此步，默认便携模式即可使用  
-   - **高级用户**：复制 `.env.example` 为 `.env`，按需修改（详见 [docs/PATH-CONFIGURATION.md](docs/PATH-CONFIGURATION.md)）
+   - **高级用户**：复制 `.env.example` 为 `.env`，按需修改（配置说明文档 `docs/PATH-CONFIGURATION.md` 为本地保留、未随仓库发布）
 5. 确认模型文件已就位（存放于 `pretrained_models/`，portable 模式，完全自包含）
 6. 双击运行：
    ```bat
@@ -131,7 +121,7 @@ docker run --gpus all -p 8080:8080 \
 - **`sys.path` 注入**：通过 `native/source.ensure_loaded()` 把该目录注入 `sys.path[0]`，在同一进程内调用 `comfy.sd` / `comfy.samplers` 完成推理。
 - **统一引擎 key**：`config.yaml → models.engines.z_image_turbo_native`（`backend: native`）。
 
-> ℹ️ 详情见 [docs/COMFYUI-INDEPENDENCE-PLAN.md](docs/COMFYUI-INDEPENDENCE-PLAN.md)。
+> ℹ️ 详情见本地文档 `docs/COMFYUI-INDEPENDENCE-PLAN.md`（本地保留、未随仓库发布）。
 
 ---
 

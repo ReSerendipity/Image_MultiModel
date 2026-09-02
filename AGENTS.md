@@ -1,6 +1,6 @@
 # Image\_MultiModel AGENTS.md — AI 辅助开发指南
 
-> 🧬 **自进化协议版本**：v1.3
+> 🧬 **自进化协议版本**：v1.5
 > 📅 **最后更新日期**：2026-09-02
 > 🎯 **对应项目版本**：v1.2.2（`config.yaml` 顶层 `version`；引擎 `license: Apache-2.0`）
 
@@ -146,7 +146,8 @@ Image_MultiModel/
 │                                    引擎推理**由代码构建**（native），`config.yaml → engines.<key>.workflow_file`
 │                                    一律置空；`app/clean_launch.py` 启动时若无此目录会自动重建空目录
 ├── scripts/                     ← setup_symlinks.ps1 / generate_integrity_manifest.py / init_watermark_key.py /
-│                                  verify_watermark.py / pack_portable.ps1 / benchmark.py / check_config_refs.py 等
+│                                  verify_watermark.py / pack_portable.ps1 / benchmark.py / check_config_refs.py /
+│                                  check_spec_refs.py 等
 ├── tests/                       ← 扁平 + e2e/integration/observability/release/smoke/frontend
 ├── demo/  release/              ← 演示页 / 发布元数据（build_metadata.json、sbom.json）
 ├── config.yaml  pyproject.toml  requirements*.txt  .pre-commit-config.yaml  start.bat  install.bat
@@ -266,9 +267,9 @@ Scope 建议：`native` / `engine` / `routes` / `security` / `i18n` / `observabi
 
 > 注：本仓 pre-commit **没有** mypy / check-i18n-coverage 钩子；不要在本表写入不存在的钩子。
 
-### 7.3 CI（⚠️ 本仓无 `.github/` 目录，无 GitHub Actions CI）
+### 7.3 CI
 
-- **实测（2026-09-02）：本仓整个** **`.github/`** **目录都不存在**，故没有任何 `.github/workflows/*.yml`。质量门禁以**本地**为准：
+- **实测（2026-09-02）：本仓自 v1.4 起引入 GitHub Actions CI**，新增 `.github/workflows/docs-consistency.yml`（对 `**/*.md`、`.pre-commit-config.yaml`、`.github/workflows/**` 变更时跑 `scripts/check_spec_refs.py` 家族审计 wrapper，见 §3.1 scripts 列表）。质量门禁以**本地 + 该 CI** 为准：
 
   - `precheck.ps1`（push 前预检；`-Full` 含测试与覆盖率门禁）
 
@@ -276,11 +277,13 @@ Scope 建议：`native` / `engine` / `routes` / `security` / `i18n` / `observabi
 
   - 覆盖率门禁 `pyproject.toml → [tool.coverage.report] fail_under = 65`
 
-- 不要臆写"quality-gate / security-assertions"等 CI job 名称（v1.0 曾误写，v1.1 已纠正）。
+  - `scripts/check_spec_refs.py`（家族审计 wrapper，调用外置家族审计器；纯 CI 环境找不到审计器时降级跳过保持绿）
 
-- `demo/README.md` 提到的 `pages-deploy.yml` 在本仓并不存在（历史参考），勿据此断言存在 CI。
+- 不要臆写"quality-gate / security-assertions"等未落地的 CI job 名称（v1.0 曾误写，v1.1 已纠正）。
 
-- 若未来引入 CI，需在 `.github/workflows/` 落地后再更新本节（证据绑定）。
+- `demo/README.md` 提到的 `pages-deploy.yml` 在本仓并不存在（历史参考），勿据此断言存在该 CI。
+
+- 后续新增 CI 时，需在 `.github/workflows/` 落地后再更新本节（证据绑定）。
 
 ***
 
@@ -329,6 +332,8 @@ Scope 建议：`native` / `engine` / `routes` / `security` / `i18n` / `observabi
 |  v1.1 | 2026-09-02 | 铁律 #1 事实同步：engine `workflow_file` 置空 + 修正 v1.0 臆造 CI 表述         | ① 用户删除 `workflows/` 参考 JSON（`flux1_dev_fp8.json` / `flux2_klein_9b.json` / `Z_image_turbo.json` 均不在磁盘），`config.yaml` 的 `z_image_turbo_native.workflow_file` **置空**（引擎推理由代码/native 构建，治理 `workflow_governance.py` 对空值直接跳过）；同步 `tests/test_config.py` 断言为 `workflow_file == ""`；② **修正 v1.0 臆造**：实测本仓**整个** **`.github/`** **目录不存在、无 GitHub Actions CI**，§7.3 重写为"无 CI，门禁以 precheck.ps1 + pre-commit + fail\_under=65 为准"，并撤销对 quality-gate/security-assertions/pages-deploy.yml 的错误断言；③ §3.1 `workflows/` 行、SOP-2、§5 统一改为"引擎推理由代码构建，`workflow_file` 保持置空（勿虚构 JSON 路径）" | v1.2.2 |  —  |
 |  v1.2 | 2026-09-02 | 铁律 #1 同步：`docs/` 已建立，修正"无 docs/"表述                              | t1 产出跨仓版本台账落在 `docs/repo-analysis/`，导致 §0/§3.1/§10 的"本仓无 docs/ 目录"表述失效；已改为"docs/ 仅有 docs/repo-analysis/"，并保留归档规则。另登记待核实：`config.yaml` 中 `security.integrity_selfcheck.manifest_file` 与 `i18n.locale_dir` 仍指向 `bin/integrated_app/...`（旧目录名，实际为 `app/integrated_app/...`），归入 t9 核验                                                                                                                                                                                                                                                                                     | v1.2.2 |  —  |
 |  v1.3 | 2026-09-02 | 落地开放项 #1/#2：版本统一 1.2.2 + 补配置引用门禁脚本                              | ① `tests/test_config.py` 版本断言由 2.0.0 改为 1.2.2（对齐 config.yaml，用户裁决）；② 新增 `scripts/check_config_refs.py`（AST 解析配置模型 + 代码引用扫描 + security「声明即消费」对账），`tests/test_config_refs_gate.py` 三例转为通过（25 passed）；§3.1 scripts 列表登记新脚本                                                                                                                                                                                                                                                                                                                                               | v1.2.2 |  —  |
+|  v1.4 | 2026-09-02 | 家族相互借鉴：引入 CI + 审计 wrapper + 落 DOD 完成定义                              | ① **新增 GitHub Actions CI**：`.github/workflows/docs-consistency.yml`（家族统一）与 `scripts/check_spec_refs.py`（家族审计 wrapper，调外置 `.spec_audit/audit_spec_refs.py`，纯 CI 无审计器时降级跳过）；§7.3 由"无 CI"重写为"本地 + docs-consistency CI"（铁律 #1 同步）；② §3.1 scripts 列表登记 `check_spec_refs.py`；③ 新增 `docs/DOD.md`（完成定义，全家族推广，源自 SpiritPal definition-of-done.md 泛化）。                                                                    | v1.2.2 | — |
+|  v1.5 | 2026-09-02 | 清理既有死链并把防回归规则写入规范                              | ① 清理 README 8 条死链（指向 gitignored `docs/screenshots/` 与本地文档的链接改纯文本并标注「本地保留」）+ AGENTS 绝对路径幻影（`C:\...\audit_spec_refs.py` 改通用表述），重跑审计 0 幻影/0 死链；② 归档「禁止事项」新增铁律：规范 markdown 不得用相对链接/内嵌图片指向 `.gitignore` 忽略的本地保留资源。 | v1.2.2 | — |
 
 <!-- 🔄 下次更新 AGENTS.md 时，在上面表格末尾追加新一行，不要删除历史记录 -->
 
@@ -355,6 +360,8 @@ Scope 建议：`native` / `engine` / `routes` / `security` / `i18n` / `observabi
 - ❌ 移动/删除 gitignored 运行时产物
 
 - ❌ 删除旧版本文档 → 需要留档移入归档目录
+
+- ❌ **在规范 markdown（README / AGENTS / docs 等被家族审计器扫描的文件）里用相对链接或内嵌图片指向 `.gitignore` 忽略的本地保留资源**（如整目录 `docs/`、`docs/screenshots/`）。这类文件不入库，CI checkout 中必然死链，触发 `check_spec_refs` 死链门禁导致 docs-consistency 红，还需返工。正确做法：① 改为纯文本说明并标注「本地保留、未随仓库发布」；② 或把资源移入入库目录（如 `demo/` / `assets/`）。
 
 - 新增文件前若不确定归属，先询问，不要自作主张放置。
 
