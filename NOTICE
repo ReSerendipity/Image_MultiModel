@@ -1,0 +1,21 @@
+# NOTICE
+
+## 本仓库代码许可
+
+本仓库（Image_MultiModel）自身的源代码、前端资产与测试，除特别注明外，
+均以 [Apache License 2.0](LICENSE) 授权，Copyright © 2026 ReSerendipity。
+
+## 模型权重许可声明（独立于代码）
+
+本仓库不包含任何模型权重文件（权重需置于 `model/unet`、`model/text_encoders`、
+`model/vae`、`model/loras` 目录，由用户自行下载）。使用各引擎权重前，请核对
+对应上游模型的许可条款：
+
+- **Z-Image-Turbo（默认 diffusers 引擎）**：HuggingFace Tongyi-MAI/Z-Image-Turbo，
+  按 [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0) 授权；
+  再分发需保留原版权声明。
+- **（已弃用）z_image_turbo_native / ComfyUI 内核**：仅旧版 native 引擎在进程内复用
+  `comfy_kernel/`（[GNU GPL v3.0](https://www.gnu.org/licenses/gpl-3.0.html)），
+  该引擎已自 v1.3.0 起标记为 deprecated，推荐使用 diffusers 引擎；本地默认已禁用。
+
+> 第三方 Python 依赖的完整许可清单见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

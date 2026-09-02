@@ -25,6 +25,10 @@ ENV/
 .catpaw/
 .trae/
 
+# AI 工具本地状态（记忆/计划，仅本地保留，不上远程）
+.workbuddy-ai/
+.zcode/
+
 # ── Testing ─────────────────────────────────────────────────
 .pytest_cache/
 .pytest_tmp/
@@ -63,7 +67,7 @@ bin/key.pem
 # ── .env（P1-3: 敏感配置不提交）──────────────────────────────
 .env
 
-# ── 临时文件（§5.2 清理）─────────────────────────────────────
+# ── Temporary files（§5.2 清理）─────────────────────────────────────
 *.txt
 !requirements.txt
 !requirements-lock.txt
@@ -78,6 +82,9 @@ bin/key.pem
 pytest_out*.txt
 gen*.txt
 fp_out*.txt
+
+# CI 修复交接日志（本地账本，不入库）
+FIX_LOG.md
 
 # ── Checkpoints ─────────────────────────────────────────────
 data/checkpoints/
