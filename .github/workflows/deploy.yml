@@ -1,0 +1,164 @@
+name: Deploy
+
+# P2-11: staging 部署 + post-deploy smoke 门禁；smoke 失败自动阻断晋级。
+# P2-12: blue-green 双槽位部署 + 一键 rollback（deploy / rollback 子命令）。
+#
+# 触发：release.yml 成功之后（workflow_run），或手工 dispatch。
+# 环境要求（self-hosted runner 上执行，需要能访问目标 GPU 机器）：
+#   - docker + docker compose v2
+#   - 目标机可通过 SSH 访问（secrets：STAGING_HOST / STAGING_USER / STAGING_SSH_KEY；
+#     生产同理使用 PROD_* secrets）。未配置 secrets 时本 workflow 在 GitHub 托管
+#     runner 上会退化为「本地 docker compose 起服 → 跑 smoke → 拆除」的演练模式，
+#     同样能验证晋级门禁逻辑。
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "staging"
+        type: choice
+        options: [staging, production]
+      image_tag:
+        description: "Immutable image tag (e.g., 2.0.1 or git-<sha>)"
+        required: true
+        type: string
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.event.inputs.environment || 'staging' }}
+  cancel-in-progress: false
+
+jobs:
+  # ── staging 部署 + post-deploy smoke ────────────────────────
+  staging:
+    name: Deploy to staging + smoke gate (P2-11)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve image tag
+        id: tag
+        run: |
+          if [ -n "${{ inputs.image_tag }}" ]; then
+            echo "tag=${{ inputs.image_tag }}" >> $GITHUB_OUTPUT
+          else
+            # 从 Release workflow 的产物读取（build_metadata.json 附件）
+            echo "tag=${{ github.event.workflow_run.head_branch }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python_version: "3.12"
+
+      - name: Install smoke deps
+        run: pip install pytest pytest-timeout
+
+      # ── 部署模式选择：远端（secrets 配置时）或本地演练 ──────────
+      - name: Deploy (remote staging via SSH)
+        if: vars.HAS_STAGING_SECRETS == 'true'
+        env:
+          SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          HOST: ${{ secrets.STAGING_HOST }}
+          USER: ${{ secrets.STAGING_USER }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan "$HOST" >> ~/.ssh/known_hosts
+          # blue-green：先部署到 idle 槽位（active 槽位继续服务）
+          ACTIVE=$(ssh -i ~/.ssh/id_deploy "$USER@$HOST" 'cat /opt/imm/active_slot 2>/dev/null || echo blue')
+          IDLE=$([ "$ACTIVE" = "blue" ] && echo green || echo blue)
+          echo "active=$ACTIVE idle=$IDLE"
+          echo "TARGET_SLOT=$IDLE" >> $GITHUB_ENV
+          ssh -i ~/.ssh/id_deploy "$USER@$HOST" \
+            "IMAGE_TAG=${{ steps.tag.outputs.tag }} ./imm-deploy-$IDLE.sh up -d"
+
+      - name: Deploy (local drill, no staging secrets)
+        if: vars.HAS_STAGING_SECRETS != 'true'
+        run: |
+          # 演练模式：本机 docker compose 起 fake-engine 服务（无 GPU，IMM_FAKE_ENGINE=1）
+          echo "IMAGE_TAG=${{ steps.tag.outputs.tag }}" >> .env
+          docker compose up -d
+          # 等待 health check 通过（最长 120s）
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8288/api/health >/dev/null 2>&1; then
+              echo "[OK] service healthy after ${i}s"; break
+            fi
+            if [ "$i" = "60" ]; then
+              echo "[FAIL] service not healthy within 120s"; docker compose logs --tail=200
+              docker compose down; exit 1
+            fi
+            sleep 2
+          done
+
+      - name: Run post-deploy smoke (P2-11 gate)
+        # ⚠️ 不设 continue-on-error：smoke 失败即 job 失败 → 晋级被阻断
+        env:
+          BASE_URL: ${{ vars.STAGING_BASE_URL || 'http://127.0.0.1:8288' }}
+        run: |
+          python scripts/post_deploy_smoke.py \
+            --base-url "$BASE_URL" \
+            --timeout 15 \
+            --generation-timeout 120 \
+            --output smoke_report.json
+        id: smoke
+
+      - name: Upload smoke report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-report-staging-${{ github.run_number }}
+          path: smoke_report.json
+
+      - name: Mark staging slot active (only after smoke passes)
+        if: vars.HAS_STAGING_SECRETS == 'true' && steps.smoke.outcome == 'success'
+        env:
+          SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          HOST: ${{ secrets.STAGING_HOST }}
+          USER: ${{ secrets.STAGING_USER }}
+        run: |
+          ssh -i ~/.ssh/id_deploy "$USER@$HOST" \
+            "echo $TARGET_SLOT > /opt/imm/active_slot; echo 'previous=$ACTIVE current=$TARGET_SLOT'"
+
+      - name: Stop local drill service
+        if: vars.HAS_STAGING_SECRETS != 'true'
+        run: docker compose down || true
+
+      - name: Block promotion on smoke failure
+        if: steps.smoke.outcome == 'failure'
+        run: |
+          echo "[FAIL] post-deploy smoke 未通过，晋级已阻断（production job 不会被触发）。"
+          echo "       请查看 smoke_report.json 定位失败检查项，修复后重新发布。"
+          exit 1
+
+  # ── 生产晋级（仅在 staging smoke 通过 + 人工批准 后执行）──────
+  production:
+    name: Promote to production
+    needs: staging
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
+    timeout-minutes: 30
+    environment: production   # 需要人工批准（GitHub environment protection rule）
+    steps:
+      - uses: actions/checkout@v4
+      - name: Promote (delegate to blue-green script with automatic rollback)
+        env:
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          # P2-12：deploy 子命令 = idle 起服验证 → promote → 完整 smoke → 观察窗口，
+          # 任一步失败自动回滚到 LAST_GOOD
+          echo "[INFO] Promoting $IMAGE_TAG to production via blue-green"
+          bash scripts/deploy/bluegreen.sh deploy "$IMAGE_TAG"
+
+      - name: Rollback on any promotion failure
+        if: failure()
+        run: bash scripts/deploy/bluegreen.sh rollback || echo "[WARN] 自动回滚失败，需人工按 docs/runbooks/service_startup.md 介入"

@@ -1,0 +1,131 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g., v2.0.1)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  # ── 创建 GitHub Release ───────────────────────────────
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          if [ -n "${{ inputs.tag }}" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Release tag: $TAG, version: $VERSION"
+
+      # ── P1-10：不可变版本 artifact（SBOM + 来源元数据 + tag/digest 固化）──
+      - name: Generate release metadata and SBOM
+        id: meta
+        run: |
+          python scripts/build_release_metadata.py --version "${{ steps.version.outputs.tag }}"
+          echo "image_tag=$(python -c "import json;print(json.load(open('release/build_metadata.json'))['image_tag'])")" >> $GITHUB_OUTPUT
+
+      - name: Verify release metadata (strict)
+        run: python scripts/build_release_metadata.py --verify --strict
+
+      - name: Build image with immutable tag
+        run: |
+          docker build \
+            --build-arg IMAGE_TAG=${{ steps.meta.outputs.image_tag }} \
+            --build-arg GIT_SHA=${{ github.sha }} \
+            --build-arg BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -t image-multimodel:${{ steps.meta.outputs.image_tag }} \
+            -t image-multimodel:${{ github.sha }} \
+            .
+
+      - name: Pin image digest
+        id: digest
+        run: |
+          # 本地构建的 digest 通过 docker inspect 取得；推送到 registry 后应改用
+          # `docker buildx imagetools inspect` 重取并回写 .env，确保部署按 digest 固化。
+          DIGEST=$(docker inspect --format='{{index .Id}}' image-multimodel:${{ steps.meta.outputs.image_tag }})
+          echo "digest=$DIGEST" >> $GITHUB_OUTPUT
+          python scripts/build_release_metadata.py \
+            --version "${{ steps.version.outputs.tag }}" --digest "$DIGEST"
+          echo "IMAGE_TAG / IMAGE_DIGEST:"; grep -E '^IMAGE_(TAG|DIGEST)=' .env
+
+      - name: Run tests before release
+        run: |
+          pip install -r requirements.txt
+          pip install pytest-cov pytest-asyncio pytest-timeout hypothesis factory-boy
+          python -m pytest -q --tb=short
+
+      - name: Build portable package (Windows)
+        run: |
+          echo "Note: Portable package build requires Windows runner."
+          echo "Skipping portable package build in this workflow."
+          echo "To build portable package, run scripts/pack_portable.ps1 on Windows."
+
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          # Extract the changelog section for this version
+          VERSION="${{ steps.version.outputs.version }}"
+          # Use awk to extract the section between version headers
+          awk -v ver="## \[${VERSION}\]" '
+            $0 ~ ver { found=1; next }
+            /^## \[/ && found { exit }
+            found { print }
+          ' CHANGELOG.md > release_notes.md
+          # If empty, use a default message
+          if [ ! -s release_notes.md ]; then
+            echo "Release ${VERSION}" > release_notes.md
+          fi
+          echo "Release notes extracted:"
+          cat release_notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+          # SBOM 与来源元数据随 Release 发布，便于下游按 digest 校验与审计
+          files: |
+            release/sbom.json
+            release/build_metadata.json
+
+  # ── 发布后通知 ─────────────────────────────────────────
+  notify:
+    name: Release Notification
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print release info
+        run: |
+          echo "Release ${{ needs.release.outputs.tag }} published successfully."
+          echo "Next steps:"
+          echo "  1. Build portable package on Windows: scripts/pack_portable.ps1"
+          echo "  2. Upload portable package to the GitHub Release"
+          echo "  3. Update documentation if needed"

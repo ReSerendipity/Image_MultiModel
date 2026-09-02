@@ -1,0 +1,433 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # 每日 UTC 02:00（北京时间 10:00）运行全量测试
+    - cron: "0 2 * * *"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint & Compile Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-lint-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-lint-
+      - run: pip install ruff
+      - run: ruff check app/ tests/
+
+  mypy:
+    name: Type Check (Mypy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-mypy-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-mypy-
+      - name: Install dependencies
+        run: |
+          pip install mypy
+          pip install -r requirements.txt || true
+      - name: Run Mypy type check
+        run: |
+          python -m mypy app/integrated_app \
+            --ignore-missing-imports \
+            --python-version 3.12
+
+  test:
+    name: Test + Coverage (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13"]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.python-version }}-
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip check
+          pip install pytest-cov pytest-asyncio pytest-timeout pytest-xdist hypothesis factory-boy
+      - name: Run tests with coverage (parallel)
+        # 测试失败必须阻断 CI（对应测试体系评估 P0-1：移除 `|| true`，使覆盖率红线真正生效）
+        run: |
+          python -m pytest \
+            --cov=app/integrated_app \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            -n auto \
+            -v
+      - name: Coverage Gate (>= 65%, target 75%)
+        if: always()
+        run: |
+          python - <<'PYEOF'
+          import os, xml.etree.ElementTree as ET
+          if not os.path.exists('coverage.xml'):
+              raise SystemExit('[FAIL] coverage.xml not found - 测试未运行或未采集覆盖率，门禁必须失败')
+          rate = float(ET.parse('coverage.xml').getroot().get('line-rate'))
+          pct = rate * 100
+          print(f'Line coverage: {pct:.1f}%')
+          # 65% = 落地红线（带安全余量）：实测约 69.4%，回落到 65% 给新增未测试
+          # 模块留出余量，避免 CI 误红；
+          # 75% 为目标值，待 CI 具备 torch/comfy 且新模块补齐测试后上调
+          #（需同步 pyproject.fail_under）。
+          if pct < 65:
+              raise SystemExit(f'[FAIL] coverage {pct:.1f}% < 65%')
+          print('[PASS] coverage meets 65% threshold (target: 75%)')
+          PYEOF
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+
+  sast:
+    name: SAST - pip-audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-sast-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-sast-
+      - name: Install pip-audit
+        run: pip install pip-audit
+      - name: Run pip-audit (SCA) — blocks CI on high-severity CVEs
+        run: |
+          pip-audit -r requirements.txt --strict
+
+  smoke:
+    name: Smoke Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-smoke-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-smoke-
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip check
+          pip install pytest-cov pytest-asyncio
+      - name: Run smoke tests (core critical path)
+        run: |
+          python -m pytest \
+            tests/test_config.py \
+            tests/test_path_guard_attacks.py \
+            tests/test_system_routes.py \
+            tests/test_api_contract.py::TestBasicContract::test_health_ok \
+            tests/test_api_contract.py::TestBasicContract::test_config_ok \
+            -v
+
+  frontend-smoke:
+    name: Frontend Smoke Tests (jsdom)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt || true
+          pip install jinja2
+      - name: Install Node dependencies
+        run: |
+          cd tests
+          npm install
+      - name: Render Jinja2 templates
+        run: |
+          python scripts/render_pages.py || echo "render_pages.py not found or failed, creating minimal HTML"
+          mkdir -p tests/frontend/_rendered
+          cp app/integrated_app/static/index.html tests/frontend/_rendered/ 2>/dev/null || true
+      - name: Run frontend smoke tests (jsdom)
+        run: |
+          node tests/frontend/smoke.js
+      # M-06 XSS 转义回归（纯 Node，无 jsdom 依赖）。
+      # 此前 CI 只跑 smoke.js，这份安全回归测试从未被纳入流水线。
+      - name: Run frontend XSS regression
+        run: |
+          node tests/frontend/xss_regression.js
+
+  e2e:
+    name: E2E Tests (Playwright)
+    # 对应测试体系评估 P1-4：启用 E2E + 视觉回归（此前 if:false 禁用）。
+    # 以 IMM_FAKE_ENGINE=1 启动服务端，首页/结构/视觉回归无需 GPU，可 CI 复现；
+    # 真实 GPU 生成用例标记 @pytest.mark.slow，默认不跑（手动冒烟）。
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-e2e-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-e2e-
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt || true
+          pip install pytest pytest-asyncio pytest-playwright
+      - name: Install Playwright browsers
+        run: |
+          python -m playwright install chromium --with-deps
+      # 视觉回归基线按「平台-浏览器」分桶（字体渲染跨 OS 差异大，共用基线必假阳性）。
+      # CI 每次是全新 checkout，若不缓存基线，快照会每次重新生成并 skip，
+      # 比对就沦为空转；缓存后同一 OS+browser 的连续运行才会真正做像素比对。
+      - name: Cache visual regression baselines
+        uses: actions/cache@v4
+        with:
+          path: tests/e2e/__snapshots__
+          key: ${{ runner.os }}-e2e-snapshots-${{ hashFiles('app/integrated_app/templates/index.html') }}
+          restore-keys: |
+            ${{ runner.os }}-e2e-snapshots-
+      - name: Start application in background (fake engine, no GPU)
+        env:
+          IMM_FAKE_ENGINE: "1"
+        run: |
+          python app/clean_launch.py &
+          sleep 5
+          # Verify app is online
+          curl -s http://127.0.0.1:8288/api/health | grep -q "ok" || exit 1
+      - name: Run E2E (exclude slow GPU generation)
+        run: |
+          python -m pytest tests/e2e -m "e2e and not slow" -v --timeout=120
+        env:
+          E2E_BASE_URL: http://127.0.0.1:8288
+      - name: Upload snapshots (visual regression baseline, on fail)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-snapshots
+          path: tests/e2e/__snapshots__/
+
+  performance:
+    name: Performance Benchmarks (CPU profile, fake engine)
+    # 评估 §9-P0-5：E2E/performance 不应长期 if:false，至少用假引擎接入 CPU profile。
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-perf-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-perf-
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+      - name: Start application in background (fake engine, no GPU)
+        env:
+          IMM_FAKE_ENGINE: "1"
+        run: |
+          python app/clean_launch.py &
+          sleep 5
+          curl -s http://127.0.0.1:8288/api/health | grep -q "ok" || exit 1
+      - name: Run API latency benchmarks (CPU profile)
+        env:
+          IMM_FAKE_ENGINE: "1"
+        run: |
+          python scripts/benchmark.py
+
+  config-refs:
+    name: Config Field Refs Integrity (P0-1)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install PyYAML
+        run: pip install pyyaml
+      - name: Check config field references
+        run: python scripts/check_config_refs.py
+
+  startup-smoke:
+    name: Startup Smoke (P0-1, fake engine)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-timeout
+      - name: Run startup smoke (boot → health → fake task → shutdown)
+        env:
+          IMM_FAKE_ENGINE: "1"
+        run: |
+          python -m pytest tests/smoke/test_startup_smoke.py -v --timeout=120
+
+  # ── P2-11：post-deploy smoke（起真实服务 → 跑 6 项检查 → 拆除）──
+  post-deploy-smoke:
+    name: Post-Deploy Smoke Drill (P2-11)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install uvicorn
+      - name: Boot service (fake engine)
+        env:
+          IMM_FAKE_ENGINE: "1"
+        run: |
+          nohup python -m uvicorn app.integrated_app.app_server:app --host 127.0.0.1 --port 8288 > server.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8288/api/health >/dev/null 2>&1; then
+              echo "[OK] service up after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "[FAIL] service not up within 60s"; tail -100 server.log; exit 1
+      - name: Run post-deploy smoke
+        run: |
+          python scripts/post_deploy_smoke.py \
+            --base-url http://127.0.0.1:8288 \
+            --timeout 15 --generation-timeout 120 \
+            --output smoke_report.json
+      - name: Upload smoke report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-smoke-report
+          path: smoke_report.json
+      - name: Stop service
+        if: always()
+        run: pkill -f "uvicorn app.integrated_app" || true
+
+  # ── 不可变版本 artifact（P1-10）────────────────────────────
+  release-artifacts:
+    name: Immutable Release Artifacts (P1-10)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test deps
+        run: pip install pytest pytest-timeout pyyaml
+      - name: Generate release metadata + SBOM
+        # --no-model-hash：CI 无模型权重，跳过哈希以控制时长
+        run: python scripts/build_release_metadata.py --version 0.0.0-ci --no-model-hash
+      - name: Verify release metadata
+        run: python scripts/build_release_metadata.py --verify
+      - name: Compose must not use floating image tags
+        run: |
+          if grep -nE 'image:[[:space:]]*[^$]*:latest' docker-compose.yml docker-compose.release.yml docker-compose.bluegreen.yml; then
+            echo "[FAIL] compose 引用了浮动 tag latest"
+            exit 1
+          fi
+          grep -q 'IMAGE_TAG:?IMAGE_TAG' docker-compose.yml || {
+            echo "[FAIL] docker-compose.yml 未强制要求不可变 IMAGE_TAG"; exit 1; }
+          grep -q 'IMAGE_DIGEST:?IMAGE_DIGEST' docker-compose.release.yml || {
+            echo "[FAIL] docker-compose.release.yml 未强制按 digest 固化镜像"; exit 1; }
+          echo "PASS: 镜像引用已按 tag/digest 固定"
+      - name: Release metadata unit tests
+        run: python -m pytest tests/release -q --timeout=120
+      # ── P2-12 blue-green 静态门禁 ──
+      - name: Blue-green compose and script lint (P2-12)
+        run: |
+          python -c "import yaml; d=yaml.safe_load(open('docker-compose.bluegreen.yml')); assert set(d['services'])=={'imm-blue','imm-green'}, d['services'].keys()"
+          bash -n scripts/deploy/bluegreen.sh
+          for sub in deploy rollback promote-only status; do
+            grep -q "\"$sub\"\|$sub)" scripts/deploy/bluegreen.sh || { echo "[FAIL] bluegreen.sh 缺少 $sub 子命令"; exit 1; }
+          done
+          grep -q 'FORBIDDEN_TAG_RE' scripts/deploy/bluegreen.sh || { echo "[FAIL] 未拒绝可变 tag"; exit 1; }
+          grep -q 'do_rollback' scripts/deploy/bluegreen.sh || { echo "[FAIL] 缺少一键回滚"; exit 1; }
+          echo "PASS: blue-green 静态检查通过"
+
+  # ── 安全断言（部署安全红线，2026-08-17 新增） ──────────────────
+  security-assertions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: 禁止 0.0.0.0 监听
+        run: |
+          HITS=$(grep -rn --include='*.py' --include='*.bat' --include='*.sh' --include='*.yml' \
+            -E "host[[:space:]]*=[[:space:]]*['\"]0\.0\.0\.0|--host[[:space:]]+0\.0\.0\.0" \
+            app backend config.yaml start.bat start.sh 2>/dev/null | grep -v tests || true)
+          if [ -n "$HITS" ]; then echo "FAIL: 发现 0.0.0.0 监听配置"; echo "$HITS"; exit 1; fi
+          echo "PASS: 无 0.0.0.0 监听配置"
+      - name: 入口文件一致性
+        run: |
+          test -f app/clean_launch.py || test -f backend/main.py || exit 1
+          test -f requirements.txt
+          echo "PASS: 入口与依赖清单存在"
+      - name: 依赖锁存在性
+        run: |
+          test -f requirements-lock.txt || (echo "FAIL: 缺少 requirements-lock.txt" && exit 1)
+          echo "PASS: 依赖锁存在"
