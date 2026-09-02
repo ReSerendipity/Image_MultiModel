@@ -554,8 +554,14 @@ async def lifespan(app: FastAPI):
             )
             out_types = ("original", "upscaled", "compare")
             for i, p in enumerate(outputs or []):
+                # 回填产物真实尺寸/字节数：历史库此前恒为 0，导致图库与
+                # /api/tasks/{id} 拿不到尺寸，且发布冒烟的真实产物校验会误判
+                file_size, width, height = _probe_output_metadata(p)
                 history_db.add_output(
                     task.task_id, p, cfg.output.image_format,
+                    file_size=file_size,
+                    width=width,
+                    height=height,
                     output_type=out_types[i] if i < len(out_types) else "original",
                 )
 
@@ -655,6 +661,45 @@ async def unload_all_engines(config) -> None:
                     logger.warning(f"Idle unload of {name} failed: {e}")
     except Exception as e:  # noqa: BLE001
         logger.warning("unload_all_engines error: %s", e)
+
+
+def _probe_output_metadata(path: str) -> tuple[int, int, int]:
+    """读取产物文件的真实字节数与像素尺寸，供历史库落盘回填。
+
+    历史库 `add_output` 的 file_size/width/height 默认全为 0；若不回填，
+    图库与 `/api/tasks/{id}` 拿不到尺寸，发布冒烟的 `--require-real-output`
+    也会把真实部署误判成假产物（判据是 0 字节 / 0 尺寸）。这里容忍任何异常
+    ——元数据缺失不应阻断落库，最多只是字段仍为 0。
+
+    Args:
+        path: 产物路径，可为绝对路径，或相对项目根 / `outputs/` 的相对路径
+
+    Returns:
+        (file_size, width, height)：读取失败时对应项回退为 0
+    """
+    norm = str(path or "").replace("\\", "/")
+    if not norm:
+        return 0, 0, 0
+    root = Path(__file__).resolve().parents[2].as_posix()
+    real = next(
+        (c for c in (norm, f"outputs/{norm}", f"{root}/{norm}", f"{root}/outputs/{norm}") if os.path.isfile(c)),
+        None,
+    )
+    if not real:
+        return 0, 0, 0
+    try:
+        size = os.path.getsize(real)
+    except OSError:
+        return 0, 0, 0
+    width = height = 0
+    try:
+        from PIL import Image  # type: ignore
+
+        with Image.open(real) as im:
+            width, height = im.size
+    except Exception:
+        width = height = 0
+    return size, width, height
 
 
 def create_app(enable_rate_limit: bool = True) -> FastAPI:

@@ -349,6 +349,10 @@ jobs:
           done
           echo "[FAIL] service not up within 60s"; tail -100 server.log; exit 1
       - name: Run post-deploy smoke
+        # ⚠️ 这里刻意【不加】--require-real-output：
+        #    本 job 用 IMM_FAKE_ENGINE=1 起服务，产物路径含 imm_fake，
+        #    开启产物实体校验会 100% 失败。该 flag 只用于真实部署晋级门禁
+        #    （deploy.yml:staging / bluegreen.sh smoke_full），见 docs/ops/staging_smoke.md。
         run: |
           python scripts/post_deploy_smoke.py \
             --base-url http://127.0.0.1:8288 \

@@ -192,6 +192,77 @@ def test_check_generation_failed_status(mod):
     assert "OOM" in r.detail
 
 
+def _completed_task(outputs: list[dict]) -> FakeResponse:
+    return FakeResponse(200, json.dumps({"status": "completed", "outputs": outputs}))
+
+
+def test_check_generation_real_output_ok(mod):
+    """--require-real-output 下：真实产物（非 0 字节 + 尺寸一致）判定通过。"""
+    submit = FakeResponse(200, json.dumps({"task_id": "abc123"}))
+    polled = _completed_task(
+        [{"path": "outputs/z_image_turbo_native/a.png", "file_size": 12345, "width": 256, "height": 256}]
+    )
+    c, _ = _make_real_client(mod, [submit, polled])
+    r = mod.check_generation(c, {"generation_timeout_s": 5.0, "require_real_output": True, "width": 256, "height": 256})
+    assert r.ok, r.detail
+    assert r.name == "generation_completed"
+    assert r.extras["output_count"] == 1
+
+
+def test_check_generation_rejects_fake_engine_artifact(mod):
+    """FakeEngine 占位产物（imm_fake 路径 + 0 字节）必须判失败，不能靠 completed 蒙混过关。"""
+    submit = FakeResponse(200, json.dumps({"task_id": "abc123"}))
+    polled = _completed_task([{"path": "C:/Temp/imm_fake_xxx/fake_0000.png", "file_size": 0, "width": 0, "height": 0}])
+    c, _ = _make_real_client(mod, [submit, polled])
+    r = mod.check_generation(c, {"generation_timeout_s": 5.0, "require_real_output": True, "width": 256, "height": 256})
+    assert not r.ok
+    assert r.name == "generation_output"
+    assert "imm_fake" in r.detail
+
+
+def test_check_generation_rejects_missing_outputs(mod):
+    """completed 但 outputs 为空 = 没有真实产物，必须判失败。"""
+    submit = FakeResponse(200, json.dumps({"task_id": "abc123"}))
+    polled = FakeResponse(200, json.dumps({"status": "completed", "outputs": []}))
+    c, _ = _make_real_client(mod, [submit, polled])
+    r = mod.check_generation(c, {"generation_timeout_s": 5.0, "require_real_output": True})
+    assert not r.ok
+    assert "outputs" in r.detail
+
+
+def test_check_generation_rejects_dimension_mismatch(mod):
+    submit = FakeResponse(200, json.dumps({"task_id": "abc123"}))
+    polled = _completed_task([{"path": "outputs/a.png", "file_size": 999, "width": 512, "height": 512}])
+    c, _ = _make_real_client(mod, [submit, polled])
+    r = mod.check_generation(c, {"generation_timeout_s": 5.0, "require_real_output": True, "width": 256, "height": 256})
+    assert not r.ok
+    assert "尺寸不符" in r.detail
+
+
+def test_validate_outputs_disk_fallback_when_db_metadata_blank(mod, tmp_path):
+    """DB file_size/width/height 全 0 但磁盘上有真实非 0 字节文件时，回退磁盘 stat 判通过。
+
+    这是真推理部署下的真实场景：history_db.add_output 未回填尺寸，但磁盘产物有效。
+    若校验只看 DB 元数据会误杀真部署，故必须回退到磁盘 stat（含尺寸用 PIL 读）。
+    """
+    from PIL import Image
+
+    img = tmp_path / "disk_fallback.png"
+    Image.new("RGB", (256, 256), (10, 20, 30)).save(img)
+    outs = [{"path": str(img), "file_size": 0, "width": 0, "height": 0}]
+    ok, note = mod.validate_outputs({"status": "completed", "outputs": outs}, {"width": 256, "height": 256})
+    assert ok, note
+    assert "磁盘" in note  # 明确走了磁盘回退，而非仅凭 DB 元数据
+
+
+def test_validate_outputs_no_file_keeps_failing(mod, tmp_path):
+    """DB 元数据为 0 且磁盘上根本找不到文件：真实部署缺失，必须判失败（不能误放过）。"""
+    outs = [{"path": str(tmp_path / "missing.webp"), "file_size": 0, "width": 0, "height": 0}]
+    ok, note = mod.validate_outputs({"status": "completed", "outputs": outs}, {})
+    assert not ok
+    assert "不存在" in note
+
+
 def test_run_aggregates_pass_and_fail(mod):
     """SmokeReport 汇总：所有检查都返回汇总结果。"""
     scripts = [

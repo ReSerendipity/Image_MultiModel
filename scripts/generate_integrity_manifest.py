@@ -4,7 +4,7 @@
 使用方式:
     python scripts/generate_integrity_manifest.py
 
-输出文件: bin/integrated_app/security/integrity_manifest.json
+输出文件: app/integrated_app/security/integrity_manifest.json
 
 清单格式:
     {
@@ -22,13 +22,11 @@
 import datetime
 import hashlib
 import json
-import os
-import sys
 from pathlib import Path
 
-
-# 核心安全模块清单 (相对于 bin/integrated_app/)
-CORE_MODULES = [
+# 核心安全模块清单 (相对于 app/integrated_app/)。
+# 若现有清单已存在，以其 files 的 key 为准，保证模块覆盖范围不被脚本硬编码覆盖。
+DEFAULT_CORE_MODULES = [
     "app_server.py",
     "config.py",
     "config_models.py",
@@ -75,13 +73,26 @@ def compute_sha256(filepath: Path) -> str:
 
 
 def main() -> None:
-    """生成完整性清单。"""
+    """生成完整性清单。
+
+    策略：优先以现有清单的 files 键集合为覆盖范围（避免硬编码清单与当前代码不同步），
+    缺失的模块回退到 DEFAULT_CORE_MODULES，并跳过磁盘上不存在的模块。
+    """
     project_root = Path(__file__).resolve().parent.parent
-    app_dir = project_root / "bin" / "integrated_app"
+    app_dir = project_root / "app" / "integrated_app"
     manifest_path = app_dir / "security" / "integrity_manifest.json"
 
+    existing: dict[str, str] = {}
+    if manifest_path.exists():
+        try:
+            existing = json.loads(manifest_path.read_text(encoding="utf-8")).get("files", {})
+        except (json.JSONDecodeError, OSError):
+            existing = {}
+
+    module_set = list(existing.keys()) + [m for m in DEFAULT_CORE_MODULES if m not in existing]
+
     files: dict[str, str] = {}
-    for module_rel in CORE_MODULES:
+    for module_rel in module_set:
         module_path = app_dir / module_rel
         if not module_path.exists():
             print(f"  [SKIP] 核心模块不存在: {module_rel}")

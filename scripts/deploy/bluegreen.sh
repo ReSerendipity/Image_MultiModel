@@ -98,9 +98,12 @@ smoke_readonly() { # slot
 }
 
 # 完整 smoke（promote 后）：含假生成任务
+# ⚠️ --require-real-output：只认 completed 不够，必须校验产出文件真实落盘
+#    （FakeEngine 下任务同样会 completed，仅看状态会给假绿灯，见 AI_DEV_SOPS Gotcha #47）
 smoke_full() { # slot
   local port; port="$(slot_port "$1")"
-  "$PYTHON" "$SMOKE" --base-url "http://127.0.0.1:$port" --timeout 15 --generation-timeout 120
+  "$PYTHON" "$SMOKE" --base-url "http://127.0.0.1:$port" --timeout 15 --generation-timeout 120 \
+    --require-real-output
 }
 
 # 观察窗口：期间 /api/alerts 出现 critical/warning firing 的关键告警即失败

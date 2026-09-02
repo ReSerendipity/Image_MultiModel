@@ -15,18 +15,26 @@
         --base-url http://127.0.0.1:8288 \
         --timeout 30 \
         --output smoke_report.json
+
+    # 晋级门禁：额外校验产物真实落盘（staging / 生产，非 fake engine 演练）
+    python scripts/post_deploy_smoke.py --base-url http://staging:8288 --require-real-output
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import time
 import urllib.error
 import urllib.request
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
+from pathlib import Path as _Path
 from typing import Any
+
+# 项目根：scripts/post_deploy_smoke.py 的父目录（Image_MultiModel）。
+_ROOT = _Path(__file__).resolve().parents[1].as_posix()
 
 
 # ────────────────────────── 结果数据类 ──────────────────────────
@@ -182,6 +190,82 @@ def check_engines(client: SmokeClient, _cfg: dict) -> CheckResult:
     )
 
 
+def _resolve_output_file(path: str) -> str | None:
+    """把产物路径解析成本机真实可读的文件路径。
+
+    历史库里存的可能是绝对路径、也可能是相对 `outputs/` 的路径，
+    逐候选尝试，找不到返回 None。
+    """
+    norm = str(path or "").replace("\\", "/")
+    if not norm:
+        return None
+    for cand in (norm, f"outputs/{norm}", f"{_ROOT}/{norm}", f"{_ROOT}/outputs/{norm}"):
+        if os.path.isfile(cand):
+            return cand
+    return None
+
+
+def validate_outputs(detail: dict, cfg: dict) -> tuple[bool, str]:
+    """校验任务产物是「真实推理产物」而非 FakeEngine 占位。
+
+    `IMM_FAKE_ENGINE=1` 下任务同样会进入 completed，但产物落在临时目录
+    （路径含 `imm_fake`）且 `file_size/width/height` 全为 0。仅凭状态判定
+    会让 smoke 在假引擎上绿灯，因此 staging / 生产晋级必须开启本校验。
+
+    健壮性：历史库 `add_output` 在某些路径下未回填尺寸（file_size/width/height
+    全 0），但磁盘上的产物是真实有效的。故 DB 元数据为 0 时回退到磁盘 stat：
+    真实文件存在且非 0 字节即视为通过，尺寸一致性仅在 DB 确有记录时才判定。
+
+    Args:
+        detail: `/api/tasks/{id}` 返回的详情 dict
+        cfg: smoke 配置，取 width / height 作为期望尺寸
+
+    Returns:
+        (ok, note)：ok 为 False 时 note 说明首个不合格原因
+    """
+    outs = detail.get("outputs") or []
+    if not outs:
+        return False, "任务未记录任何产物（outputs 为空）"
+    exp_w = int(cfg.get("width", 256) or 0)
+    exp_h = int(cfg.get("height", 256) or 0)
+    disk_fallback = 0
+    for o in outs:
+        if not isinstance(o, dict):
+            return False, f"产物记录格式异常: {o!r}"
+        path = str(o.get("path") or "").replace("\\", "/")
+        if "imm_fake" in path.lower():
+            return False, f"命中 FakeEngine 占位产物: {path}"
+        size = int(o.get("file_size") or 0)
+        w, h = int(o.get("width") or 0), int(o.get("height") or 0)
+        # DB 元数据未回填（全 0）时回退到磁盘：真实文件存在且非 0 字节即通过
+        if size <= 0 or w <= 0 or h <= 0:
+            real = _resolve_output_file(path)
+            if real is None:
+                return False, f"产物文件不存在或 0 字节: {path}"
+            try:
+                size = os.path.getsize(real)
+            except OSError:
+                return False, f"产物文件不可读: {path}"
+            if size <= 0:
+                return False, f"产物为 0 字节: {path}"
+            disk_fallback += 1
+            # 尺寸：DB 未回填时尽量用 PIL 读真实尺寸；依赖缺失则跳过尺寸判定
+            if (not (w and h)) and exp_w and exp_h:
+                try:
+                    from PIL import Image  # type: ignore
+
+                    with Image.open(real) as im:
+                        w, h = im.size
+                except Exception:
+                    pass
+        if w and h and exp_w and exp_h and (w != exp_w or h != exp_h):
+            return False, f"产物尺寸不符: 期望 {exp_w}x{exp_h}，实际 {w}x{h}（{path}）"
+    note = f"{len(outs)} 个产物校验通过"
+    if disk_fallback:
+        note += f"（其中 {disk_fallback} 个 DB 尺寸缺失、已回退磁盘 stat 确认）"
+    return True, note
+
+
 def check_generation(client: SmokeClient, cfg: dict) -> CheckResult:
     t0 = time.perf_counter()
     payload = {
@@ -210,6 +294,20 @@ def check_generation(client: SmokeClient, cfg: dict) -> CheckResult:
         if st == 200 and isinstance(detail, dict):
             last_status = detail.get("status")
             if last_status == "completed":
+                # completed 不等于真的出图：假引擎也会 completed（详见 validate_outputs 文档）
+                if cfg.get("require_real_output"):
+                    ok, note = validate_outputs(detail, cfg)
+                    return CheckResult(
+                        "generation_output" if not ok else "generation_completed",
+                        ok,
+                        f"task {task_id[:12]}… completed；{note}",
+                        time.perf_counter() - t0,
+                        extras={
+                            "task_id": task_id,
+                            "elapsed_s": round(time.perf_counter() - t0, 3),
+                            "output_count": len(detail.get("outputs") or []),
+                        },
+                    )
                 return CheckResult(
                     "generation_completed",
                     True,
@@ -361,6 +459,12 @@ def main() -> int:
     ap.add_argument("--height", type=int, default=256)
     ap.add_argument("--prompt", default="post-deploy smoke")
     ap.add_argument("--generation-timeout", type=float, default=30.0)
+    ap.add_argument(
+        "--require-real-output",
+        action="store_true",
+        help="校验产物真实落盘（文件存在 / 非 0 字节 / 尺寸一致），拒绝 FakeEngine 占位；"
+        "仅用于真实部署晋级门禁，fake engine 演练不要开",
+    )
     ap.add_argument("--output", default="", help="JSON 报告输出路径（默认仅 stdout）")
     args = ap.parse_args()
 
@@ -369,6 +473,7 @@ def main() -> int:
         "height": args.height,
         "prompt": args.prompt,
         "generation_timeout_s": args.generation_timeout,
+        "require_real_output": args.require_real_output,
     }
     checks = [c.strip() for c in args.checks.split(",") if c.strip()]
     report = run(args.base_url, args.timeout, checks, cfg)
