@@ -185,6 +185,76 @@ def check_security_keys_consumed(consumed_paths: set[str], consumed_tokens: set[
     walk(security, "security")
 
 
+def scan_source_for_missing(source: str, known_fields: set[str]) -> list[str]:
+    """扫描一段源码，返回「访问了不存在的配置字段」的错误列表（空列表=干净）。
+
+    主要用于 tests/observability/test_check_config_refs.py 单测，便于在编辑器/脚本中复用。
+    规则：
+    - 形如 ``config.<root>.<field>`` 的属性访问，若 ``field`` 不在 ``known_fields`` 中则报错；
+    - ``getattr(obj, "attr", default)`` 与 ``obj.get("attr")`` 这类安全访问不报错；
+    - 非 config 根（如 ``state.value``）忽略；
+    - 方法调用（``config.runtime.model_dump()``）忽略。
+    """
+    import ast as _ast
+
+    config_roots = {
+        "config", "cfg", "cfg_obj", "app_config", "ecfg", "sec", "settings",
+    }
+    tree = _ast.parse(source)
+
+    # 父节点映射：用于判断某属性是否位于 .get()/getattr() 安全访问或方法调用
+    parents: dict = {}
+    for node in _ast.walk(tree):
+        for child in _ast.iter_child_nodes(node):
+            parents[child] = node
+
+    # 收集被安全包装的属性名（getattr 第二参数 / .get(...) 首个字符串参数）
+    safe_wrapped: set[str] = set()
+    for node in _ast.walk(tree):
+        if isinstance(node, _ast.Call):
+            if isinstance(node.func, _ast.Name) and node.func.id == "getattr" and len(node.args) >= 2:
+                arg = node.args[1]
+                if isinstance(arg, _ast.Constant) and isinstance(arg.value, str):
+                    safe_wrapped.add(arg.value)
+            elif isinstance(node.func, _ast.Attribute) and node.func.attr == "get":
+                for arg in node.args:
+                    if isinstance(arg, _ast.Constant) and isinstance(arg.value, str):
+                        safe_wrapped.add(arg.value)
+
+    def _chain(node: _ast.AST) -> list[str] | None:
+        parts: list[str] = []
+        cur = node
+        while isinstance(cur, _ast.Attribute):
+            parts.append(cur.attr)
+            cur = cur.value
+        if isinstance(cur, _ast.Name):
+            parts.append(cur.id)
+        else:
+            return None
+        parts.reverse()
+        return parts
+
+    errors: list[str] = []
+    for node in _ast.walk(tree):
+        if not isinstance(node, _ast.Attribute):
+            continue
+        chain = _chain(node)
+        if not chain or len(chain) < 2:
+            continue
+        if chain[0] not in config_roots:
+            continue  # 非 config 根忽略
+        # 方法调用（config.runtime.model_dump()）忽略
+        parent = parents.get(node)
+        if isinstance(parent, _ast.Call) and parent.func is node:
+            continue
+        leaf = chain[-1]
+        if leaf in safe_wrapped:
+            continue
+        if leaf not in known_fields:
+            errors.append(f"未定义配置字段访问: {'.'.join(chain)}")
+    return errors
+
+
 def main() -> int:
     class_fields = collect_class_fields()
     all_fields = set().union(*class_fields.values())

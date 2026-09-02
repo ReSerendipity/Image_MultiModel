@@ -52,6 +52,11 @@ jobs:
           pip-audit -r requirements.txt --strict
 
       - name: Run pip-audit on lock file
+        env:
+          # 锁文件中的 torch/torchvision 使用 PyTorch CPU 本地变体（如 torchvision==0.28.0+cpu），
+          # 这些 +cpu 版本仅发布在 PyTorch CPU 源，PyPI 上不存在，pip-audit 默认解析会失败。
+          # 通过 PIP_EXTRA_INDEX_URL 让 pip 解析后端能定位 +cpu 版本。
+          PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
         run: |
           if [ -f requirements-lock.txt ]; then
             pip-audit -r requirements-lock.txt
