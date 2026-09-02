@@ -19,7 +19,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.integrated_app import watermark  # noqa: E402
+from bin.integrated_app import watermark  # noqa: E402
 
 # Windows 控制台默认 GBK 无法编码 ✅/❌ → 强制 UTF-8 输出
 if hasattr(sys.stdout, "reconfigure"):

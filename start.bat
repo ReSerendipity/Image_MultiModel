@@ -11,16 +11,7 @@ echo.
 set "PYTHON_CMD="
 
 :: ============================================================
-:: 0. First, prefer project-local .venv (isolated model env)
-:: ============================================================
-if exist "%~dp0.venv\Scripts\python.exe" (
-    set "PYTHON_CMD=%~dp0.venv\Scripts\python.exe"
-    echo [OK] Found project venv: %~dp0.venv\Scripts\python.exe
-    goto :python_found
-)
-
-:: ============================================================
-:: 1. Fallback: try system Python (shared, may be polluted)
+:: 1. First, try system Python (preferred)
 :: ============================================================
 
 :: 1a. Check common system Python installation paths
@@ -108,7 +99,7 @@ if exist "%WP_LEGACY%\python\python.exe" (
 )
 
 :: 2e. Try sibling projects' WinPython (Seedvr2 / TTS_MultiModel)
-set "REF_WPY1=C:\Users\Doro\SeedVR2-lite\WPy64-312101\python\python.exe"
+set "REF_WPY1=C:\Users\Doro\Seedvr2\WPy64-312101\python\python.exe"
 if exist "%REF_WPY1%" (
     set "PYTHON_CMD=%REF_WPY1%"
     echo [OK] Found shared WinPython from Seedvr2
@@ -153,8 +144,8 @@ exit /b 1
 echo Using Python: %PYTHON_CMD%
 echo.
 
-if not exist "%~dp0app\clean_launch.py" (
-    echo Error: Launch script not found at app\clean_launch.py
+if not exist "%~dp0bin\clean_launch.py" (
+    echo Error: Launch script not found at bin\clean_launch.py
     pause
     exit /b 1
 )
@@ -163,7 +154,7 @@ echo Starting Image MultiModel...
 echo.
 
 cd /d "%~dp0"
-"%PYTHON_CMD%" app\clean_launch.py
+"%PYTHON_CMD%" bin\clean_launch.py
 
 if errorlevel 1 (
     echo.

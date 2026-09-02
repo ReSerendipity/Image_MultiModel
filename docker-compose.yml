@@ -1,16 +1,5 @@
 # Image MultiModel — Docker Compose (PRD §10.6)
-#
-# 用法:
-#   1) 首次使用或每次发布前生成不可变 tag（写入 .env 的 IMAGE_TAG / IMAGE_DIGEST）：
-#        python scripts/build_release_metadata.py                  # 本地：git-<sha12>
-#        python scripts/build_release_metadata.py --version v2.0.1  # 发布：语义版本
-#   2) 启动（digest 固化，生产推荐）：
-#        docker compose -f docker-compose.yml -f docker-compose.release.yml up -d
-#     本地无 digest 时：
-#        docker compose up -d
-#
-# ⚠️ 镜像 tag 禁止使用 latest 等可变引用（评估 §9-P1-10）。
-#    IMAGE_TAG 未设置时 compose 会直接报错并给出修复指引，避免误用浮动 tag 上线。
+# 用法: docker compose up -d
 
 version: "3.8"
 
@@ -19,8 +8,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    # 必须用引号包裹：compose 插值语法 ${VAR:?message} 含冒号，裸写会被 YAML 解析为 mapping
-    image: "image-multimodel:${IMAGE_TAG:?IMAGE_TAG 未设置 —— 禁止使用浮动 tag 部署。请先运行 python scripts/build_release_metadata.py（本地）或加 --version v2.0.1（发布），该命令会把不可变 tag 写入 .env}"
+    image: image-multimodel:latest
     container_name: image-multimodel
     restart: unless-stopped
 
@@ -48,7 +36,7 @@ services:
     # 模型 volume 挂载（portable 模式）
     volumes:
       # 模型文件（只读挂载）
-      - ./model:/app/model:ro
+      - ./pretrained_models:/app/pretrained_models:ro
       # 工作流
       - ./workflows:/app/workflows:ro
       # 持久化数据
@@ -59,10 +47,6 @@ services:
       - ./logs:/app/logs
       # 配置文件
       - ./config.yaml:/app/config.yaml
-      # ComfyUI 内核源码（comfy_kernel/，GPL-3.0，上游 https://github.com/Comfy-Org/ComfyUI）：
-      # 不嵌入镜像（.dockerignore 已排除），运行时只读挂载本地副本。
-      # 本地无此目录时，请按 comfy_kernel/COMPLIANCE-README.md 获取并放置。
-      - ./comfy_kernel:/app/comfy_kernel:ro
 
     # 健康检查
     healthcheck:

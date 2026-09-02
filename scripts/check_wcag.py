@@ -1,4 +1,5 @@
 """V6: WCAG AA contrast ratio checker."""
+import math
 
 
 def hex_to_luminance(hex_color: str) -> float:

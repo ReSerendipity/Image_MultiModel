@@ -2,7 +2,7 @@
 #
 # ⚠️ 2026-08-13 起停用：运行时已不再依赖根目录 Junction。
 #    · shared 模式：resolve_engine_model_paths 直接读 config.yaml → shared.comfy_models_dir（aki 路径）
-#    · portable 模式：模型统一放 model/
+#    · portable 模式：模型统一放 pretrained_models/
 #    · 根目录 text/ unet/ vae/ 链接已删除，避免误导模型摆放。
 #    本脚本保留仅作历史参考，不再执行。
 # 用法（已停用，仅提示）:

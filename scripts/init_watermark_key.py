@@ -1,6 +1,7 @@
+# -*- coding: utf-8 -*-
 """Image_MultiModel 水印密钥生成脚本（仅本机持有，勿提交仓库/随包分发）"""
-import secrets
 from pathlib import Path
+import secrets
 
 KEY_FILE = Path(__file__).resolve().parent.parent / ".watermark_key"
 

@@ -22,6 +22,7 @@ import argparse
 import re
 import shutil
 import sqlite3
+import sys
 from pathlib import Path
 
 # 项目根目录
@@ -121,9 +122,9 @@ def migrate(dry_run: bool = False, delete_orphans: bool = False) -> None:
             new_path_str = str(target_path).replace("\\", "/")
             db_updated = update_db_path(DB_PATH, old_path_str, new_path_str)
             if db_updated:
-                print("    → DB path updated")
+                print(f"    → DB path updated")
             else:
-                print("    → DB path not found (may be new file)")
+                print(f"    → DB path not found (may be new file)")
 
         migrated += 1
 

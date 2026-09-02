@@ -24,8 +24,8 @@ $content = $content -replace "model_source_mode:\s*""?shared""?", "model_source_
 Set-Content $ConfigFile $content -Encoding UTF8
 Write-Host "        config.yaml 已切换为 portable" -ForegroundColor Green
 
-# STEP 3: 复制模型进 model/
-Write-Host "[STEP 3] 从 shared.comfy_models_dir 复制模型进 model/（text_encoders/unet/vae）" -ForegroundColor Cyan
+# STEP 3: 复制模型进 pretrained_models/
+Write-Host "[STEP 3] 从 shared.comfy_models_dir 复制模型进 pretrained_models/（text_encoders/unet/vae）" -ForegroundColor Cyan
 $ComfyDir = ""
 if ($content -match "comfy_models_dir:\s*""?(?<dir>[^""\r\n]+)""?") { $ComfyDir = $Matches["dir"].TrimEnd("\") }
 if (-not $ComfyDir) {
@@ -40,7 +40,7 @@ if (-not $ComfyDir) {
     foreach ($dest in $CopyPlan.Keys) {
         $subDir = $CopyPlan[$dest][0]
         $families = $CopyPlan[$dest][1]
-        $dst = Join-Path $ProjectRoot "model\$dest"
+        $dst = Join-Path $ProjectRoot "pretrained_models\$dest"
         if (-not (Test-Path $dst)) { New-Item -ItemType Directory -Path $dst -Force | Out-Null }
         foreach ($fam in $families) {
             $src = Join-Path (Join-Path $ComfyDir $subDir) $fam
@@ -53,13 +53,10 @@ if (-not $ComfyDir) {
         }
     }
 }
-Write-Host "        ⚠ 请确认 model/seedvr2 含 ema_vae_fp16 + seedvr2_ema_3b_fp16（便携包必带）" -ForegroundColor Yellow
+Write-Host "        ⚠ 请确认 pretrained_models/seedvr2 含 ema_vae_fp16 + seedvr2_ema_3b_fp16（便携包必带）" -ForegroundColor Yellow
 
 # STEP 4: 内嵌 Python 与 vendored 推理内核（comfy_kernel/）
 Write-Host "[STEP 4] 人工步骤：内嵌 WinPython / comfy_kernel 推理内核（参考 PRD §10.5 STEP 4）" -ForegroundColor Yellow
-Write-Host "        许可提示：comfy_kernel/ 为 ComfyUI 内核（GPL-3.0，上游 https://github.com/Comfy-Org/ComfyUI）。" -ForegroundColor Yellow
-Write-Host "        随便携包分发时必须：① 保留 comfy_kernel/LICENSE 与 COMPLIANCE-README.md；" -ForegroundColor Yellow
-Write-Host "        ② 在发布说明披露发行物中 ComfyUI 部分受 GPL-3.0 约束；③ 提供对应源代码获取方式。" -ForegroundColor Yellow
 
 # STEP 5: 清理开发期残留
 Write-Host "[STEP 5] 清理开发残留（cache/uploads/logs/Junction/字节码）" -ForegroundColor Cyan
@@ -85,8 +82,6 @@ if ($SkipZip) {
     Write-Host "[STEP 6] 跳过打包（-SkipZip）" -ForegroundColor Yellow
 } else {
     Write-Host "[STEP 6] 7z 打包（固实压缩，可分卷）" -ForegroundColor Cyan
-    Write-Host "        注意：打包目录含 comfy_kernel/（ComfyUI，GPL-3.0）。分发前须完成 STEP 4 许可提示要求：" -ForegroundColor Yellow
-    Write-Host "        随附 comfy_kernel/LICENSE 与 COMPLIANCE-README.md，并披露发行物受 GPL-3.0 约束。" -ForegroundColor Yellow
     $sevenZip = Get-Command 7z -ErrorAction SilentlyContinue
     if ($sevenZip) {
         Push-Location (Split-Path -Parent $ProjectRoot)

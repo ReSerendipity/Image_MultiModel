@@ -99,7 +99,7 @@ for /d %%i in ("%~dp0WinPython64-*") do (
 )
 
 :: 2d. Try sibling projects' WinPython (Seedvr2 / TTS_MultiModel)
-set "REF_WPY1=C:\Users\Doro\SeedVR2-lite\WPy64-312101\python\python.exe"
+set "REF_WPY1=C:\Users\Doro\Seedvr2\WPy64-312101\python\python.exe"
 if exist "%REF_WPY1%" (
     set "PYTHON_CMD=%REF_WPY1%"
     echo [OK] Found shared WinPython from Seedvr2
@@ -189,7 +189,7 @@ if not exist "data\uploads" mkdir "data\uploads"
 if not exist "data\cache" mkdir "data\cache"
 if not exist "outputs" mkdir "outputs"
 if not exist "logs" mkdir "logs"
-if not exist "model" mkdir "model"
+if not exist "pretrained_models" mkdir "pretrained_models"
 if not exist "workflows" mkdir "workflows"
 
 echo [OK] Required directories created

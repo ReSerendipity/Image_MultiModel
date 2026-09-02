@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """更新 CHANGELOG.md 添加新版本条目"""
 from pathlib import Path
 

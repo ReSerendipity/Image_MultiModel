@@ -1,6 +1,4 @@
-import json
-import time
-import urllib.request
+import urllib.request, json, time
 
 base = "http://127.0.0.1:8288"
 payload = {

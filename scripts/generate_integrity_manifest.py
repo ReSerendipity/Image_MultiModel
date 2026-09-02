@@ -4,7 +4,7 @@
 使用方式:
     python scripts/generate_integrity_manifest.py
 
-输出文件: app/integrated_app/security/integrity_manifest.json
+输出文件: bin/integrated_app/security/integrity_manifest.json
 
 清单格式:
     {
@@ -22,38 +22,66 @@
 import datetime
 import hashlib
 import json
+import os
 import sys
 from pathlib import Path
 
-# 单一事实来源：直接复用运行期自检清单，避免生成器与运行时列表"两张皮"
-# （历史上生成器含 comfy/* 而运行时不含，运行时含 magic_check/weight_integrity
-# 而生成器不含 —— 导致部分模块永远 skipped）。
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "app"))
-from integrated_app.security.integrity_selfcheck import (  # noqa: E402
-    _CORE_MODULES,
-    _compute_file_sha256,
-)
+
+# 核心安全模块清单 (相对于 bin/integrated_app/)
+CORE_MODULES = [
+    "app_server.py",
+    "config.py",
+    "config_models.py",
+    "engine_interface.py",
+    "model_manager.py",
+    "model_registry.py",
+    "task_queue.py",
+    "history_db.py",
+    "i18n.py",
+    "gpu_utils.py",
+    "sse.py",
+    "watermark.py",
+    "checkpoint.py",
+    "security/path_guard.py",
+    "security/integrity_selfcheck.py",
+    "middleware/csrf.py",
+    "middleware/rate_limit.py",
+    "middleware/request_id.py",
+    "comfy/client.py",
+    "comfy/engine.py",
+    "comfy/workflow.py",
+    "routes/config_routes.py",
+    "routes/system_routes.py",
+    "routes/generate_routes.py",
+    "routes/task_routes.py",
+    "routes/output_routes.py",
+    "routes/preset_routes.py",
+    "routes/engine_routes.py",
+]
 
 CHUNK_SIZE = 8 * 1024 * 1024  # 8MB
 
 
 def compute_sha256(filepath: Path) -> str:
-    """计算文件 SHA256。
-
-    委托给运行期自检的同一函数（``_compute_file_sha256``），而非在此另写一份
-    —— 否则生成器与自检的行尾处理会再次分叉，重演「本地绿 / CI 红」。
-    """
-    return _compute_file_sha256(filepath)
+    """计算文件 SHA256。"""
+    sha256 = hashlib.sha256()
+    with open(filepath, "rb") as f:
+        while True:
+            chunk = f.read(CHUNK_SIZE)
+            if not chunk:
+                break
+            sha256.update(chunk)
+    return sha256.hexdigest()
 
 
 def main() -> None:
     """生成完整性清单。"""
     project_root = Path(__file__).resolve().parent.parent
-    app_dir = project_root / "app" / "integrated_app"
+    app_dir = project_root / "bin" / "integrated_app"
     manifest_path = app_dir / "security" / "integrity_manifest.json"
 
     files: dict[str, str] = {}
-    for module_rel in _CORE_MODULES:
+    for module_rel in CORE_MODULES:
         module_path = app_dir / module_rel
         if not module_path.exists():
             print(f"  [SKIP] 核心模块不存在: {module_rel}")

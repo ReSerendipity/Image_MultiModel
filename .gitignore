@@ -53,8 +53,8 @@ Thumbs.db
 desktop.ini
 
 # ── SSL ─────────────────────────────────────────────────────
-app/cert.pem
-app/key.pem
+bin/cert.pem
+bin/key.pem
 
 # ── .env（P1-3: 敏感配置不提交）──────────────────────────────
 .env
@@ -64,6 +64,12 @@ app/key.pem
 !requirements.txt
 !requirements-lock.txt
 !examples/prompts.txt
+!PRD.md
+!MASTER_PLAN.md
+!WEBAPP_GUIDE.md
+!TEST_AUDIT_REPORT.md
+!AUDIT_REPORT_2.0.md
+!REMAINING_TASKS_REPORT.md
 .trash/
 pytest_out*.txt
 gen*.txt
@@ -114,108 +120,3 @@ references/
 
 # Vendored Comfy inference kernel (独立内核项目源码，维持为其独立 git 仓库，不并入本仓库)
 comfy_kernel/
-
-# IDE/editor state & node test deps (audit 2026-08-17)
-tests/node_modules/
-.zcode/
-# ===== Local-only content (restored locally, not on remote — 2026-08-17) =====
-CHANGELOG.md
-CI-LESSONS.md
-CONTRIBUTING.md
-MASTER_PLAN.md
-PRD.md
-WEBAPP_GUIDE.md
-capture-screenshots.bat
-examples/
-perf/monitoring_plan.md
-model/README.txt
-prototypes/
-/workflows/
-docs/API.md
-docs/ARCHITECTURE.md
-docs/AUDIT_REPORT_v2.md
-docs/COMFYUI-INDEPENDENCE-PLAN.md
-docs/COMPLIANCE_CHECKLIST.md
-docs/CROSS_PROJECT_PATH_GUIDE.md
-docs/DEPLOYMENT.md
-docs/JINJA2_REFACTOR_PLAN.md
-docs/LOGGING_AUDIT_REPORT.md
-docs/LOGGING_AUDIT_SUMMARY_REPORT.md
-docs/PATH-CONFIGURATION.md
-docs/REMAINING_TASKS_REPORT.md
-docs/TEST_AUDIT.md
-docs/repo-analysis/
-
-docs/全功能实施指南.md
-docs/功能实现状态分析报告.md
-docs/项目健康度评估报告.md
-
-# Local management rules (owner-only, not on remote)
-LOCAL_RULES.md
-
-# 根目录运行日志（勿提交）
-*.log
-
-# ── 统一模板 v0.1 补充段（2026-08-17，与其余三仓对齐；不含删除性修改）──────────────────
-*.whl
-*.tar.gz
-*.zip
-WPy64-*/
-WinPython*/
-python/
-model/*.pth
-model/*.safetensors
-model/*.bin
-model/*.pt
-model/*.ckpt
-*.onnx
-data/uploads/*
-outputs/*
-logs/*
-.env.*
-secrets/
-.benchmarks/
-.ruff_cache/
-.mypy_cache/
-.pyright/
-tests/test-results/
-tests/playwright-report/
-tests/frontend/_rendered/
-.qoder/
-*.tmp
-*.bak
-Desktop.ini
-!model/.gitkeep
-!logs/.gitkeep
-!data/uploads/.gitkeep
-!outputs/.gitkeep
-!.env.example
-
-# AI 规范与内部工作文档（仅本地保留，不上传远程，2026-08-27）
-AGENTS.md
-docs/FILEMAP.md
-docs/README.md
-docs/_devarchive/
-docs/adr/
-docs/plans/
-docs/project/
-docs/reports/
-docs/整理记录_20260823.md
-
-# 本地预检脚本（不入库）
-precheck.ps1
-
-# 发布产物（由 scripts/build_release_metadata.py 生成，不入库）
-release/*.json
-
-# blue-green 槽位状态文件（本地/部署机生成，不入库）
-.imm_bluegreen
-
-# 状态备份产物（P2-13，本地/部署机生成，不入库）
-backups/
-
-# 性能基准趋势日志（含时间戳与机型，本机产物，不入库）
-perf/benchmark_history.jsonl
-
-# 本地 AI 工作区状态（与既有 .catpaw/ .trae/ .qoder/ 同类，仅本机保留）
-.workbuddy-ai/
