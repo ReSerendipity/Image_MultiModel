@@ -1,36 +1,29 @@
 # Third-Party Notices（第三方组件声明）
 
-> 更新日期：2026-08-17。本清单非穷尽：完整依赖以 `requirements.txt` / `requirements-lock.txt`
+> 更新日期：2026-09-02。本清单非穷尽：完整依赖以 `requirements.txt` / `requirements-lock.txt`
 > 及安装环境的 `pip freeze` 为准；各组件许可以其官方仓库与包内 LICENSE 为准。
 
 ## 项目主许可
 
-Image MultiModel 项目代码采用 [Apache License 2.0](../LICENSE)。
+Image MultiModel 项目代码采用 [Apache License 2.0](LICENSE)。
 
 ## 核心推理引擎
 
-### Z-Image Turbo (diffusers, default) - Apache-2.0
+### z_image_turbo_native（默认引擎，backend: native）
 
-- **组件**: HuggingFace diffusers ZImagePipeline + Z-Image-Turbo 模型权重
-- **上游**: <https://huggingface.co/Tongyi-MAI/Z-Image-Turbo> (通义实验室)
-- **版本**: diffusers >= 0.39.0 (含 ZImagePipeline)
-- **许可**: [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0) (Z-Image-Turbo 模型为 Apache-2.0)
-- **分发说明**: 
-  - **完全兼容项目主许可**: diffusers 框架（BSD-3-Clause）+ Z-Image-Turbo 模型（Apache-2.0）均为宽松许可，与本项目 Apache-2.0 同源，无传染性约束
-  - 便携包/Docker 镜像可**直接捆绑分发**，无需额外声明或源代码要求
-  - 需保留原作者版权和免责声明（HuggingFace model card 与 diffusers 库 LICENSE）
+- **组件**：进程内原生引擎，复用本地 `comfy_kernel/`（vendored ComfyUI 内核源码）实现 Z-Image-Turbo 推理
+- **引擎 key**：`config.yaml → models.engines.z_image_turbo_native`（`backend: native`）
+- **上游**：<https://github.com/Comfy-Org/ComfyUI>（Comfy-Org）
+- **许可（核心合规点）**：vendored `comfy_kernel/` 为 [GNU GPL v3.0](https://www.gnu.org/licenses/gpl-3.0.html)
+- **分发义务**：分发本项目需遵守 GPL-3.0（随附许可文本、提供源码获取方式、保留版权声明）；`comfy_kernel/` 作为独立 git 仓库由 `.gitignore` 排除，使用前需满足其许可要求
 
-### ⚠️ 弃用：ComfyUI 内核（仅旧版 z_image_turbo_native 引擎使用）
+### Z-Image-Turbo 模型权重（Apache-2.0）
 
-- ~~**组件**: ComfyUI 推理内核源码（本地目录 `comfy_kernel/`，由原生引擎进程内复用）~~
-- ~~**上游**: <https://github.com/Comfy-Org/ComfyUI>（Comfy-Org）~~
-- ~~**版本**: v0.32.0-5-gbd34f338~~
-- ~~**许可**: [GNU GPL v3.0](https://www.gnu.org/licenses/gpl-3.0.html)~~
-- ~~**分发边界**: (见 `comfy_kernel/COMPLIANCE-README.md`)~~
-- ~~**备注**: ~~z_image_turbo_native~~ (backend: native) 引擎已于 ~~v1.3.0~~ 被标记为 deprecated，推荐使用 diffusers 引擎替代。~~
+- **组件**：Z-Image-Turbo 模型权重（用户自行下载并放置于 `model/` 目录）
+- **上游**：<https://huggingface.co/Tongyi-MAI/Z-Image-Turbo>（通义实验室）
+- **许可**：[Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)；再分发需保留原版权声明
 
-
-### 主要 Python 依赖（许可类型为常见归类，以各包 LICENSE 为准）
+## 主要 Python 依赖（许可类型为常见归类，以各包 LICENSE 为准）
 
 | 组件 | 常见许可类型 | 说明 |
 |---|---|---|
@@ -48,7 +41,6 @@ Image MultiModel 项目代码采用 [Apache License 2.0](../LICENSE)。
 | einops | MIT | 张量重排 |
 | transformers | Apache-2.0 | 模型库 |
 | PyYAML | MIT | 配置解析 |
-| torchsde | Apache-2.0 | SDE 求解 |
 | comfy-aimdo / comfy-kitchen | 未核验 | 原生引擎依赖，见包内 LICENSE |
 
-> 商用分发前，建议对 `requirements-lock.txt` 锁定的依赖版本做一次完整许可扫描。
+> 商用分发前，建议对 `requirements-lock.txt` 锁定的依赖版本做一次完整许可扫描；尤其注意 `comfy_kernel/` 的 GPL-3.0 义务。
