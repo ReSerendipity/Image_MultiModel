@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-02T16:52:15.798982",
+  "generated_at": "2026-09-03T19:59:47.237714",
   "generator": "scripts/generate_integrity_manifest.py",
   "description": "核心安全模块 SHA256 完整性清单，用于启动时自检",
   "files": {
@@ -9,8 +9,8 @@
     "engine_interface.py": "f2c611496230be80d3a7f9d0d7499298017de472e0ac74dd7a6f83e8c76a00c1",
     "model_manager.py": "6e30eac47a692facb9aa364e9556d8602bf4e7484842cf3b63cb8b10f120bf42",
     "model_registry.py": "07aff78446c89fe4315afa588891d7a8c9ae888c0c634dd0edc4d3fd169666f9",
-    "task_queue.py": "474ff2d05425cde055e22fe66051579c9e1871274faf1c19c36799b8ea1e4a3c",
-    "history_db.py": "b9e82a8058716d4f08428b0cd95179764fff475ef364b7afa4a28765eac648a5",
+    "task_queue.py": "d5f47a72189ee785a49fda390408f3496d3a3dc27b58fa276abb21d0795cb174",
+    "history_db.py": "e9f881a832a764c6fbe6ed7c70c3f51d6f810db1438d36375b3ef52fb66af4ed",
     "lineage.py": "4fa8334929fbaab30310e9fccec7a468922f229803d2ada473fa41f914b1633e",
     "i18n.py": "dce90e3559c3967b2bf5faee0637f5eebd7313c59781d3535e944f6d107e3d27",
     "gpu_utils.py": "f130db0509f4f13eaec6bdfe99283e8949a891348b56f3b35237faea3999e26d",

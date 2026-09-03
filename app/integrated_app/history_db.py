@@ -8,14 +8,127 @@ history_db.py — SQLite 历史记录数据库
 
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import sqlite3
+import threading
 import time
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+class HistoryDBClosedError(RuntimeError):
+    """在 ``HistoryDB.close()`` 之后仍尝试使用数据库连接。
+
+    触发场景：某线程先取到连接、另一线程随后 ``close()``，前者再写库。
+    修复前这会走到 sqlite3 C 扩展的 use-after-close，表现为**解释器段错误**
+    （pytest 只能报 ``worker crashed``，无任何 Python 栈）；护栏介入后改为
+    抛出本异常，可捕获、可诊断。
+    """
+
+
+class _GuardedConnection:
+    """``sqlite3.Connection`` 的关闭安全护栏代理。
+
+    ``HistoryDB`` 以 ``check_same_thread=False`` 跨线程共享同一个连接。裸连接
+    一旦被某线程 ``close()``，其它线程手里**已持有的对象引用不会失效**，继续
+    ``execute()`` 会直接在 C 扩展层段错误（整个解释器崩掉，无法被 try/except
+    捕获）。本代理保证调用方拿到的是护栏而非裸连接：
+
+    - 所有数据库调用都在同一把 :class:`threading.RLock` 内完成，
+      ``close()`` 必须拿到同一把锁 → 不可能在调用进行中拆掉连接；
+    - 连接若已关闭，后续调用抛 :class:`HistoryDBClosedError`（明确异常，
+      而非崩溃或静默重开一个新库）。
+    """
+
+    __slots__ = ("_conn", "_lock")
+
+    def __init__(self, conn: sqlite3.Connection, lock: threading.RLock) -> None:
+        object.__setattr__(self, "_conn", conn)
+        object.__setattr__(self, "_lock", lock)
+
+    # ── 内部 ─────────────────────────────────────────────────
+    def _require(self) -> sqlite3.Connection:
+        conn = object.__getattribute__(self, "_conn")
+        if conn is None:
+            raise HistoryDBClosedError(
+                "HistoryDB 连接已关闭，无法继续访问数据库"
+                "（典型原因：关闭流程先于工作线程写库，见 docs/agents/GOTCHAS.md）"
+            )
+        return conn
+
+    @property
+    def closed(self) -> bool:
+        return object.__getattribute__(self, "_conn") is None
+
+    def _invalidate(self) -> None:
+        object.__setattr__(self, "_conn", None)
+
+    # ── 高频 API：持锁调用，防止与 close() 交错 ────────────────
+    def execute(self, *args: Any, **kwargs: Any) -> sqlite3.Cursor:
+        lock = object.__getattribute__(self, "_lock")
+        with lock:
+            return self._require().execute(*args, **kwargs)
+
+    def executescript(self, *args: Any, **kwargs: Any) -> sqlite3.Cursor:
+        lock = object.__getattribute__(self, "_lock")
+        with lock:
+            return self._require().executescript(*args, **kwargs)
+
+    def commit(self) -> None:
+        lock = object.__getattribute__(self, "_lock")
+        with lock:
+            self._require().commit()
+
+    def rollback(self) -> None:
+        lock = object.__getattribute__(self, "_lock")
+        with lock:
+            self._require().rollback()
+
+    def close(self) -> None:
+        """幂等关闭：重复调用不报错。"""
+        lock = object.__getattribute__(self, "_lock")
+        with lock:
+            conn = object.__getattribute__(self, "_conn")
+            if conn is None:
+                return
+            object.__setattr__(self, "_conn", None)
+            conn.close()
+
+    # ── 其余属性转发（row_factory / cursor / total_changes …）──
+    def __getattr__(self, name: str) -> Any:
+        lock = object.__getattribute__(self, "_lock")
+        with lock:
+            attr = getattr(self._require(), name)
+        # 只包装「方法」（C 层 builtin / 绑定方法）。类与常量原样返回——
+        # 例如 ``row_factory`` 取值是 ``sqlite3.Row``（类，也可调用），
+        # 误包装会让它变成一个函数，赋值回 row_factory 即静默失效。
+        if inspect.isbuiltin(attr) or inspect.ismethod(attr):
+
+            def _guarded(*args: Any, **kwargs: Any) -> Any:
+                with lock:
+                    return getattr(self._require(), name)(*args, **kwargs)
+
+            return _guarded
+        return attr
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name in ("_conn", "_lock"):
+            object.__setattr__(self, name, value)
+            return
+        lock = object.__getattribute__(self, "_lock")
+        with lock:
+            setattr(self._require(), name, value)
+
+    def __bool__(self) -> bool:
+        return object.__getattribute__(self, "_conn") is not None
+
+    def __repr__(self) -> str:  # pragma: no cover - 仅调试用
+        conn = object.__getattribute__(self, "_conn")
+        return f"<_GuardedConnection {'closed' if conn is None else 'open'}>"
 
 
 class HistoryDB:
@@ -130,7 +243,11 @@ class HistoryDB:
     def __init__(self, db_path: str | Path) -> None:
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        # 关闭护栏锁：所有数据库调用与 close() 共用这一把锁，
+        # 保证 close() 不可能在某次 execute() 进行中拆掉连接（否则段错误）。
+        self._lock = threading.RLock()
         self._conn: sqlite3.Connection | None = None
+        self._guard: _GuardedConnection | None = None
         self._init_db()
 
     def _apply_migrations(self, conn: sqlite3.Connection) -> None:
@@ -164,14 +281,25 @@ class HistoryDB:
         self._apply_migrations(conn)
         conn.commit()
         self._conn = conn
+        # 对外只暴露护栏代理，调用方拿不到裸连接，无法在 close() 之后误用
+        self._guard = _GuardedConnection(conn, self._lock)
         logger.info(f"HistoryDB initialized at {self.db_path}")
 
     @property
-    def conn(self) -> sqlite3.Connection:
-        if self._conn is None:
-            self._init_db()
-        assert self._conn is not None
-        return self._conn
+    def conn(self) -> _GuardedConnection:
+        """数据库连接（护栏代理）。
+
+        返回值**不是**裸 ``sqlite3.Connection``，而是 :class:`_GuardedConnection`：
+        接口一致（``execute`` / ``executescript`` / ``commit`` / ``row_factory``
+        等全部转发），但连接被关闭后会抛 :class:`HistoryDBClosedError` 而不是
+        在 C 扩展层段错误。连接为 ``None`` 时（含首次初始化与 ``close()`` 之后）
+        仍按既有语义懒重开。
+        """
+        with self._lock:
+            if self._guard is None or self._guard.closed:
+                self._init_db()
+            assert self._guard is not None
+            return self._guard
 
     # ── 崩溃恢复 ──────────────────────────────────────────────
     def recover_stuck_tasks(self, max_processing_hours: float = 1.0) -> int:
@@ -626,10 +754,18 @@ class HistoryDB:
         return [dict(r) for r in rows]
 
     def close(self) -> None:
-        """关闭数据库连接"""
-        if self._conn:
-            self._conn.close()
+        """关闭数据库连接（幂等，且与所有数据库调用互斥）。
+
+        必须在**没有任何工作线程还会写库之后**调用（见
+        ``TaskQueue.stop()`` 的在飞任务排空）。护栏只能把误用变成明确异常，
+        不能替代正确的关闭顺序。
+        """
+        with self._lock:
+            guard = self._guard
             self._conn = None
+            self._guard = None
+            if guard is not None:
+                guard.close()
 
     # ── 备份 / 灾难恢复（数据治理评估报告 §4.9）──────────────
     def backup(self, dest: str | Path | None = None, keep: int = 7) -> Path:
