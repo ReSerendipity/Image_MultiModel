@@ -34,31 +34,26 @@ jobs:
       - run: pip install ruff
       - run: ruff check app/ tests/
 
-  mypy:
-    name: Type Check (Mypy)
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+  # 类型门禁（家族底线；2026-09-03 接入组织级 reusable workflow）
+  # 门禁逻辑统一维护在 ReSerendipity/.github 的 python-quality-baseline.yml。
+  # 本仓不建 .ci/mypy_baseline.txt：模板对缺失基线走零容忍（迁移前实测两种
+  # 口径均 0 错误——纯 mypy 与全依赖 venv 都是 0，见迁移记录），任何新类型
+  # 错误即红。口径差异：原 job 还装了全量 requirements.txt 并显式传
+  # --python-version 3.12；前者实测对结果无影响（两口径同为 0），后者由
+  # pyproject [tool.mypy].python_version 提供，模板运行时会读取同一配置。
+  #（原内联实现见 git 历史；迁移记录 docs/reports/家族模板迁移_mypy_ratchet_20260903.md）
+  typecheck:
+    name: Typecheck (mypy ratchet)
+    # 原 mypy job 带 if: always()（lint/test 失败也出类型状态），迁移保留该语义
     if: always()
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-mypy-${{ hashFiles('requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-mypy-
-      - name: Install dependencies
-        run: |
-          pip install mypy
-          pip install -r requirements.txt || true
-      - name: Run Mypy type check
-        run: |
-          python -m mypy app/integrated_app \
-            --ignore-missing-imports \
-            --python-version 3.12
+    uses: ReSerendipity/.github/.github/workflows/python-quality-baseline.yml@main
+    with:
+      package: app/integrated_app
+      include_tests: false
+      mypy_target: app/integrated_app
+      pip_cache_dependency_path: requirements.txt
+    permissions:
+      contents: read
 
   test:
     name: Test + Coverage (Python ${{ matrix.python-version }})
