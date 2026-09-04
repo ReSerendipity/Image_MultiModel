@@ -57,6 +57,7 @@ Write-Host "        ⚠ 请确认 pretrained_models/seedvr2 含 ema_vae_fp16 + s
 
 # STEP 4: 内嵌 Python 与 vendored 推理内核（comfy_kernel/）
 Write-Host "[STEP 4] 人工步骤：内嵌 WinPython / comfy_kernel 推理内核（参考 PRD §10.5 STEP 4）" -ForegroundColor Yellow
+Write-Host "        ⚠ GPL-3.0 合规：分发包必须附带完整 comfy_kernel/（含 LICENSE）或书面源码提供承诺——自查清单见 docs/GPL_COMPLIANCE.md §3" -ForegroundColor Yellow
 
 # STEP 5: 清理开发期残留
 Write-Host "[STEP 5] 清理开发残留（cache/uploads/logs/Junction/字节码）" -ForegroundColor Cyan

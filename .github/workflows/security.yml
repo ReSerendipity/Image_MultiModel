@@ -133,3 +133,23 @@ jobs:
           exit-code: "1"
           severity: "CRITICAL,HIGH"
           scanners: "secret"
+
+  # ── 许可证通知完整性 (2026-09-04 安全评估 H1) ─────────
+  license-notice-check:
+    name: Third-Party Notice Check (GPL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify comfy_kernel GPL notice & compliance doc
+        run: |
+          grep -qi "comfy" THIRD_PARTY_NOTICES.md \
+            || { echo "::error::THIRD_PARTY_NOTICES.md 缺少 comfy_kernel 条目（GPL-3.0 通知腐化）"; exit 1; }
+          grep -qi "GPL" THIRD_PARTY_NOTICES.md \
+            || { echo "::error::THIRD_PARTY_NOTICES.md 缺少 GPL 许可声明"; exit 1; }
+          grep -qi "GPL" NOTICE \
+            || { echo "::error::NOTICE 缺少 GPL 许可声明"; exit 1; }
+          test -f docs/GPL_COMPLIANCE.md \
+            || { echo "::error::docs/GPL_COMPLIANCE.md 缺失（源码获取义务文档）"; exit 1; }
+          echo "OK: third-party notices intact."
