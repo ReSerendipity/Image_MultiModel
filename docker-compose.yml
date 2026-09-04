@@ -31,8 +31,10 @@ services:
       - COMFYUI_DISABLE_UPDATE_CHECK=1
 
     # 端口映射
+    # 云原生评估反模式 #3：仅绑回环，禁止 host 全接口暴露（对齐 AGENTS.md「禁 0.0.0.0」）；
+    # 远程访问经反向代理（deploy.yml 远端模式走 STAGING_BASE_URL，不受影响）
     ports:
-      - "8288:8288"
+      - "127.0.0.1:8288:8288"
 
     # 模型 volume 挂载（portable 模式）
     volumes:
@@ -46,8 +48,12 @@ services:
       - ./outputs:/app/outputs
       # 日志
       - ./logs:/app/logs
-      # 配置文件
-      - ./config.yaml:/app/config.yaml
+      # 配置文件（只读，与 bluegreen 一致）
+      - ./config.yaml:/app/config.yaml:ro
+
+    # 优雅关闭：文生图任务分钟级，给 uvicorn SIGTERM 优雅关停留足时间
+    # （uvicorn 收到 SIGTERM 后停止接新单、等待在飞请求完成）
+    stop_grace_period: 120s
 
     # 健康检查
     healthcheck:

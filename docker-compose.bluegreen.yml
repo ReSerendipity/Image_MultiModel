@@ -30,13 +30,17 @@ services:
       - COMFYUI_DISABLE_UPDATE_CHECK=1
       - IMM_PORT=8288
     volumes:
-      - ./model:/app/model:ro
+      # 云原生评估反模式 #4 修复：应用读取 config.yaml → portable.internal_models_dir
+      # = pretrained_models，原 ./model 挂载与应用路径不符，blue/green 槽推理必失败
+      - ./pretrained_models:/app/pretrained_models:ro
       - ./workflows:/app/workflows:ro
       - ./data:/app/data
       - ./outputs:/app/outputs
       - ./logs:/app/logs
-      - ./config.yaml:/app/config.yaml
+      - ./config.yaml:/app/config.yaml:ro
       - ./comfy_kernel:/app/comfy_kernel:ro
+    # 优雅关闭：uvicorn SIGTERM 优雅关停留足时间
+    stop_grace_period: 120s
     deploy:
       resources:
         reservations:
@@ -67,13 +71,15 @@ services:
       - COMFYUI_DISABLE_UPDATE_CHECK=1
       - IMM_PORT=8288
     volumes:
-      - ./model:/app/model:ro
+      # 与 imm-blue 对齐：pretrained_models 为应用真实读取路径
+      - ./pretrained_models:/app/pretrained_models:ro
       - ./workflows:/app/workflows:ro
       - ./data:/app/data
       - ./outputs:/app/outputs
       - ./logs:/app/logs
-      - ./config.yaml:/app/config.yaml
+      - ./config.yaml:/app/config.yaml:ro
       - ./comfy_kernel:/app/comfy_kernel:ro
+    stop_grace_period: 120s
     deploy:
       resources:
         reservations:
