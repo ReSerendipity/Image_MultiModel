@@ -11,6 +11,7 @@ from __future__ import annotations
 import inspect
 import json
 import logging
+import os
 import sqlite3
 import threading
 import time
@@ -131,6 +132,22 @@ class _GuardedConnection:
         return f"<_GuardedConnection {'closed' if conn is None else 'open'}>"
 
 
+def _dir_size_bytes(path: Path) -> int:
+    """递归统计目录体积（字节）。用于 cleanup_old_tasks 的 max_gb 口径
+    （成本资源治理评估报告 P1-③：须度量目录本身，而非磁盘卷）。"""
+    total = 0
+    try:
+        for root, _dirs, files in os.walk(path):
+            for f in files:
+                try:
+                    total += os.path.getsize(os.path.join(root, f))
+                except OSError:  # noqa: PERF203 - 单文件失败不中断统计
+                    continue
+    except OSError:
+        return 0
+    return total
+
+
 class HistoryDB:
     """
     SQLite 数据库管理器：
@@ -202,6 +219,17 @@ class HistoryDB:
         content_rowid='rowid'
     );
 
+    -- 容量日快照表（成本资源治理评估报告 §5-⑤：回答「磁盘还能撑多久 / 显卡够不够用」）
+    CREATE TABLE IF NOT EXISTS capacity_snapshots (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        snapshot_date  TEXT NOT NULL,               -- 快照归属日期（YYYY-MM-DD）
+        peak_used_gb   REAL DEFAULT 0,              -- 当日 VRAM 已用峰值（GB）
+        disk_used_gb   REAL DEFAULT 0,              -- 数据卷已用空间（GB）
+        gpu_hours_24h  REAL DEFAULT 0,              -- 近 24h GPU·小时（processing_time_s 聚合）
+        created_at     TEXT DEFAULT (datetime('now')),
+        UNIQUE(snapshot_date)
+    );
+
     -- 索引
     CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
     CREATE INDEX IF NOT EXISTS idx_tasks_engine ON tasks(engine);
@@ -209,6 +237,7 @@ class HistoryDB:
     CREATE INDEX IF NOT EXISTS idx_tasks_favorite ON tasks(favorite);
     CREATE INDEX IF NOT EXISTS idx_outputs_task_id ON outputs(task_id);
     CREATE INDEX IF NOT EXISTS idx_outputs_path ON outputs(path);
+    CREATE INDEX IF NOT EXISTS idx_capacity_snapshots_date ON capacity_snapshots(snapshot_date);
     """
 
     # 血缘 / 数据治理增强列（数据治理评估报告 §3.3 / §4.1）
@@ -324,6 +353,83 @@ class HistoryDB:
         if count > 0:
             logger.warning(f"Recovered {count} stuck tasks (marked as interrupted)")
         return count
+
+    def mark_stale_pending_interrupted(self, exclude_task_ids: list[str] | None = None) -> int:
+        """启动时把遗留 pending 任务标记为 interrupted（成本资源治理评估报告 P2-⑥）。
+
+        背景：``runtime.task_queue.auto_recover: false`` 时，上次会话中断的
+        pending 任务没有任何执行者，会永久滞留为僵尸记录（实测 1500/3073 条）。
+        在启动恢复（checkpoint 续跑）**之前**调用，并把待续跑任务排除在外。
+
+        Args:
+            exclude_task_ids: 需要保留 pending 的任务（即将由 checkpoint 续跑）。
+
+        Returns:
+            标记的任务数
+        """
+        conn = self.conn
+        exclude = [t for t in (exclude_task_ids or []) if t]
+        if exclude:
+            placeholders = ",".join("?" * len(exclude))
+            cur = conn.execute(
+                f"UPDATE tasks SET status='interrupted', interrupted_at_reboot=1, "
+                f"updated_at=datetime('now') "
+                f"WHERE status='pending' AND task_id NOT IN ({placeholders})",
+                tuple(exclude),
+            )
+        else:
+            cur = conn.execute(
+                "UPDATE tasks SET status='interrupted', interrupted_at_reboot=1, "
+                "updated_at=datetime('now') WHERE status='pending'"
+            )
+        conn.commit()
+        count = cur.rowcount
+        if count > 0:
+            logger.warning(f"Marked {count} stale pending tasks as interrupted (stale-pending sweep)")
+        return count
+
+    # ── 容量日快照（成本资源治理评估报告 §5-⑤ / 必答三问 Q3）────
+    def record_capacity_snapshot(
+        self,
+        snapshot_date: str,
+        peak_used_gb: float,
+        disk_used_gb: float,
+        gpu_hours_24h: float,
+    ) -> None:
+        """写入（或按日期覆盖）一条容量日快照。UNIQUE(snapshot_date) 幂等。"""
+        conn = self.conn
+        conn.execute(
+            "INSERT INTO capacity_snapshots (snapshot_date, peak_used_gb, disk_used_gb, gpu_hours_24h) "
+            "VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(snapshot_date) DO UPDATE SET "
+            "peak_used_gb=excluded.peak_used_gb, disk_used_gb=excluded.disk_used_gb, "
+            "gpu_hours_24h=excluded.gpu_hours_24h",
+            (snapshot_date, round(peak_used_gb, 3), round(disk_used_gb, 3), round(gpu_hours_24h, 4)),
+        )
+        conn.commit()
+
+    def list_capacity_snapshots(self, limit: int = 30) -> list[dict[str, Any]]:
+        """读取最近 N 条容量快照（默认 30 天），按日期倒序。"""
+        conn = self.conn
+        rows = conn.execute(
+            "SELECT snapshot_date, peak_used_gb, disk_used_gb, gpu_hours_24h, created_at "
+            "FROM capacity_snapshots ORDER BY snapshot_date DESC LIMIT ?",
+            (max(1, int(limit)),),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def sum_processing_since(self, cutoff_epoch_s: float) -> float:
+        """统计某时间点之后创建任务的 processing_time_s 总和（秒）。
+
+        created_at 存 UTC 文本（datetime('now')），故 cutoff 亦按 UTC 换算。
+        供容量快照的 gpu_hours_24h 使用（FinOps 失败入账后该口径自动覆盖失败任务）。
+        """
+        cutoff_str = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(cutoff_epoch_s))
+        row = self.conn.execute(
+            "SELECT COALESCE(SUM(processing_time_s), 0) FROM tasks WHERE created_at >= ?",
+            (cutoff_str,),
+        ).fetchone()
+        return float(row[0] if row else 0.0)
 
     # ── 任务 CRUD ─────────────────────────────────────────────
     def create_task(
@@ -500,6 +606,21 @@ class HistoryDB:
             (task_id, path, format, file_size, width, height, seed, output_type),
         )
         conn.commit()
+
+    def clear_task_outputs(self, task_id: str) -> int:
+        """清空某任务已登记的输出记录（重试幂等用）。
+
+        worker 自动重试（P2-6）会重跑完整生成并再次 ``add_output``；若不清空，
+        同一 ``task_id`` 会累积重复行，图库出现重复项。落库前调用本方法使重试
+        幂等（见后端服务设计评估报告 P2-3）。
+
+        Returns:
+            删除的记录数
+        """
+        conn = self.conn
+        cur = conn.execute("DELETE FROM outputs WHERE task_id=?", (task_id,))
+        conn.commit()
+        return int(cur.rowcount or 0)
 
     def list_outputs(
         self,
@@ -692,9 +813,10 @@ class HistoryDB:
 
         if max_gb > 0 and outputs_dir.exists():
             try:
-                import shutil as _shutil
-
-                size_gb = _shutil.disk_usage(str(outputs_dir)).used / (1024**3)
+                # 成本资源治理评估报告 P1-③：此前用 shutil.disk_usage(outputs_dir).used
+                # 度量的是**整个磁盘卷**的已用空间，而非 outputs 目录体积，导致
+                # max_gb 语义（输出目录上限）与实现不符。改为遍历 outputs 目录求和。
+                size_gb = _dir_size_bytes(outputs_dir) / (1024**3)
                 if size_gb > max_gb:
                     total_rows = self.conn.execute(
                         "SELECT task_id FROM tasks WHERE favorite=0 ORDER BY created_at ASC"
@@ -710,16 +832,19 @@ class HistoryDB:
 
         if not candidate_ids:
             return 0
-        deleted = self._delete_tasks_with_files(candidate_ids, outputs_dir)
+        deleted = self.delete_tasks_with_files(candidate_ids)
         if deleted > 0:
             logger.info(f"Cleanup: deleted {deleted} old tasks (keep_days={keep_days}, max_gb={max_gb})")
         return deleted
 
-    def _delete_tasks_with_files(self, task_ids: list[str], outputs_dir: Path) -> int:
-        """删除任务及其关联的磁盘输出文件（保留收藏任务不被删文件）。"""
+    def _delete_task_files(self, task_ids: list[str], outputs_dir: Path) -> None:
+        """删除任务关联的磁盘文件：主输出图 + 缩略图（数据治理 P0-2/P1-1）。
+
+        保留收藏任务不被删文件（调用方已过滤 favorite）。
+        """
         task_ids = list(dict.fromkeys(task_ids))
         if not task_ids:
-            return 0
+            return
         placeholders = ",".join("?" * len(task_ids))
         # 1) 删除实际图片文件
         rows = self.conn.execute(
@@ -732,7 +857,47 @@ class HistoryDB:
                     fp.unlink()
             except Exception as e:  # noqa: BLE001
                 logger.debug("Failed to unlink output file %s: %s", p, e)
-        # 2) 删除任务（ON DELETE CASCADE 清理 outputs 行）
+        # 2) 删除缩略图（data/cache/thumbs，命名含 task_id[:16] 前缀；另含 tasks.thumbnail 引用）
+        thumbs_dir = Path(self.db_path).parent / "cache" / "thumbs"
+        if thumbs_dir.is_dir():
+            try:
+                referenced = {
+                    (r[0] or "").lstrip("/\\")
+                    for r in self.conn.execute(
+                        f"SELECT thumbnail FROM tasks WHERE task_id IN ({placeholders})", task_ids
+                    ).fetchall()
+                }
+            except Exception:  # noqa: BLE001
+                referenced = set()
+            for tid in task_ids:
+                prefix = tid[:16]
+                for thumb in thumbs_dir.glob(f"{prefix}_*"):
+                    try:
+                        thumb.unlink()
+                    except Exception as e:  # noqa: BLE001
+                        logger.debug("Failed to unlink thumbnail %s: %s", thumb, e)
+            for rel in referenced:
+                if not rel:
+                    continue
+                fp = (thumbs_dir / rel) if not Path(rel).is_absolute() else Path(rel)
+                if fp.exists():
+                    try:
+                        fp.unlink()
+                    except Exception as e:  # noqa: BLE001
+                        logger.debug("Failed to unlink referenced thumbnail %s: %s", fp, e)
+
+    def delete_tasks_with_files(self, task_ids: list[str]) -> int:
+        """公开入口：删除任务及其磁盘文件（主图 + 缩略图）。
+
+        供 DELETE /api/tasks 路由调用，消灭「只删 DB 不删文件」导致磁盘孤儿
+        （数据治理报告 P0-2 / P1-1）。收藏任务不删文件。
+        """
+        if not task_ids:
+            return 0
+        outputs_dir = Path(self.db_path).parent.parent / "outputs"
+        self._delete_task_files(task_ids, outputs_dir)
+        # 删除任务（ON DELETE CASCADE 清理 outputs 行）
+        placeholders = ",".join("?" * len(task_ids))
         cur = self.conn.execute(f"DELETE FROM tasks WHERE task_id IN ({placeholders})", task_ids)
         self.conn.commit()
         return cur.rowcount

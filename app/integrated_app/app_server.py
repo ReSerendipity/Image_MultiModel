@@ -32,7 +32,6 @@ from .cost_governance import (
     get_metrics_store,
     get_vram_scheduler,
 )
-from .engine_interface import GenerationConfig
 from .gpu_utils import VRAMLeakMonitor, get_gpu_info
 from .history_db import HistoryDB
 from .middleware.auth import AuthMiddleware
@@ -413,13 +412,14 @@ async def lifespan(app: FastAPI):
 
     # D6: 历史清理 cron 调度（修复空转：keep_days>0 OR max_gb>0 即启用）
     async def history_cleanup_cron():
-        """按 cron 表达式定时清理超期任务（天数/体积双阈值）"""
+        """每日 cron 维护任务：① 写容量日快照（容量规划，无条件执行）
+        ② 按天数/体积双阈值清理超期任务（阈值启用时）"""
         import datetime as _dt
         cron_expr = config.output.history.cleanup_cron
         keep_days = config.output.history.keep_days
         max_gb = config.output.history.max_gb
-        if not cron_expr or (keep_days <= 0 and max_gb <= 0):
-            logger.info("History cleanup cron disabled (keep_days=0 and max_gb=0 or no cron)")
+        if not cron_expr:
+            logger.info("History maintenance cron disabled (no cron expr)")
             return
         parts = cron_expr.split()
         if len(parts) != 5:
@@ -436,8 +436,29 @@ async def lifespan(app: FastAPI):
                 if next_run <= now:
                     next_run = next_run + _dt.timedelta(days=1)
                 sleep_s = (next_run - now).total_seconds()
-                logger.info(f"History cleanup scheduled at {next_run}, sleeping {sleep_s:.0f}s")
+                logger.info(f"History maintenance scheduled at {next_run}, sleeping {sleep_s:.0f}s")
                 await asyncio.sleep(sleep_s)
+                # ① 容量日快照（成本资源治理评估报告 §5-⑤：无条件执行，
+                #    不依赖清理阈值——快照是容量规划数据源，清理只是消费者之一）
+                try:
+                    from .cost_governance import build_capacity_snapshot, get_metrics_store
+
+                    snap = build_capacity_snapshot(history_db, get_metrics_store(), config.project_root)
+                    history_db.record_capacity_snapshot(
+                        snapshot_date=snap["snapshot_date"],
+                        peak_used_gb=snap["peak_used_gb"],
+                        disk_used_gb=snap["disk_used_gb"],
+                        gpu_hours_24h=snap["gpu_hours_24h"],
+                    )
+                    logger.info(
+                        "Capacity snapshot recorded: %s (peak %.2fGB, disk %.1fGB, gpu %.3fh/24h)",
+                        snap["snapshot_date"], snap["peak_used_gb"], snap["disk_used_gb"], snap["gpu_hours_24h"],
+                    )
+                except Exception as e:  # noqa: BLE001
+                    logger.warning("Capacity snapshot failed: %s", e)
+                # ② 清理（仅阈值启用时；快照与清理解耦）
+                if keep_days <= 0 and max_gb <= 0:
+                    continue
                 # 灾难恢复：清理前先做一致性备份（数据治理评估报告 §4.9）
                 try:
                     history_db.backup()
@@ -463,121 +484,23 @@ async def lifespan(app: FastAPI):
         logger.info(f"Found {len(pending_checkpoints)} pending checkpoints for recovery")
     app.state.checkpoint_mgr = checkpoint_mgr
 
+    # 启动清理：把遗留 pending 僵尸任务标记为 interrupted（成本资源治理评估报告 P2-⑥）。
+    # auto_recover=false 时这些任务无执行者，会永久滞留（实测曾积压 1500/3073 条）。
+    # 待续跑的 checkpoint 任务排除在外，保持 pending 以便下方恢复流程接管。
+    try:
+        _exclude_ids = [cp.get("task_id", "") for cp in pending_checkpoints]
+        _stale = history_db.mark_stale_pending_interrupted(exclude_task_ids=_exclude_ids)
+        if _stale > 0:
+            logger.warning(f"Marked {_stale} stale pending tasks as interrupted at startup")
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Stale pending sweep failed: %s", e)
+
     # 启动 TaskQueue Worker（M8: 支持 native + diffusers 双后端）
-    def worker_func(task):
-        logger.info(f"Worker processing task: {task.task_id} ({task.engine})")
-        started = time.time()
-        # P2 标记活跃，避免推理进行中误触发空闲卸载
-        get_idle_unload_manager().mark_activity()
-        try:
-            cfg = get_config()
-            ecfg = cfg.models.engines.get(task.engine)
-            if not ecfg:
-                raise RuntimeError(f"Engine '{task.engine}' not found in config")
+    # P2-2：worker 业务逻辑已下沉 services/task_worker.py，本文件回归纯装配。
+    # 行为关键点（取消线程安全 / 重试幂等 / 尺寸回填 / 失败入账）见该模块 docstring。
+    from .services.task_worker import make_worker_func
 
-            # M8: 使用工厂方法按 backend 分发引擎
-            from .model_registry import get_model_registry
-
-            registry = get_model_registry()
-            backend = getattr(ecfg, "backend", "native")
-            engine = registry.create_engine_instance(
-                engine_name=task.engine,
-                display_name=getattr(ecfg, "display_name", task.engine),
-                display_name_en=getattr(ecfg, "display_name_en", ""),
-                backend=backend,
-                config=ecfg.model_dump(),
-            )
-            gen = GenerationConfig(**task.config)
-
-            # MLOps P0-2: 多 LoRA 叠加 VRAM 增量预检（best-effort，仅告警不阻断）
-            try:
-                from .gpu_utils import get_gpu_info, preflight_vram_with_loras
-                from .native import lora as _lora_mod
-
-                stack = gen.effective_lora_stack()
-                if stack:
-                    gpu_info = get_gpu_info()
-                    if gpu_info.backend != "cpu":  # 无 GPU 环境跳过，避免噪声
-                        lora_paths = _lora_mod.resolve_lora_paths(cfg.models, cfg.project_root)
-                        est = preflight_vram_with_loras(
-                            ecfg.vram_gb,
-                            stack,
-                            width=gen.width,
-                            height=gen.height,
-                            batch_size=getattr(gen, "batch_size", 1),
-                            lora_paths=lora_paths,
-                            enable_seedvr2=False,
-                            default_precision=ecfg.default_precision,
-                            fallback_precision=ecfg.fallback_precision,
-                            multisample_rule=cfg.inference.vram_multisample_rule,
-                            headroom_gb=cfg.inference.vram_headroom_gb,
-                            gpu_info=gpu_info,
-                            allow_tight=cfg.inference.vram_tight_continue,
-                        )
-                        if not est.can_run:
-                            logger.warning(
-                                "[VRAM-PRECHECK] LoRA 栈可能超出显存 (增量 %.2fGB): %s",
-                                est.lora_increment_gb, est.warning,
-                            )
-            except Exception as e:  # noqa: BLE001 - 预检失败不阻断主推理
-                logger.debug("LoRA VRAM 预检异常（已忽略）: %s", e)
-
-            def prog(pct, phase, extra):
-                task.progress = pct
-                task.phase = phase
-                task_queue._notify_progress(task.task_id, pct, phase, extra or {})
-                if task.cancel_requested and not engine._cancel_requested:
-                    asyncio.create_task(engine.cancel())
-
-            async def run():
-                await engine.load(on_progress=prog)
-                if task.cancel_requested:
-                    await engine.cancel()
-                    raise asyncio.CancelledError("cancelled before start")
-                # 原生引擎单次推理，无 on_chunk_done（批量断点续跑由外层 task_queue 处理）
-                return await engine.infer_txt2img(gen, on_progress=prog)
-
-            outputs = asyncio.run(run())
-            task.result = outputs or []
-
-            # 查找缩略图路径（engine._fetch_outputs 可能已生成缩略图）
-            thumb = (outputs[0] if outputs else "")
-            # 如果引擎返回了缩略图，使用它；否则用第一个输出
-            if hasattr(engine, '_thumbnail_path') and engine._thumbnail_path:
-                thumb = engine._thumbnail_path
-
-            history_db.update_task_status(
-                task.task_id, "completed",
-                processing_time_s=time.time() - started,
-                output_count=len(outputs or []),
-                thumbnail=thumb,
-            )
-            out_types = ("original", "upscaled", "compare")
-            for i, p in enumerate(outputs or []):
-                # 回填产物真实尺寸/字节数：历史库此前恒为 0，导致图库与
-                # /api/tasks/{id} 拿不到尺寸，且发布冒烟的真实产物校验会误判
-                file_size, width, height = _probe_output_metadata(p)
-                history_db.add_output(
-                    task.task_id, p, cfg.output.image_format,
-                    file_size=file_size,
-                    width=width,
-                    height=height,
-                    output_type=out_types[i] if i < len(out_types) else "original",
-                )
-
-            # 批量任务断点续跑：完成时清理 checkpoint
-            if task.batch_id:
-                checkpoint_mgr.delete(task.task_id)
-        except asyncio.CancelledError:
-            history_db.update_task_status(task.task_id, "cancelled")
-            task.error = "cancelled"
-            return
-        except Exception as e:
-            logger.exception(f"Task {task.task_id} worker error")
-            from .lineage import classify_error
-            history_db.update_task_status(task.task_id, "failed", error=str(e), error_code=classify_error(e))
-            task.error = str(e)
-            raise
+    worker_func = make_worker_func(task_queue, history_db, checkpoint_mgr)
 
     await task_queue.start(worker_func)
     app.state.task_queue = task_queue
@@ -663,43 +586,9 @@ async def unload_all_engines(config) -> None:
         logger.warning("unload_all_engines error: %s", e)
 
 
-def _probe_output_metadata(path: str) -> tuple[int, int, int]:
-    """读取产物文件的真实字节数与像素尺寸，供历史库落盘回填。
-
-    历史库 `add_output` 的 file_size/width/height 默认全为 0；若不回填，
-    图库与 `/api/tasks/{id}` 拿不到尺寸，发布冒烟的 `--require-real-output`
-    也会把真实部署误判成假产物（判据是 0 字节 / 0 尺寸）。这里容忍任何异常
-    ——元数据缺失不应阻断落库，最多只是字段仍为 0。
-
-    Args:
-        path: 产物路径，可为绝对路径，或相对项目根 / `outputs/` 的相对路径
-
-    Returns:
-        (file_size, width, height)：读取失败时对应项回退为 0
-    """
-    norm = str(path or "").replace("\\", "/")
-    if not norm:
-        return 0, 0, 0
-    root = Path(__file__).resolve().parents[2].as_posix()
-    real = next(
-        (c for c in (norm, f"outputs/{norm}", f"{root}/{norm}", f"{root}/outputs/{norm}") if os.path.isfile(c)),
-        None,
-    )
-    if not real:
-        return 0, 0, 0
-    try:
-        size = os.path.getsize(real)
-    except OSError:
-        return 0, 0, 0
-    width = height = 0
-    try:
-        from PIL import Image  # type: ignore
-
-        with Image.open(real) as im:
-            width, height = im.size
-    except Exception:
-        width = height = 0
-    return size, width, height
+# P2-2：_probe_output_metadata 已随 worker 业务逻辑下沉 services/task_worker.py；
+# 此处保留 re-export 以兼容既有引用路径（app_server._probe_output_metadata）。
+from .services.task_worker import _probe_output_metadata  # noqa: E402,F401
 
 
 def create_app(enable_rate_limit: bool = True) -> FastAPI:
