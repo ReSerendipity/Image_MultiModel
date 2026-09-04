@@ -260,6 +260,13 @@ class ContentSafetyFilter:
                 "degraded": True,
                 "reason": self._load_error or "CLIP not available",
             }
+            # 审计要求：CLIP 不可用时必须留下策略决策痕迹，便于事后判断
+            # "某次放行是因为环境故障还是真实判定通过"（2026-09-04 安全评估 M1）。
+            logger.warning(
+                "[CONTENT-FILTER] CLIP 不可用，降级策略=%s，原因=%s",
+                "fail-closed(拦截)" if self._fail_closed_on_clip_missing else "fail-open(放行)",
+                details["reason"],
+            )
             if self._fail_closed_on_clip_missing:
                 # fail-closed：CLIP 不可用时拦截（violation_type 供上层区分原因）
                 return SafetyResult(

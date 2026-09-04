@@ -132,3 +132,107 @@ def test_verify_weights_against_manifest(tmp_path: Path) -> None:
     assert report["total"] == 1
     assert report["passed"] == 1
     assert report["failed"] == 0
+
+
+# ── 2026-09-04 安全评估 M4/H2：manifest 激活 + 符号链接键回退 + 期望 hash 解析 ──
+
+
+def test_manifest_hash_lookup_logical_path_through_symlink(tmp_path: Path) -> None:
+    """逻辑路径（未 resolve，可能经符号链接）须能命中相对键清单。
+
+    场景：model/ 目录经符号链接指向外部模型库（本仓 portable 部署实况）。
+    加载路径传"逻辑绝对路径"，旧实现只查 resolve() 后的物理相对键——
+    物理路径落在项目根外导致 relative_to 抛 ValueError，逻辑键永远匹配不上。
+    """
+    real = tmp_path / "external_model_lib"
+    f = real / "Z-image-bf16" / "z.safetensors"
+    _make_safetensors(f)
+    sha = wi.compute_file_sha256(f)
+    # 清单键 = 逻辑相对键（generate_weight_manifest.py 的键形态）
+    manifest = {"model/unet/Z-image-bf16/z.safetensors": sha}
+    # 加载时的逻辑绝对路径（无需真实符号链接——relative_to 是纯词法操作）
+    logical_abs = tmp_path / "model" / "unet" / "Z-image-bf16" / "z.safetensors"
+    assert wi.manifest_hash_for_path(manifest, logical_abs, project_root=tmp_path) == sha
+    # 物理路径在项目根外时不得崩溃，返回 None（按未登记处理）
+    outside = tmp_path / "elsewhere" / "z.safetensors"
+    assert wi.manifest_hash_for_path(manifest, outside, project_root=tmp_path) is None
+
+
+class _CfgStub:
+    """resolve_expected_sha256 的最小配置桩（避免依赖全局 get_config）。"""
+
+    def __init__(self, tmp_path: Path, *, manifest_rel: str | None, verify: bool = True):
+        self.project_root = str(tmp_path)
+        self.security = type(
+            "Sec",
+            (),
+            {
+                "model_format": type(
+                    "Mfmt",
+                    (),
+                    {
+                        "verify_weights": verify,
+                        "weight_manifest_file": manifest_rel or "",
+                    },
+                )()
+            },
+        )()
+
+
+def test_resolve_expected_sha256_registered(tmp_path: Path) -> None:
+    f = tmp_path / "model" / "loras" / "foo.safetensors"
+    _make_safetensors(f)
+    sha = wi.compute_file_sha256(f)
+    manifest_path = tmp_path / "data" / "weight_manifest.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(
+        json.dumps({"files": {"model/loras/foo.safetensors": sha}}), encoding="utf-8"
+    )
+    cfg = _CfgStub(tmp_path, manifest_rel="data/weight_manifest.json")
+    expected, registered = wi.resolve_expected_sha256(f, cfg)
+    assert registered is True
+    assert expected == sha
+
+
+def test_resolve_expected_sha256_unregistered(tmp_path: Path) -> None:
+    f = tmp_path / "model" / "loras" / "other.safetensors"
+    _make_safetensors(f)
+    manifest_path = tmp_path / "data" / "weight_manifest.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(json.dumps({"files": {}}), encoding="utf-8")
+    cfg = _CfgStub(tmp_path, manifest_rel="data/weight_manifest.json")
+    expected, registered = wi.resolve_expected_sha256(f, cfg)
+    assert registered is False
+    assert expected is None
+
+
+def test_resolve_expected_sha256_no_manifest_configured(tmp_path: Path) -> None:
+    f = tmp_path / "model" / "loras" / "foo.safetensors"
+    _make_safetensors(f)
+    cfg = _CfgStub(tmp_path, manifest_rel=None)
+    assert wi.resolve_expected_sha256(f, cfg) == (None, False)
+    # verify_weights 关闭时同样不解析
+    cfg_off = _CfgStub(tmp_path, manifest_rel="data/weight_manifest.json", verify=False)
+    assert wi.resolve_expected_sha256(f, cfg_off) == (None, False)
+
+
+def test_resolve_expected_sha256_manifest_file_missing(tmp_path: Path) -> None:
+    f = tmp_path / "model" / "loras" / "foo.safetensors"
+    _make_safetensors(f)
+    cfg = _CfgStub(tmp_path, manifest_rel="data/weight_manifest.json")  # 文件不存在
+    assert wi.resolve_expected_sha256(f, cfg) == (None, False)
+
+
+def test_validate_hash_mismatch_rejected_even_with_registered_manifest(tmp_path: Path) -> None:
+    """清单登记的权重被篡改（内容替换）→ sha256_mismatch → ok=False（fail-closed 拒绝）。"""
+    f = tmp_path / "loras" / "tampered.safetensors"
+    _make_safetensors(f)
+    real_sha = wi.compute_file_sha256(f)
+    _make_safetensors(f, corrupt=False)  # 重写（内容相同则无篡改），改为追加字节模拟篡改
+    with open(f, "ab") as fh:
+        fh.write(b"tampered-bytes")
+    tampered_sha = wi.compute_file_sha256(f)
+    assert tampered_sha != real_sha
+    res = wi.validate_weight_file(f, expected_sha256=real_sha)
+    assert res.ok is False
+    assert res.error == "sha256_mismatch"

@@ -99,15 +99,35 @@ class NativeEngine:
             try:
                 from ..security.weight_integrity import (
                     WeightIntegrityError,
+                    resolve_expected_sha256,
                     verify_weight_before_load,
                 )
 
                 for role, raw in self._model_paths.items():
                     if not raw:
                         continue
+                    # 期望 hash 从权重清单解析；未登记(unregistered)的权重走
+                    # allow_unregistered_weights 策略（TOFU 起步期允许加载但无篡改检测）。
+                    expected_sha256, registered = resolve_expected_sha256(str(raw), cfg)
+                    if not registered:
+                        if not mfmt.allow_unregistered_weights:
+                            msg = (
+                                f"引擎 '{self._name}' 权重 '{role}' 未在完整性清单登记，"
+                                f"且 allow_unregistered_weights=false: {raw}"
+                            )
+                            if mfmt.fail_closed_on_corrupt_weight:
+                                raise WeightIntegrityError(msg)
+                            logger.warning("%s，跳过该权重", msg)
+                            continue
+                        logger.info(
+                            "[NATIVE] 权重 '%s' 未在完整性清单登记，允许加载但无篡改检测: %s",
+                            role,
+                            raw,
+                        )
                     try:
                         res = verify_weight_before_load(
                             str(raw),
+                            expected_sha256=expected_sha256,
                             allow_non_safetensors=not mfmt.only_safetensors,
                         )
                     except Exception as e:  # noqa: BLE001 - 单文件校验异常不阻断
@@ -210,6 +230,18 @@ class NativeEngine:
         self._cancel_requested = True
         logger.info("NativeEngine '%s' cancel requested", self._name)
 
+    def request_cancel(self) -> None:
+        """线程安全的取消请求（可由 executor 线程调用）。
+
+        仅置位内部标志 ``_cancel_requested``；推理循环里的 ``_watch_cancel`` 任务
+        会在下一个采样步边界调用 ``cancel_cb`` 把 ``cancel_flag[0]`` 置 True，从而
+        由 executor 在采样步内抛出 ``CancelledError`` 干净中止——避免从 executor 线程
+        调用 async ``cancel()`` 触发 “no running event loop” 异常（此前靠异常中止
+        “碰巧” 收敛为 cancelled，非设计语义，见后端服务设计评估报告 P1-2）。
+        """
+        self._cancel_requested = True
+        logger.info("NativeEngine '%s' cancel requested (thread-safe)", self._name)
+
     # ── 内部辅助 ────────────────────────────────────────────
     async def _watch_cancel(self, fut: Any, cancel_cb: Any) -> None:
         """监控取消标志；用户在推理中调用 cancel() 时触发内部取消。"""
@@ -248,6 +280,7 @@ class NativeEngine:
             thumb_dir = guard.ensure_dir(Path("data") / "cache" / "thumbs")
 
         saved: list[str] = []
+        metadata = output_pipeline.build_generation_metadata(task_id, config, self._name)
         for idx, img_tensor in enumerate(images):
             width, height = img_tensor.shape[1], img_tensor.shape[0]
             fname = f"{task_id[:16]}_{idx}.{out_ext}"
@@ -267,6 +300,7 @@ class NativeEngine:
                 image_quality=image_quality,
                 thumb_format=thumb_format,
                 thumb_quality=thumb_quality,
+                metadata=metadata,
             )
 
             # 存相对路径（相对 outputs/ 目录），供前端 /api/outputs/<rel> 直接访问

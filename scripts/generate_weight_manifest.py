@@ -26,7 +26,7 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "app"))
 
 from integrated_app.security.weight_integrity import compute_file_sha256  # noqa: E402
 
@@ -49,8 +49,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="生成模型权重 SHA256 清单")
     parser.add_argument(
         "--dir",
-        default="model/loras",
-        help="权重根目录（相对项目根；默认 model/loras）",
+        nargs="+",
+        default=["model/loras"],
+        help="权重根目录（相对项目根；可传多个，默认 model/loras）",
     )
     parser.add_argument(
         "--out",
@@ -61,14 +62,15 @@ def main() -> None:
     args = parser.parse_args()
 
     project_root = Path(args.project_root) if args.project_root else Path(__file__).resolve().parent.parent
-    base_dir = (project_root / args.dir).resolve()
+    base_dirs = [(project_root / d).resolve() for d in args.dir]
 
     files: dict[str, str] = {}
-    for path in scan_weights(base_dir):
-        rel = str(path.relative_to(project_root)).replace("\\", "/")
-        sha = compute_file_sha256(path)
-        files[rel] = sha
-        print(f"  [OK] {rel}: {sha[:16]}...")
+    for base_dir in base_dirs:
+        for path in scan_weights(base_dir):
+            rel = str(path.relative_to(project_root)).replace("\\", "/")
+            sha = compute_file_sha256(path)
+            files[rel] = sha
+            print(f"  [OK] {rel}: {sha[:16]}...")
 
     manifest = {
         "generated_at": datetime.datetime.now().isoformat(),

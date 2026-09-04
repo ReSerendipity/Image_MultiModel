@@ -97,6 +97,37 @@ class TestConfigLoading:
         # 配置可覆盖为任意布尔值
         assert isinstance(app_config.security.content_filter.fail_closed_on_clip_missing, bool)
 
+    def test_shipped_config_fail_closed_defaults(self, config_yaml):
+        """发行配置必须保持 fail-closed，防止配置文件静默覆盖代码安全默认。
+
+        根因（2026-09-04 安全评估 H2/M1）：`config_models` 的安全默认本已安全，
+        但 config.yaml 显式置 false 覆盖了它，且此前无任何测试守护发行配置取值，
+        导致"安全默认在代码、fail-open 在部署"长期不被发现。此处补上发行配置断言。
+        """
+        mfmt = config_yaml["security"]["model_format"]
+        cfilter = config_yaml["security"]["content_filter"]
+        assert mfmt["fail_closed_on_corrupt_weight"] is True, (
+            "发行配置不得把 fail_closed_on_corrupt_weight 置 false："
+            "否则损坏/被篡改权重被静默跳过而非拒绝加载"
+        )
+        assert cfilter["fail_closed_on_clip_missing"] is True, (
+            "发行配置不得把 fail_closed_on_clip_missing 置 false：否则 CLIP 缺失时图片扫描静默放行"
+        )
+        # 配置取值须与模型安全默认一致（二者漂移即为回归信号）
+        from integrated_app.config_models import (
+            ContentFilterConfig,
+            ModelFormatConfig,
+        )
+
+        assert (
+            mfmt["fail_closed_on_corrupt_weight"]
+            == ModelFormatConfig().fail_closed_on_corrupt_weight
+        )
+        assert (
+            cfilter["fail_closed_on_clip_missing"]
+            == ContentFilterConfig().fail_closed_on_clip_missing
+        )
+
 
 class TestResolveModelPath:
     """测试 resolve_model_path() 双模式解析"""

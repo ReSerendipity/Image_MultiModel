@@ -225,19 +225,84 @@ def manifest_hash_for_path(
 ) -> str | None:
     """从清单中查某绝对路径对应的期望 hash。
 
-    支持绝对路径键与相对项目根的相对路径键两种形态。
+    依次尝试三种键形态（生成器 scripts/generate_weight_manifest.py 会同时
+    写入逻辑相对键与物理绝对键，此处保证两种调用约定都能命中）：
+
+    1. 传入路径原样（逻辑绝对路径，正斜杠化）；
+    2. **未 resolve** 的相对项目根路径 —— 覆盖 model/ 目录经符号链接指向
+       外部模型库的场景：``resolve()`` 会把逻辑路径落到项目根之外，导致
+       relative_to 抛 ValueError，若只查物理路径则逻辑键永远匹配不上；
+    3. ``resolve()`` 后的相对项目根路径（物理路径在项目根内的常规场景）。
     """
     abs_s = str(Path(abs_path)).replace("\\", "/")
     if abs_s in manifest:
         return manifest[abs_s]
     if project_root:
+        root = Path(project_root).resolve()
+        # ② 逻辑相对键（不解析符号链接）
         try:
-            rel = str(Path(abs_path).resolve().relative_to(Path(project_root).resolve())).replace("\\", "/")
+            rel_logical = str(Path(abs_path).relative_to(root)).replace("\\", "/")
+            if rel_logical in manifest:
+                return manifest[rel_logical]
+        except ValueError:
+            pass
+        # ③ 物理相对键（解析符号链接后仍在项目根内）
+        try:
+            rel = str(Path(abs_path).resolve().relative_to(root)).replace("\\", "/")
             if rel in manifest:
                 return manifest[rel]
         except ValueError:
             pass
     return None
+
+
+def resolve_expected_sha256(
+    path: str | Path,
+    cfg: Any = None,
+) -> tuple[str | None, bool]:
+    """从配置指定的权重清单解析该权重的期望 SHA256（供各引擎加载前统一调用）。
+
+    将"清单定位 + 相对/绝对键解析 + verify_weights 开关判定"收敛到一处，
+    避免 engine / lora / diffusers 三条加载链路各自重复实现而产生行为漂移。
+
+    Args:
+        path: 待校验权重文件的绝对路径。
+        cfg: AppConfig；为空时回退全局单例。
+
+    Returns:
+        (expected_sha256, registered):
+        - 未配置清单 / 清单文件缺失 / 该权重未在清单登记时，expected_sha256 为 None；
+        - registered 表示该权重是否在清单中有条目，用于区分
+          「hash 比对失败（篡改）」与「未登记（用户自添/首次使用）」两种语义，
+          后者交由 ``allow_unregistered_weights`` 策略裁决。
+    """
+    if cfg is None:
+        try:
+            from ..config import get_config
+
+            cfg = get_config()
+        except Exception:  # noqa: BLE001 - 配置不可用时按未登记处理
+            return (None, False)
+
+    mfmt = getattr(getattr(cfg, "security", None), "model_format", None)
+    if mfmt is None or not getattr(mfmt, "verify_weights", False):
+        return (None, False)
+
+    manifest_file = getattr(mfmt, "weight_manifest_file", "") or ""
+    if not manifest_file:
+        # 未配置清单：无法做篡改检测（仅结构/格式校验），按"未登记"处理
+        return (None, False)
+
+    root = getattr(cfg, "project_root", "") or ""
+    p = Path(manifest_file)
+    if not p.is_absolute() and root:
+        p = Path(root) / manifest_file
+    manifest = load_weight_manifest(p)
+    if not manifest:
+        return (None, False)
+
+    expected = manifest_hash_for_path(manifest, path, root)
+    return (expected, expected is not None)
 
 
 def verify_weights_against_manifest(
@@ -304,6 +369,7 @@ __all__ = [
     "compute_file_sha256",
     "validate_weight_file",
     "load_weight_manifest",
+    "resolve_expected_sha256",
     "manifest_hash_for_path",
     "verify_weights_against_manifest",
     "verify_weight_before_load",

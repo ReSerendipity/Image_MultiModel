@@ -348,13 +348,28 @@ class ZImageDiffusersEngine:
             try:
                 from ..security.weight_integrity import (
                     WeightIntegrityError,
+                    resolve_expected_sha256,
                     verify_weight_before_load,
                 )
 
                 mfmt = cfg.security.model_format
                 if mfmt.verify_weights:
+                    # 期望 hash 从清单解析；未登记权重走 allow_unregistered_weights 策略
+                    expected_sha256, registered = resolve_expected_sha256(
+                        str(lora_path), cfg
+                    )
+                    if not registered and not mfmt.allow_unregistered_weights:
+                        msg = (
+                            f"LoRA '{lora_name}' 未在完整性清单登记，"
+                            f"且 allow_unregistered_weights=false: {lora_path}"
+                        )
+                        if mfmt.fail_closed_on_corrupt_weight:
+                            raise WeightIntegrityError(msg)
+                        logger.warning("%s，跳过该层", msg)
+                        continue
                     res = verify_weight_before_load(
                         str(lora_path),
+                        expected_sha256=expected_sha256,
                         allow_non_safetensors=not mfmt.only_safetensors,
                     )
                     if not res.ok:
@@ -500,6 +515,8 @@ class ZImageDiffusersEngine:
             thumb_dir = guard.ensure_dir(Path("data") / "cache" / "thumbs")
 
         saved: list[str] = []
+        # 数据治理 P1-4：生成参数写入 PNG tEXt（水印后嵌入，防剥离）
+        metadata = output_pipeline.build_generation_metadata(task_id, config, self._name)
         for idx, img in enumerate(images):
             # 命名：{taskid}_{seed}_{idx}.png
             fname = f"{task_id[:16]}_{seed}_{idx}.png"
@@ -515,6 +532,7 @@ class ZImageDiffusersEngine:
                 thumb_dir=thumb_dir,
                 thumb_name=f"{task_id[:16]}_{seed}_{idx}_thumb.png",
                 thumb_max_side=thumb_max_side,
+                metadata=metadata,
             )
 
             # 存相对路径（相对 outputs/ 目录），供前端 /api/outputs/<rel> 直接访问
@@ -541,6 +559,7 @@ class ZImageDiffusersEngine:
                     thumb_dir=thumb_dir,
                     thumb_name=f"{task_id[:16]}_{seed}_{idx}_compare_thumb.png",
                     thumb_max_side=thumb_max_side,
+                    metadata=metadata,
                 )
 
                 compare_rel = str(compare_path.relative_to(base)).replace("\\", "/")

@@ -132,19 +132,24 @@ def apply_lora_stack(
                 from ..config import get_config
                 from ..security.weight_integrity import (
                     WeightIntegrityError,
-                    load_weight_manifest,
-                    manifest_hash_for_path,
+                    resolve_expected_sha256,
                     verify_weight_before_load,
                 )
 
                 cfg = get_config()
                 mfmt = cfg.security.model_format
-                expected_sha256 = None
-                if mfmt.verify_weights and mfmt.weight_manifest_file:
-                    manifest = load_weight_manifest(
-                        Path(cfg.project_root) / mfmt.weight_manifest_file
+                # 统一经 resolve_expected_sha256 解析期望 hash（与 engine/diffusers
+                # 行为一致），registered=False 表示未登记，走 allow_unregistered_weights 策略
+                expected_sha256, registered = resolve_expected_sha256(path, cfg)
+                if not registered and not mfmt.allow_unregistered_weights:
+                    msg = (
+                        f"LoRA '{name}' 未在完整性清单登记，"
+                        f"且 allow_unregistered_weights=false: {path}"
                     )
-                    expected_sha256 = manifest_hash_for_path(manifest, path, cfg.project_root)
+                    if mfmt.fail_closed_on_corrupt_weight:
+                        raise WeightIntegrityError(msg)
+                    logger.warning("%s，跳过该层", msg)
+                    continue
                 res = verify_weight_before_load(
                     path,
                     expected_sha256=expected_sha256,

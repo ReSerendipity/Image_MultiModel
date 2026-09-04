@@ -307,6 +307,10 @@ class BasicAuthConfig(BaseModel):
 class APITokenConfig(BaseModel):
     enabled: bool = False
     tokens: list[str] = Field(default_factory=list)
+    # off-by-default 安全增强（2026-09-04 安全评估 M3）：true 时首次启动自动
+    # 生成 api_token 持久化到 <project_root>/.api_token 并启用鉴权，
+    # 保护 /api/config PUT 等状态变更端点。见 security/auth_bootstrap.py。
+    bootstrap: bool = False
 
 
 class CORSConfig(BaseModel):
@@ -326,7 +330,13 @@ class ModelFormatConfig(BaseModel):
     # MLOps P0-1: 权重加载前完整性校验（LoRA / checkpoint）
     verify_weights: bool = True
     weight_manifest_file: str = ""  # 相对项目根的权重 SHA256 清单；为空则不比对 hash
-    fail_closed_on_corrupt_weight: bool = False  # True=损坏即拒绝加载；False=告警并跳过该层
+    # 安全默认 true：损坏/被篡改权重拒绝加载（抛 WeightIntegrityError），
+    # 而非"告警后静默跳过该层"——后者会让恶意权重被无声丢弃、用户无感知。
+    # （2026-09-04 安全评估 H2 修复）
+    fail_closed_on_corrupt_weight: bool = True
+    # 未登记 hash 的权重（用户自添/首次使用）是否允许加载：
+    # true=允许但告警（Trust-On-First-Use 起步期）；manifest 覆盖齐全后可收紧为 false。
+    allow_unregistered_weights: bool = True
 
 
 class IntegritySelfcheckConfig(BaseModel):

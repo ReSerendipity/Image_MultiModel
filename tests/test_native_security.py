@@ -43,6 +43,8 @@ def _fake_config(
         verify_weights=verify_weights,
         fail_closed_on_corrupt_weight=fail_closed,
         only_safetensors=only_safetensors,
+        # 2026-09-04 安全评估 M4 新增字段：未登记权重策略（engine 校验路径消费）
+        allow_unregistered_weights=True,
     )
     security = SimpleNamespace(model_format=model_format)
     engines = {engine_name: SimpleNamespace(name=engine_name)}
