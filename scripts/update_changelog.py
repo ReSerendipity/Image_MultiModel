@@ -1,9 +1,10 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """更新 CHANGELOG.md 添加新版本条目"""
+
 from pathlib import Path
 
 CHANGELOG = Path(__file__).resolve().parent.parent / "CHANGELOG.md"
+
 
 def main():
     content = CHANGELOG.read_text(encoding="utf-8")
@@ -20,6 +21,7 @@ def main():
     content = content.replace("## [1.2.0]", new_entry + "## [1.2.0]")
     CHANGELOG.write_text(content, encoding="utf-8")
     print("✓ 已更新 CHANGELOG.md")
+
 
 if __name__ == "__main__":
     main()

@@ -31,10 +31,7 @@ APP_GLOB = "*.py"
 errors: list[str] = []
 
 # 代码里引用配置时常用的变量名（取值于项目代码实际习惯）。
-_CONFIG_VAR_RE = re.compile(
-    r"\b(config|cfg|cfg_obj|app_config|ecfg|sec|self\.config|settings)\."
-    r"([a-zA-Z_][\w.]*)"
-)
+_CONFIG_VAR_RE = re.compile(r"\b(config|cfg|cfg_obj|app_config|ecfg|sec|self\.config|settings)\." r"([a-zA-Z_][\w.]*)")
 
 PY_SRC_SUFFIX = (".py",)
 
@@ -62,7 +59,7 @@ def collect_class_fields() -> dict[str, set[str]]:
     def _collect_body_fields(body: list[ast.stmt]) -> set[str]:
         fields: set[str] = set()
         for stmt in body:
-            if isinstance(stmt, (ast.AnnAssign, ast.Assign)):
+            if isinstance(stmt, ast.AnnAssign | ast.Assign):
                 targets = stmt.targets if isinstance(stmt, ast.Assign) else [stmt.target]
                 for t in targets:
                     if isinstance(t, ast.Name):
@@ -158,8 +155,7 @@ def check_yaml_runtime(class_fields: dict[str, set[str]]) -> None:
             continue
         if isinstance(data[key], dict):
             # 顶层段名应为 PascalCase 类名（容忍下划线/驼峰同义）
-            name_ok = any(k.lower().replace("_", "") == key.lower().replace("_", "")
-                          for k in class_fields)
+            name_ok = any(k.lower().replace("_", "") == key.lower().replace("_", "") for k in class_fields)
             if not name_ok:
                 # 仅告警级提示（避免因命名习惯误阻断），不写进 errors
                 pass
@@ -198,7 +194,13 @@ def scan_source_for_missing(source: str, known_fields: set[str]) -> list[str]:
     import ast as _ast
 
     config_roots = {
-        "config", "cfg", "cfg_obj", "app_config", "ecfg", "sec", "settings",
+        "config",
+        "cfg",
+        "cfg_obj",
+        "app_config",
+        "ecfg",
+        "sec",
+        "settings",
     }
     tree = _ast.parse(source)
 

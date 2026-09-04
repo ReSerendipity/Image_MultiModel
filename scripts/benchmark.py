@@ -13,7 +13,6 @@ scripts/benchmark.py — 性能基准测试（含 P95/P99 延迟统计）
 
 from __future__ import annotations
 
-import json
 import statistics
 import sys
 import time
@@ -53,12 +52,13 @@ def bench_homepage_html():
     with urllib.request.urlopen(req, timeout=10) as r:
         raw = r.read()
         import gzip
+
         try:
             compressed = gzip.compress(raw)
         except Exception:
             compressed = raw
-        print(f"  原始大小: {len(raw)/1024:.1f} KB")
-        print(f"  gzip 压缩后: {len(compressed)/1024:.1f} KB")
+        print(f"  原始大小: {len(raw) / 1024:.1f} KB")
+        print(f"  gzip 压缩后: {len(compressed) / 1024:.1f} KB")
         return len(compressed) / 1024 <= 50
 
 
@@ -75,7 +75,7 @@ def bench_with_stats(name: str, url: str, threshold_ms: float, samples: int = SA
             elapsed = (time.time() - start) * 1000
             latencies.append(elapsed)
         except Exception as e:
-            print(f"  样本 {i+1} 失败: {e}")
+            print(f"  样本 {i + 1} 失败: {e}")
             return False
 
     avg = statistics.mean(latencies)
@@ -147,6 +147,7 @@ def bench_sse_gpu_status():
     """SSE gpu_status 事件延迟"""
     print("\n=== SSE gpu_status 刷新 (≤5s) ===")
     import urllib.request as ur
+
     start = time.time()
     try:
         req = ur.Request(
@@ -189,7 +190,7 @@ def run_benchmarks():
     for name, ok in results:
         status = "✅ PASS" if ok else "❌ FAIL"
         print(f"  {status}  {name}")
-    print(f"\n  {passed}/{total} 达标 ({passed/total*100:.0f}%)")
+    print(f"\n  {passed}/{total} 达标 ({passed / total * 100:.0f}%)")
     print("=" * 60)
 
 

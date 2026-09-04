@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """诊断 index.html 的 mojibake 编码问题"""
+
 from pathlib import Path
 
 f = Path(__file__).resolve().parent.parent / "bin" / "integrated_app" / "static" / "index.html"
@@ -11,9 +11,9 @@ text_utf8 = raw.decode("utf-8", errors="replace")
 
 # 找代表性乱码行
 line = None
-for l in text_utf8.splitlines():
-    if "setOpen" in l:
-        line = l
+for ln in text_utf8.splitlines():
+    if "setOpen" in ln:
+        line = ln
         break
 print("原始行 repr:", repr(line[:120]))
 print()
