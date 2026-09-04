@@ -61,8 +61,13 @@ def _post(c: TestClient, prompt: str) -> tuple[int, str]:
 
 def test_injection_prompts_blocked() -> None:
     """高置信度注入提示词全部被拦截（400）。"""
+    from app.integrated_app.middleware import rate_limit as _rl
+
     with _client() as c:
         for p in _INJECTION_PROMPTS:
+            # infer 限流现为 6/min（成本治理 P2-④），本用例连发 11 请求；
+            # 每请求前清空限流桶，避免验证内容拦截时误触 429。
+            _rl.reset_rate_limiters()
             code, body = _post(c, p)
             assert code == 400, f"注入提示词未被拦截: {p!r} -> {code} {body[:120]}"
             assert "block" in body.lower(), f"拦截响应缺少 block 标记: {body[:120]}"

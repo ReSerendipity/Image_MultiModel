@@ -177,6 +177,13 @@ async def lifespan(app: FastAPI):
     logger.info(f"Project root: {config.project_root}")
     logger.info(f"Model mode: {config.models.model_source_mode}")
 
+    # M3（2026-09-04 安全评估）：可选的最小 api_token bootstrap。
+    # off-by-default：仅当 security.api_token.bootstrap=true 时生效，
+    # 自动生成/复用 token 并启用鉴权（详见 security/auth_bootstrap.py）。
+    from .security.auth_bootstrap import ensure_api_token
+
+    ensure_api_token(config)
+
     # 数据治理：配置化 workflow 文件启动期准入校验（§4.4 / 中期 Schema 治理）
     # 拦截缺失/损坏文件并强制携带 schema_version；缺版本仅告警，不阻断启动。
     from .workflow_governance import validate_configured_workflows
@@ -456,7 +463,23 @@ async def lifespan(app: FastAPI):
                     )
                 except Exception as e:  # noqa: BLE001
                     logger.warning("Capacity snapshot failed: %s", e)
-                # ② 清理（仅阈值启用时；快照与清理解耦）
+                # ② 上传图 TTL 清理（数据治理 P1-2：无条件随日维护联跑，
+                #    与历史清理阈值解耦；ttl_s<=0 时 no-op）
+                try:
+                    from .uploads_ttl import cleanup_expired_uploads
+
+                    deleted_up, freed_up = cleanup_expired_uploads(
+                        Path(config.project_root) / config.output.uploads.cache_dir,
+                        config.output.uploads.ttl_s,
+                    )
+                    if deleted_up:
+                        logger.info(
+                            "Uploads TTL cleanup: %d file(s) removed (%.1f KB)",
+                            deleted_up, freed_up / 1024,
+                        )
+                except Exception as e:  # noqa: BLE001
+                    logger.warning("Uploads TTL cleanup failed: %s", e)
+                # ③ 清理（仅阈值启用时；快照与清理解耦）
                 if keep_days <= 0 and max_gb <= 0:
                     continue
                 # 灾难恢复：清理前先做一致性备份（数据治理评估报告 §4.9）
