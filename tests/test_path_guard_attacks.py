@@ -138,3 +138,66 @@ class TestPathGuardAttacks:
     def test_safe_join_valid(self, guard):
         path = guard.safe_join("outputs/", "subdir", "test.png")
         assert str(path).endswith("test.png")
+
+
+class TestWindowsPathVariants:
+    """Windows 特有变形（2026-09-04 测试体系评估 P2 补齐）
+
+    语义以 2026-09-04 在 Windows（os.name == 'nt'）实测为准：
+    - UNC / 8.3 短名：一律 PathGuardError（fail-closed）；
+    - 尾部点/空格、NTFS ADS（::$DATA）、".. ." 类伪父目录段：
+      允许解析，但结果必须仍被钳制在白名单目录内（无逃逸）。
+
+    断言设计为跨平台稳定（nt 实测 + posix 语义推演），
+    若后续改动 _normalize_platform_path / resolve 导致行为变化，
+    本组用例会先红，作为安全回归哨兵。
+    """
+
+    # ---- 必须拒绝（fail-closed）----
+
+    def test_unc_share_rejected(self, guard):
+        with pytest.raises(PathGuardError):
+            guard.resolve(r"\\server\share\secret.png")
+
+    def test_unc_admin_share_rejected(self, guard):
+        with pytest.raises(PathGuardError):
+            guard.resolve(r"\\localhost\c$\Windows\win.ini")
+
+    def test_unc_escaped_backslash_rejected(self, guard):
+        # 正斜杠归一化后的 UNC（\\ → /），语义等价，仍须拒绝
+        with pytest.raises(PathGuardError):
+            guard.resolve("//server/share/secret.png")
+
+    def test_shortname_83_relative_rejected(self, guard):
+        # outputs 目录的 8.3 短名别名：宁可误拒（fail-closed），不得放行
+        with pytest.raises(PathGuardError):
+            guard.resolve("OUTPUTS~1/test.png")
+
+    def test_shortname_83_absolute_rejected(self, guard):
+        with pytest.raises(PathGuardError):
+            guard.resolve("C:/PROGRA~1/secret.txt")
+
+    def test_trailing_dot_space_traversal_rejected(self, guard):
+        # Windows 会剥掉尾部 " . ."，但父目录逃逸部分必须先被拦截
+        with pytest.raises(PathGuardError):
+            guard.resolve("outputs/../../../Windows/win.ini. . ")
+
+    # ---- 允许解析，但必须钳制在白名单内（无逃逸）----
+
+    def test_trailing_dot_stays_inside_whitelist(self, guard):
+        resolved = guard.resolve("outputs/test.png.")
+        assert resolved.is_relative_to(guard.project_root / "outputs")
+
+    def test_trailing_space_stays_inside_whitelist(self, guard):
+        resolved = guard.resolve("outputs/test.png ")
+        assert resolved.is_relative_to(guard.project_root / "outputs")
+
+    def test_ads_stream_stays_inside_whitelist(self, guard):
+        # NTFS 备用数据流：不是穿越，但需确认不会解析到白名单之外
+        resolved = guard.resolve("outputs/test.png::$DATA")
+        assert resolved.is_relative_to(guard.project_root / "outputs")
+
+    def test_dot_space_segments_stay_inside_whitelist(self, guard):
+        # ".. ." 不是父目录（尾随空格使其成为普通目录名），不得借此逃逸
+        resolved = guard.resolve("outputs/.. ./. ./. ./Windows/win.ini")
+        assert resolved.is_relative_to(guard.project_root / "outputs")
