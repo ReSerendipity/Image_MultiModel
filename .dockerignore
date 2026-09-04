@@ -19,3 +19,18 @@ __pycache__/
 .hypothesis/
 .coverage
 htmlcov/
+# 3) 运行期由 compose 卷挂载提供的大目录（云原生评估反模式 #5）：
+#    权重/产物不入镜像层 —— 避免体积暴涨与权重泄露进镜像
+model/
+pretrained_models/
+data/
+outputs/
+logs/
+workflows/
+
+# 4) 本地环境与归档（非运行必需）
+.venv/
+WPy64-*/
+backups/
+screenshots/
+demo/
