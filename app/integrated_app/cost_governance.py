@@ -28,10 +28,13 @@ logger = logging.getLogger(__name__)
 #  MetricsStore — GPU 指标持久化（反模式 #5 修复）
 # ──────────────────────────────────────────────────────────────
 class MetricsStore:
-    """GPU/资源指标环形缓冲，落地为可查询时序，供 /api/metrics 与成本看板使用。
+    """GPU/资源指标**内存**环形缓冲（进程内，重启即失，非持久化）。
 
     SSE 的 gpu_status 仅实时流、不持久化；本存储把采样写入内存环形缓冲，
-    使「均值/峰值」利用率、泄漏状态可被事后分析。
+    使「均值/峰值」利用率、泄漏状态可在进程存活期内被事后分析。
+    成本资源治理评估报告 P2-⑤ 更正：此前 docstring 声称「持久化/落地为
+    可查询时序」与实现不符——真持久化由 HistoryDB.capacity_snapshots 的
+    **每日快照**承担（见 build_capacity_snapshot / record_capacity_snapshot）。
     """
 
     def __init__(self, history_points: int = 360) -> None:
@@ -39,10 +42,22 @@ class MetricsStore:
         self._gpu: deque[dict[str, Any]] = deque(maxlen=self._history_points)
         self._leak: dict[str, Any] = {"leak_detected": False, "growth_gb": 0.0, "reason": "ok"}
         self._leak_history: deque[dict[str, Any]] = deque(maxlen=60)
+        # 按自然日累计的 VRAM 已用峰值（GB）：{date_str: peak}，保留最近 7 天。
+        # 环形缓冲只有 ~12 分钟窗口，无法回答「昨天峰值多少」——日峰值在此补齐。
+        self._day_peaks: dict[str, float] = {}
 
     def record_gpu(self, sample: dict[str, Any]) -> None:
         """记录一次 GPU 采样（含 total/used/free/allocated/reserved）。"""
         self._gpu.append({"ts": time.time(), **sample})
+        used = sample.get("used_vram_gb")
+        if used:
+            day = time.strftime("%Y-%m-%d", time.localtime())
+            prev = self._day_peaks.get(day, 0.0)
+            self._day_peaks[day] = max(prev, float(used))
+            # 只保留最近 7 天，防长驻进程字典无界增长
+            if len(self._day_peaks) > 7:
+                for k in sorted(self._day_peaks)[:-7]:
+                    self._day_peaks.pop(k, None)
 
     def record_leak(self, report: dict[str, Any]) -> None:
         """记录一次显存泄漏判定结果。"""
@@ -75,6 +90,10 @@ class MetricsStore:
     @property
     def leak_status(self) -> dict[str, Any]:
         return self._leak
+
+    def peak_used_gb_for_date(self, date_str: str) -> float:
+        """返回指定自然日（YYYY-MM-DD）的 VRAM 已用峰值（GB）；无记录返回 0.0。"""
+        return float(self._day_peaks.get(date_str, 0.0))
 
 
 # ──────────────────────────────────────────────────────────────
@@ -206,6 +225,7 @@ def scan_orphan_weights(config: Any, project_root: str | Path) -> dict[str, Any]
     exts = (".safetensors", ".pt", ".bin", ".ckpt", ".gguf")
     all_files: list[Path] = []
     roots: list[Path] = []
+    roots_total = roots_existing = 0
     try:
         if config.models.model_source_mode == "portable":
             base = project_root / config.models.portable.internal_models_dir
@@ -218,6 +238,17 @@ def scan_orphan_weights(config: Any, project_root: str | Path) -> dict[str, Any]
             roots = [sc / d for d in config.models.portable.sub_dirs.values()] + roots
     except Exception as e:  # noqa: BLE001
         logger.debug("build weight scan roots failed: %s", e)
+
+    roots_total = len(roots)
+    roots_existing = sum(1 for r in roots if r.exists() and r.is_dir())
+    # 成本资源治理评估报告 P2-⑦：roots 全部缺失时扫描结果恒为 0（空转），
+    # 必须显式告警而非静默返回，否则运维无法发现权重目录配置漂移。
+    if roots_total > 0 and roots_existing == 0:
+        logger.warning(
+            "[WEIGHT-DEDUP] 所有权重扫描 roots 均不存在（%s 个），孤儿扫描结果不可信："
+            "请检查 models.portable.internal_models_dir / shared.comfy_models_dir 配置",
+            roots_total,
+        )
 
     for root in roots:
         if not root.exists() or not root.is_dir():
@@ -240,6 +271,8 @@ def scan_orphan_weights(config: Any, project_root: str | Path) -> dict[str, Any]
         "orphan_count": len(orphans),
         "wasted_mb": round(wasted, 2),
         "referenced_count": len(referenced),
+        "roots_total": roots_total,
+        "roots_existing": roots_existing,
     }
 
 
@@ -334,6 +367,47 @@ def budget_check(config: Any, metrics: dict[str, Any]) -> dict[str, Any]:
             })
 
     return {"alerts": alerts, "within_budget": len(alerts) == 0}
+
+
+# ──────────────────────────────────────────────────────────────
+#  容量日快照（P2·容量规划：回答「磁盘还能撑多久 / 显卡够不够用」）
+# ──────────────────────────────────────────────────────────────
+def build_capacity_snapshot(
+    history_db: Any,
+    metrics_store: Any,
+    project_root: str | Path,
+    now: float | None = None,
+) -> dict[str, Any]:
+    """构建一条容量日快照（写入 HistoryDB.capacity_snapshots，按日幂等覆盖）。
+
+    字段口径（成本资源治理评估报告 必答三问 Q3）：
+    - peak_used_gb : 快照归属日（*昨天*，因 cron 在凌晨 3 点跑）的 VRAM 已用峰值；
+                     由 MetricsStore 按自然日累计（内存日峰值表）。
+    - disk_used_gb : 数据卷已用空间（GB），回答「磁盘还能撑多久」的基数。
+    - gpu_hours_24h: 近 24h processing_time_s 聚合折算 GPU·小时。
+
+    纯逻辑（磁盘用量经 shutil，无 GPU 依赖），便于单测。
+    """
+    import shutil as _shutil
+
+    now = now if now is not None else time.time()
+    # 快照归属日 = 昨天（cron 在 03:00 运行，昨天的峰值此时才完整）
+    import datetime as _dt
+
+    yesterday = _dt.date.fromtimestamp(now - 86400).isoformat()
+    peak = float(metrics_store.peak_used_gb_for_date(yesterday)) if metrics_store else 0.0
+    try:
+        disk_used = _shutil.disk_usage(str(project_root)).used / (1024**3)
+    except Exception:  # noqa: BLE001
+        disk_used = 0.0
+    gpu_hours = (history_db.sum_processing_since(now - 86400) / 3600.0) if history_db else 0.0
+    return {
+        "snapshot_date": yesterday,
+        "peak_used_gb": round(peak, 3),
+        "disk_used_gb": round(disk_used, 3),
+        "gpu_hours_24h": round(gpu_hours, 4),
+        "generated_at": time.time(),
+    }
 
 
 # ──────────────────────────────────────────────────────────────
