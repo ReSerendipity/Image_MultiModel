@@ -79,6 +79,11 @@ jobs:
           pip install -r requirements.txt
           pip check
           pip install pytest-cov pytest-asyncio pytest-timeout pytest-xdist hypothesis factory-boy
+      - name: Marker usage check (declared vs used)
+        # 测试体系评估 2026-09-04：--strict-markers 只拦"未声明就使用"，
+        # 不拦"声明却无人使用"（-m 筛选静默失效）。此哨兵拦后者。
+        run: |
+          python scripts/check_marker_usage.py
       - name: Run tests with coverage (parallel)
         # 测试失败必须阻断 CI（对应测试体系评估 P0-1：移除 `|| true`，使覆盖率红线真正生效）
         run: |
@@ -281,8 +286,17 @@ jobs:
       - name: Run API latency benchmarks (CPU profile)
         env:
           IMM_FAKE_ENGINE: "1"
+        # 测试体系评估 2026-09-04 P1：阈值判定（--strict 超标退出码 1）
+        # + JSON 留档（upload-artifact），消除"跑完即弃、无消费方"问题。
         run: |
-          python scripts/benchmark.py
+          python scripts/benchmark.py --strict --output benchmark_result.json
+      - name: Upload benchmark result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-result-${{ github.run_number }}
+          path: benchmark_result.json
+          if-no-files-found: warn
 
   config-refs:
     name: Config Field Refs Integrity (P0-1)
@@ -362,6 +376,37 @@ jobs:
       - name: Stop service
         if: always()
         run: pkill -f "uvicorn app.integrated_app" || true
+
+  # ── P0-1：Dockerfile 入口可启动性门禁（后端服务设计评估报告）──────────
+  # 根因：startup-smoke / post-deploy-smoke 均绕过 Dockerfile CMD，导致
+  # CMD 指向不存在的 bin/clean_launch.py 这类错误在 CI 里结构性不可见。
+  # 本 job 真实 build + run + 健康探针，把「镜像可构建但启动即崩」拦在 CI。
+  # 说明：config_models 强制回环绑定，宿主机 -p 端口映射不通，故探针走 docker exec。
+  docker-build-smoke:
+    name: Docker Build & Start Smoke (P0-1)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t imm:ci .
+      - name: Start container (fake engine)
+        run: |
+          docker run --rm -d --name imm_ci -e IMM_FAKE_ENGINE=1 imm:ci
+      - name: Probe health (in-container)
+        run: |
+          for i in $(seq 1 90); do
+            if docker exec imm_ci python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8288/api/health', timeout=3)" 2>/dev/null; then
+              echo "[OK] container healthy after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "[FAIL] container not healthy within 90s"
+          docker logs imm_ci 2>&1 | tail -100
+          exit 1
+      - name: Stop container
+        if: always()
+        run: docker stop imm_ci || true
 
   # ── 不可变版本 artifact（P1-10）────────────────────────────
   release-artifacts:
