@@ -95,11 +95,16 @@ class PathGuard:
             else:
                 p = self.project_root / p
 
-        # 规范化路径（消除 .., ., symlinks）
+        # 规范化路径（消除 .., ., symlinks）。
+        # fail-closed（2026-09-04 安全评估 L6）：resolve 失败（如符号链接环、
+        # 文件系统错误）时**拒绝**而非回退到未解析的 absolute()——后者会让
+        # "白名单内符号链接指向白名单外"的判定失去符号链接解析依据。
         try:
             resolved = p.resolve()
-        except (OSError, RuntimeError):
-            resolved = p.absolute()
+        except (OSError, RuntimeError) as e:
+            raise PathGuardError(
+                f"Path '{user_path}' could not be resolved safely: {e}"
+            ) from e
 
         # 检查是否在白名单目录内
         if base_dir:

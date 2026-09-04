@@ -201,3 +201,48 @@ class TestWindowsPathVariants:
         # ".. ." 不是父目录（尾随空格使其成为普通目录名），不得借此逃逸
         resolved = guard.resolve("outputs/.. ./. ./. ./Windows/win.ini")
         assert resolved.is_relative_to(guard.project_root / "outputs")
+
+
+class TestSymlinkLoopFailClosed:
+    """符号链接环：resolve 失败 fail-closed，或解析结果落在白名单外即拒绝
+    （2026-09-04 安全评估 L6：旧实现 resolve 失败回退未解析 absolute()，
+    丢失符号链接解析依据）"""
+
+    def _make_loop(self, tmp_path: Path) -> None:
+        import os
+
+        a = tmp_path / "loop_a"
+        b = tmp_path / "loop_b"
+        a.mkdir()
+        b.mkdir()
+        if os.name == "nt":
+            import _winapi
+
+            _winapi.CreateJunction(str(b), str(a / "self"))  # a/self -> b
+            _winapi.CreateJunction(str(a), str(b / "back"))  # b/back -> a
+        else:
+            (a / "self").symlink_to(b, target_is_directory=True)
+            (b / "back").symlink_to(a, target_is_directory=True)
+
+    def test_symlink_loop_rejected(self, tmp_path):
+        import os
+
+        self._make_loop(tmp_path)
+        guard = PathGuard(["outputs/"], project_root=str(tmp_path))
+        # POSIX：resolve() 抛 RuntimeError → fail-closed PathGuardError；
+        # Windows：junction 环解析到环外真实路径 → 白名单拒绝。
+        with pytest.raises(PathGuardError):
+            guard.resolve("loop_a/self/back/self/x.png")
+
+    def test_resolve_failure_fails_closed_not_fallback(self, tmp_path, monkeypatch):
+        """resolve() 抛 OSError 时必须拒绝（不得回退未解析的 absolute()）"""
+        from pathlib import Path as _P
+
+        guard = PathGuard(["outputs/"], project_root=str(tmp_path))
+
+        def _boom(_self, **_kw):
+            raise OSError("simulated resolve failure")
+
+        monkeypatch.setattr(_P, "resolve", _boom)
+        with pytest.raises(PathGuardError):
+            guard.resolve("outputs/ok.png")

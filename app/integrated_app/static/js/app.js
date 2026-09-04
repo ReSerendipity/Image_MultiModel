@@ -512,7 +512,7 @@ function renderOutReal(imgPaths){
   imgPaths.forEach(function(path,i){
     var types=['原图'];
     var c=document.createElement('div');c.className='r-card';c.style.setProperty('--ar','1/1');
-    c.innerHTML='<div class="ph-img"><img src="/api/outputs/'+path+'" style="max-width:100%;max-height:300px;object-fit:contain"><div class="r-actions"><button class="btn btn-sm" type="button" onclick="window.open(\'/api/outputs/'+path+'\',\'_blank\')">下载</button><button class="btn btn-sm" type="button">收藏</button><button class="btn btn-sm" type="button" onclick="redrawTask(\''+currentTaskId+'\')">重绘</button></div></div><div class="r-meta"><b>'+(types[i]||'输出 '+(i+1))+'</b><span>'+path.split('/').pop()+'</span></div>';
+    c.innerHTML='<div class="ph-img"><img src="/api/outputs/'+path+'" style="max-width:100%;max-height:300px;object-fit:contain"><div class="r-actions"><button class="btn btn-sm" type="button" onclick="window.open(\'/api/outputs/'+path+'\',\'_blank\')">下载</button><button class="btn btn-sm" type="button">收藏</button><button class="btn btn-sm" type="button" onclick="redrawTask(\''+currentTaskId+'\')">重绘</button></div></div><div class="r-meta"><b>'+(types[i]||'输出 '+(i+1))+'</b><span>'+escHtml(path.split('/').pop())+'</span></div>';
     outGrid.appendChild(c);
   });
 }
@@ -730,7 +730,7 @@ function renderPresets(){
       if(cfg.width&&cfg.height)chips+='<span>'+cfg.width+'×'+cfg.height+'</span>';
       var c=document.createElement('div');c.className='p-card'+( _selPresets[p.id]?' sel':'');
       c.innerHTML='<label class="p-check"><input type="checkbox" data-id="'+p.id+'"'+( _selPresets[p.id]?' checked':'')+' aria-label="选择预设"><span></span></label>'+
-        '<div class="nm">'+((p.name||'未命名').substring(0,20))+'</div>'+
+        '<div class="nm">'+escHtml((p.name||'未命名').substring(0,20))+'</div>'+
         '<p class="ds">'+engLabel(p.engine_name)+'</p>'+
         '<div class="param-chips">'+chips+'</div>'+
         '<div class="acts"><button class="btn btn-sm ap" type="button">应用</button><button class="btn btn-sm ed" type="button">编辑</button><button class="btn btn-sm del" type="button" style="color:var(--red)">删除</button></div>';
