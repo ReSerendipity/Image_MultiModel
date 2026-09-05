@@ -140,7 +140,8 @@ def make_worker_func(
                         if not est.can_run:
                             logger.warning(
                                 "[VRAM-PRECHECK] LoRA 栈可能超出显存 (增量 %.2fGB): %s",
-                                est.lora_increment_gb, est.warning,
+                                est.lora_increment_gb,
+                                est.warning,
                             )
             except Exception as e:  # noqa: BLE001 - 预检失败不阻断主推理
                 logger.debug("LoRA VRAM 预检异常（已忽略）: %s", e)
@@ -167,13 +168,14 @@ def make_worker_func(
             task.result = outputs or []
 
             # 查找缩略图路径（engine._fetch_outputs 可能已生成缩略图）
-            thumb = (outputs[0] if outputs else "")
+            thumb = outputs[0] if outputs else ""
             # 如果引擎返回了缩略图，使用它；否则用第一个输出
-            if hasattr(engine, '_thumbnail_path') and engine._thumbnail_path:
+            if hasattr(engine, "_thumbnail_path") and engine._thumbnail_path:
                 thumb = engine._thumbnail_path
 
             history_db.update_task_status(
-                task.task_id, "completed",
+                task.task_id,
+                "completed",
                 processing_time_s=time.time() - started,
                 output_count=len(outputs or []),
                 thumbnail=thumb,
@@ -186,12 +188,22 @@ def make_worker_func(
                 # 回填产物真实尺寸/字节数：历史库此前恒为 0，导致图库与
                 # /api/tasks/{id} 拿不到尺寸，且发布冒烟的真实产物校验会误判
                 file_size, width, height = _probe_output_metadata(p)
+                # 数据治理 Q1-①：输出文件指纹落库（图片自描述之外的第二条溯源链）
+                try:
+                    from ..security.weight_integrity import compute_file_sha256
+
+                    out_sha256 = compute_file_sha256(p)
+                except OSError:
+                    out_sha256 = ""
                 history_db.add_output(
-                    task.task_id, p, cfg.output.image_format,
+                    task.task_id,
+                    p,
+                    cfg.output.image_format,
                     file_size=file_size,
                     width=width,
                     height=height,
                     output_type=out_types[i] if i < len(out_types) else "original",
+                    sha256=out_sha256,
                 )
 
             # 批量任务断点续跑：完成时清理 checkpoint
@@ -204,10 +216,12 @@ def make_worker_func(
         except Exception as e:
             logger.exception(f"Task {task.task_id} worker error")
             from ..lineage import classify_error
+
             # 成本资源治理评估报告 P1-②：失败任务同样消耗了 GPU/加载时间，
             # 必须入账，否则 FinOps 的 est_gpu_hours 系统性低估（实测 204 笔失败全为 0s）。
             history_db.update_task_status(
-                task.task_id, "failed",
+                task.task_id,
+                "failed",
                 error=str(e),
                 error_code=classify_error(e),
                 processing_time_s=time.time() - started,

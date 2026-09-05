@@ -196,6 +196,8 @@ class HistoryDB:
         seed       TEXT DEFAULT '',
         output_type TEXT DEFAULT 'original',  -- original|upscaled|compare
         created_at TEXT DEFAULT (datetime('now')),
+        -- 输出文件指纹（数据治理报告 P2-4/Q1-①：图片自描述之外的输出级血缘）
+        sha256     TEXT DEFAULT '',
         FOREIGN KEY (task_id) REFERENCES tasks(task_id) ON DELETE CASCADE
     );
 
@@ -269,6 +271,11 @@ class HistoryDB:
     END;
     """
 
+    # 数据库 schema 单调版本号（数据治理报告 P2-4）。
+    # 1 = 基线 schema；2 = tasks 血缘增强列；3 = outputs.sha256 输出指纹。
+    # 迁移步骤见 _migrations()；改基线 schema 或加列时必须同步 +1 并注册迁移。
+    SCHEMA_VERSION = 3
+
     def __init__(self, db_path: str | Path) -> None:
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -280,19 +287,52 @@ class HistoryDB:
         self._init_db()
 
     def _apply_migrations(self, conn: sqlite3.Connection) -> None:
-        """对旧库补齐血缘增强列（向前兼容）。
+        """版本化迁移（数据治理报告 P2-4）：PRAGMA user_version 单调推进。
+
+        设计要点：
+        - ``PRAGMA user_version`` 作单调版本号；迁移步骤按版本有序注册，
+          仅执行 ``current < version`` 的步骤——可表达「数据回填」类迁移，
+          不再单纯依赖 ``table_info`` 列探测。
+        - **fail-closed**：单步迁移失败直接抛异常终止启动（旧实现只
+          ``logger.warning`` 后继续跑，后续 ``create_task`` 必爆
+          ``no column named ...``，把启动失败推迟成更难排查的运行时错误）。
+        - 全新库：``SCHEMA_SQL`` 已含全部基线列，各迁移步骤探测后为 no-op，
+          仅把 user_version 推进到 ``SCHEMA_VERSION``。
+        """
+        current = conn.execute("PRAGMA user_version").fetchone()[0]
+        for version, migrate in self._migrations():
+            if current >= version:
+                continue
+            migrate(conn)  # 不捕获：单步失败 → 启动失败（fail-closed）
+            conn.execute(f"PRAGMA user_version = {version}")
+        if current < self.SCHEMA_VERSION:
+            conn.commit()
+
+    def _migrations(self) -> tuple[tuple[int, Any], ...]:
+        """有序迁移注册表：(目标版本号, 迁移函数)。新迁移追加到末尾。"""
+        return (
+            (2, self._migrate_v2_lineage_columns),
+            (3, self._migrate_v3_outputs_sha256),
+        )
+
+    def _migrate_v2_lineage_columns(self, conn: sqlite3.Connection) -> None:
+        """v2：旧库补齐血缘增强列（向前兼容）。
 
         SQLite 的 ``ALTER TABLE ... ADD COLUMN`` 不支持 ``IF NOT EXISTS`` 语法，
         故先以 ``PRAGMA table_info`` 探测现有列，仅对缺失列执行 ALTER。
+        ALTER 失败不再吞异常——直接抛出终止启动（fail-closed，P2-4）。
         """
         existing = {r[1] for r in conn.execute("PRAGMA table_info(tasks)").fetchall()}
         for col, ddl in self.MIGRATION_COLUMNS:
             if col in existing:
                 continue
-            try:
-                conn.execute(f"ALTER TABLE tasks ADD COLUMN {col} {ddl}")
-            except Exception as e:  # noqa: BLE001 - 单列出错不影响其它列
-                logger.warning("HistoryDB migration add column %s skipped: %s", col, e)
+            conn.execute(f"ALTER TABLE tasks ADD COLUMN {col} {ddl}")
+
+    def _migrate_v3_outputs_sha256(self, conn: sqlite3.Connection) -> None:
+        """v3：outputs 表补齐输出文件指纹列（数据治理报告 Q1-①）。"""
+        existing = {r[1] for r in conn.execute("PRAGMA table_info(outputs)").fetchall()}
+        if "sha256" not in existing:
+            conn.execute("ALTER TABLE outputs ADD COLUMN sha256 TEXT DEFAULT ''")
 
     def _init_db(self) -> None:
         """初始化数据库"""
@@ -462,7 +502,11 @@ class HistoryDB:
             "generation_config, tags, workflow_version, lora_checksums, status) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')",
             (
-                task_id, engine, mode, prompt, negative_prompt,
+                task_id,
+                engine,
+                mode,
+                prompt,
+                negative_prompt,
                 json.dumps(generation_config or {}, ensure_ascii=False),
                 json.dumps(tags or [], ensure_ascii=False),
                 workflow_version,
@@ -494,9 +538,7 @@ class HistoryDB:
     def get_task(self, task_id: str) -> dict[str, Any] | None:
         """获取任务详情（含 generation_config + 三路输出）"""
         conn = self.conn
-        row = conn.execute(
-            "SELECT * FROM tasks WHERE task_id=?", (task_id,)
-        ).fetchone()
+        row = conn.execute("SELECT * FROM tasks WHERE task_id=?", (task_id,)).fetchone()
         if not row:
             return None
         task = dict(row)
@@ -504,9 +546,7 @@ class HistoryDB:
         task["tags"] = json.loads(task.get("tags") or "[]")
         task["lora_checksums"] = json.loads(task.get("lora_checksums") or "[]")
         # 获取关联的输出
-        outputs = conn.execute(
-            "SELECT * FROM outputs WHERE task_id=? ORDER BY id", (task_id,)
-        ).fetchall()
+        outputs = conn.execute("SELECT * FROM outputs WHERE task_id=? ORDER BY id", (task_id,)).fetchall()
         task["outputs"] = [dict(o) for o in outputs]
         return task
 
@@ -546,10 +586,7 @@ class HistoryDB:
 
         # 总数
         if q:
-            count_sql = (
-                f"SELECT COUNT(*) FROM tasks JOIN tasks_fts ON tasks.rowid=tasks_fts.rowid "
-                f"WHERE {where_clause}"
-            )
+            count_sql = f"SELECT COUNT(*) FROM tasks JOIN tasks_fts ON tasks.rowid=tasks_fts.rowid WHERE {where_clause}"
         else:
             count_sql = f"SELECT COUNT(*) FROM tasks WHERE {where_clause}"
         total = conn.execute(count_sql, params).fetchone()[0]
@@ -563,10 +600,7 @@ class HistoryDB:
                 f"ORDER BY t.created_at DESC LIMIT ? OFFSET ?"
             )
         else:
-            sql = (
-                f"SELECT * FROM tasks WHERE {where_clause} "
-                f"ORDER BY created_at DESC LIMIT ? OFFSET ?"
-            )
+            sql = f"SELECT * FROM tasks WHERE {where_clause} ORDER BY created_at DESC LIMIT ? OFFSET ?"
         rows = conn.execute(sql, params + [page_size, offset]).fetchall()
         tasks = []
         for r in rows:
@@ -582,9 +616,7 @@ class HistoryDB:
             return 0
         conn = self.conn
         placeholders = ",".join("?" * len(task_ids))
-        cur = conn.execute(
-            f"DELETE FROM tasks WHERE task_id IN ({placeholders})", task_ids
-        )
+        cur = conn.execute(f"DELETE FROM tasks WHERE task_id IN ({placeholders})", task_ids)
         conn.commit()
         return cur.rowcount
 
@@ -608,13 +640,14 @@ class HistoryDB:
         height: int = 0,
         seed: str = "",
         output_type: str = "original",
+        sha256: str = "",
     ) -> None:
-        """添加输出记录"""
+        """添加输出记录（sha256 为输出文件指纹，数据治理报告 Q1-①）"""
         conn = self.conn
         conn.execute(
-            "INSERT INTO outputs (task_id, path, format, file_size, width, height, seed, output_type) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (task_id, path, format, file_size, width, height, seed, output_type),
+            "INSERT INTO outputs (task_id, path, format, file_size, width, height, seed, output_type, sha256) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (task_id, path, format, file_size, width, height, seed, output_type, sha256),
         )
         conn.commit()
 
@@ -673,8 +706,7 @@ class HistoryDB:
         """标记输出文件收藏"""
         conn = self.conn
         conn.execute(
-            "UPDATE tasks SET favorite=? WHERE task_id IN "
-            "(SELECT task_id FROM outputs WHERE path=?)",
+            "UPDATE tasks SET favorite=? WHERE task_id IN (SELECT task_id FROM outputs WHERE path=?)",
             (1 if favorite else 0, file_path),
         )
         conn.commit()
@@ -691,8 +723,7 @@ class HistoryDB:
         conn = self.conn
         try:
             cur = conn.execute(
-                "INSERT INTO presets (engine_name, name, config, thumbnail) "
-                "VALUES (?, ?, ?, ?)",
+                "INSERT INTO presets (engine_name, name, config, thumbnail) VALUES (?, ?, ?, ?)",
                 (engine_name, name, json.dumps(config, ensure_ascii=False), thumbnail),
             )
             conn.commit()
@@ -709,9 +740,7 @@ class HistoryDB:
                 (engine_name,),
             ).fetchall()
         else:
-            rows = conn.execute(
-                "SELECT * FROM presets ORDER BY created_at DESC"
-            ).fetchall()
+            rows = conn.execute("SELECT * FROM presets ORDER BY created_at DESC").fetchall()
         result = []
         for r in rows:
             p = dict(r)
@@ -722,9 +751,7 @@ class HistoryDB:
     def get_preset(self, preset_id: int) -> dict[str, Any] | None:
         """获取预设"""
         conn = self.conn
-        row = conn.execute(
-            "SELECT * FROM presets WHERE id=?", (preset_id,)
-        ).fetchone()
+        row = conn.execute("SELECT * FROM presets WHERE id=?", (preset_id,)).fetchone()
         if not row:
             return None
         p = dict(row)
@@ -754,9 +781,7 @@ class HistoryDB:
         if not sets:
             return
         params.append(preset_id)
-        conn.execute(
-            f"UPDATE presets SET {', '.join(sets)} WHERE id=?", params
-        )
+        conn.execute(f"UPDATE presets SET {', '.join(sets)} WHERE id=?", params)
         conn.commit()
 
     def delete_preset(self, preset_id: int) -> bool:
@@ -810,7 +835,7 @@ class HistoryDB:
         Returns:
             删除的任务数
         """
-        outputs_dir = (Path(self.db_path).parent.parent / "outputs")
+        outputs_dir = Path(self.db_path).parent.parent / "outputs"
         candidate_ids: list[str] = []
 
         if keep_days > 0:
@@ -858,9 +883,7 @@ class HistoryDB:
             return
         placeholders = ",".join("?" * len(task_ids))
         # 1) 删除实际图片文件
-        rows = self.conn.execute(
-            f"SELECT path FROM outputs WHERE task_id IN ({placeholders})", task_ids
-        ).fetchall()
+        rows = self.conn.execute(f"SELECT path FROM outputs WHERE task_id IN ({placeholders})", task_ids).fetchall()
         for (p,) in rows:
             try:
                 fp = outputs_dir / p
