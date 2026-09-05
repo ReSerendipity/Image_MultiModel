@@ -6,11 +6,15 @@ frame-ancestors / Referrer-Policy），且 CORS ``allowed_origins`` 中混入了
 ``ws://127.0.0.1:*`` 这类非法的 HTTP origin（WebSocket 不受 CORS 约束，该条目
 既无效又容易被误读为"通配端口"）。
 
-本模块统一补齐安全响应头。CSP 默认策略经过收敛：禁用 object/embed（防插件
-执行）、``frame-ancestors 'none'``（防点击劫持）、``base-uri 'self'``（防
-base 标签劫持相对 URL），同时**保留** ``'unsafe-inline'`` —— 因为现有前端
-``static/js/app.js`` 大量使用内联 ``onclick`` 处理器与内联 ``style`` 属性，
-一刀切会直接破坏 UI。待前端改为事件委托 + 外部样式后可收紧。
+本模块统一补齐安全响应头。CSP 默认策略（P2-4 收紧，后端服务设计评估报告）：
+``script-src 'self'``——内联脚本与属性式事件处理器全部禁止；前端已配合完成
+去内联（base.html 防闪烁脚本外置为 theme-init.js，app.js 生成 HTML 的
+onclick/onerror 属性改 data-act + 事件绑定）。
+``style-src`` 仍保留 ``'unsafe-inline'``：生成 HTML 中的内联 style 属性
+（图片自适应尺寸等）尚未全部类化，一刀切会破坏 UI；style 向量风险显著低于
+script，待后续前端改造再收紧。
+其余照旧：禁用 object/embed（防插件执行）、``frame-ancestors 'none'``（防
+点击劫持）、``base-uri 'self'``（防 base 标签劫持相对 URL）。
 
 置于中间件栈最外层，确保中间件自身产生的 401/403/429 响应也携带安全头。
 """
@@ -25,10 +29,10 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 logger = logging.getLogger(__name__)
 
-# 默认 CSP（保留 unsafe-inline 以兼容现有前端内联事件与内联样式）
+# 默认 CSP（P2-4：script-src 收紧为 'self'；style-src 暂保留 unsafe-inline）
 _DEFAULT_CSP = (
     "default-src 'self'; "
-    "script-src 'self' 'unsafe-inline'; "
+    "script-src 'self'; "
     "style-src 'self' 'unsafe-inline'; "
     "img-src 'self' data: blob:; "
     "connect-src 'self'; "

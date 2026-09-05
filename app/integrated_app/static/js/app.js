@@ -512,7 +512,12 @@ function renderOutReal(imgPaths){
   imgPaths.forEach(function(path,i){
     var types=['原图'];
     var c=document.createElement('div');c.className='r-card';c.style.setProperty('--ar','1/1');
-    c.innerHTML='<div class="ph-img"><img src="/api/outputs/'+path+'" style="max-width:100%;max-height:300px;object-fit:contain"><div class="r-actions"><button class="btn btn-sm" type="button" onclick="window.open(\'/api/outputs/'+path+'\',\'_blank\')">下载</button><button class="btn btn-sm" type="button">收藏</button><button class="btn btn-sm" type="button" onclick="redrawTask(\''+currentTaskId+'\')">重绘</button></div></div><div class="r-meta"><b>'+(types[i]||'输出 '+(i+1))+'</b><span>'+escHtml(path.split('/').pop())+'</span></div>';
+    c.innerHTML='<div class="ph-img"><img src="/api/outputs/'+path+'" style="max-width:100%;max-height:300px;object-fit:contain"><div class="r-actions"><button class="btn btn-sm" type="button" data-act="download">下载</button><button class="btn btn-sm" type="button">收藏</button><button class="btn btn-sm" type="button" data-act="redraw">重绘</button></div></div><div class="r-meta"><b>'+(types[i]||'输出 '+(i+1))+'</b><span>'+escHtml(path.split('/').pop())+'</span></div>';
+    // P2-4 CSP 收紧：内联 onclick 改 data-act + 事件绑定（script-src 'self' 禁止属性式处理器）
+    var dlBtn=c.querySelector('button[data-act="download"]');
+    if(dlBtn)dlBtn.addEventListener('click',function(){window.open('/api/outputs/'+path,'_blank');});
+    var rdBtn=c.querySelector('button[data-act="redraw"]');
+    if(rdBtn)rdBtn.addEventListener('click',function(){redrawTask(currentTaskId);});
     outGrid.appendChild(c);
   });
 }
@@ -829,7 +834,10 @@ renderGallery=function(filter){
       var d=document.createElement('div');d.className='g-card';
       var ar=(out.width&&out.height)?out.width+'/'+out.height:'1/1';
       d.style.setProperty('--ar',ar);
-      d.innerHTML='<span class="g-type">'+(TYPE_LABELS[out.output_type]||out.output_type||'输出')+'</span><div class="ph"><img src="/api/outputs/'+out.path+'" style="max-width:100%;max-height:200px;object-fit:contain" onerror="this.parentElement.textContent=\'加载失败\'"></div><div class="g-meta"><b>'+escHtml((out.prompt||'生成结果').substring(0,20))+'</b><span>'+escHtml(engLabel(out.engine))+' · '+(out.created_at?String(out.created_at).substring(5,16):'')+'</span></div>';
+      d.innerHTML='<span class="g-type">'+(TYPE_LABELS[out.output_type]||out.output_type||'输出')+'</span><div class="ph"><img src="/api/outputs/'+out.path+'" style="max-width:100%;max-height:200px;object-fit:contain"></div><div class="g-meta"><b>'+escHtml((out.prompt||'生成结果').substring(0,20))+'</b><span>'+escHtml(engLabel(out.engine))+' · '+(out.created_at?String(out.created_at).substring(5,16):'')+'</span></div>';
+      // P2-4 CSP 收紧：onerror 属性改 JS 属性绑定
+      var gImg=d.querySelector('.ph img');
+      if(gImg)gImg.onerror=function(){this.parentElement.textContent='加载失败';};
       d.addEventListener('click',function(){openViewerReal(out,list,idx);});
       gMasonry.appendChild(d);
     });
@@ -885,7 +893,10 @@ renderImg=function(){
       '<img src="/api/outputs/'+basePath+'" alt="原图"></div>'+
       '<div class="divider"></div>'+
       '<div class="half"><span class="label">Compare</span>'+
-      '<img src="/api/outputs/'+comparePath+'" alt="对比图" onerror="this.parentNode.style.display=\'none\'"></div>';
+      '<img src="/api/outputs/'+comparePath+'" alt="对比图"></div>';
+  // P2-4 CSP 收紧：onerror 属性改 JS 属性绑定
+  var cmpFail=vImg.querySelector('img[alt="对比图"]');
+  if(cmpFail)cmpFail.onerror=function(){this.parentNode.style.display='none';};
   }else if(compare){vImg.innerHTML='<div class="half"><span class="label">Compare</span><span style="color:rgba(245,240,234,.5)">无对比数据</span></div>';}
   else{
     vImg.className='v-img';
@@ -1183,7 +1194,17 @@ function loadRecent(){
       var c=document.createElement('div');c.className='r-card';c.style.setProperty('--ar','1/1');
       var label=TYPE_LABELS[out.output_type]||out.output_type||'输出';
       var meta=engLabel(out.engine)+(out.created_at?' · '+String(out.created_at).substring(5,16):'');
-      c.innerHTML='<div class="ph-img"><img src="/api/outputs/'+out.path+'" style="max-width:100%;max-height:220px;object-fit:contain;display:block;margin:0 auto" onerror="this.parentElement.textContent=\'加载失败\'"><div class="r-actions"><button class="btn btn-sm" type="button" onclick="event.stopPropagation();window.open(\'/api/outputs/'+out.path+'\',\'_blank\')">下载</button><button class="btn btn-sm" type="button" onclick="event.stopPropagation();window.open(\'/api/tasks/export?ids='+out.task_id+'\',\'_blank\')">ZIP</button><button class="btn btn-sm" type="button" onclick="event.stopPropagation();redrawTask(\''+out.task_id+'\')">重绘</button></div></div><div class="r-meta"><b>'+escHtml((out.prompt||'生成结果').substring(0,18))+'</b><span>'+escHtml(label)+' · '+escHtml(meta)+'</span></div>';
+      c.innerHTML='<div class="ph-img"><img src="/api/outputs/'+out.path+'" style="max-width:100%;max-height:220px;object-fit:contain;display:block;margin:0 auto"><div class="r-actions"><button class="btn btn-sm" type="button" data-act="download">下载</button><button class="btn btn-sm" type="button" data-act="zip">ZIP</button><button class="btn btn-sm" type="button" data-act="redraw">重绘</button></div></div><div class="r-meta"><b>'+escHtml((out.prompt||'生成结果').substring(0,18))+'</b><span>'+escHtml(label)+' · '+escHtml(meta)+'</span></div>';
+      // P2-4 CSP 收紧：内联 onclick/onerror 改 data-act + 事件绑定；
+      // 顺带消除 onclick 属性里 path/task_id 未经转义直接拼接的注入向量
+      var hImg=c.querySelector('.ph-img img');
+      if(hImg)hImg.onerror=function(){this.parentElement.textContent='加载失败';};
+      var dlBtn=c.querySelector('button[data-act="download"]');
+      if(dlBtn)dlBtn.addEventListener('click',function(ev){ev.stopPropagation();window.open('/api/outputs/'+out.path,'_blank');});
+      var zipBtn=c.querySelector('button[data-act="zip"]');
+      if(zipBtn)zipBtn.addEventListener('click',function(ev){ev.stopPropagation();window.open('/api/tasks/export?ids='+out.task_id,'_blank');});
+      var rdBtn=c.querySelector('button[data-act="redraw"]');
+      if(rdBtn)rdBtn.addEventListener('click',function(ev){ev.stopPropagation();redrawTask(out.task_id);});
       c.addEventListener('click',function(){openViewerReal(out,list,idx);});
       grid.appendChild(c);
     });

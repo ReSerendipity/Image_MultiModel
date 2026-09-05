@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="{{ lang or 'zh-CN' }}" data-theme="{{ theme or 'light' }}" data-lang="{{ lang or 'zh-CN' }}">
 <head>
-<script>/* 主题防闪烁 — 在 CSS 渲染前同步设置主题（默认浅色） */(function(){var t=localStorage.getItem('imm_theme')||'light';var l=localStorage.getItem('imm_lang')||'zh-CN';document.documentElement.setAttribute('data-theme',t);document.documentElement.setAttribute('data-lang',l);})();</script>
+<script src="/static/js/theme-init.js"></script><!-- 主题防闪烁 — 在 CSS 渲染前同步设置主题（默认浅色）；P2-4 CSP 收紧后自内联外置 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Image MultiModel{% endblock %}</title>
