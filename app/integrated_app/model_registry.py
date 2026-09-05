@@ -62,6 +62,18 @@ class ModelRegistry:
         if default_engine in config.models.engines:
             self._registry.set_active(default_engine)
 
+        # 数据治理报告 P2-2：权重指纹启动登记（内存态，手工登记值不覆盖）。
+        # 磁盘留档由 scripts/generate_weight_manifest.py 的权重清单承担。
+        try:
+            from .model_card import register_weight_fingerprint
+
+            for engine_name, engine_cfg in config.models.engines.items():
+                fp = register_weight_fingerprint(engine_cfg, config.models, config.project_root)
+                if fp:
+                    logger.info("Weight fingerprint registered: %s (%s…)", engine_name, fp[:12])
+        except Exception as e:  # noqa: BLE001 - 指纹登记失败不阻断引擎注册
+            logger.warning("Weight fingerprint registration failed: %s", e)
+
         self._initialized = True
         logger.info(f"ModelRegistry initialized with {len(config.models.engines)} engines")
 
