@@ -17,7 +17,7 @@ import requests
 def benchmark():
     """Image 生成性能测试"""
     print("\n🔧 Image_MultiModel 性能基准测试")
-    print("="*50)
+    print("=" * 50)
 
     health_url = "http://127.0.0.1:8288/api/system/health"
 
@@ -33,7 +33,7 @@ def benchmark():
                 resp = requests.get(health_url, timeout=5)
                 duration = (time.time() - start) * 1000
                 times.append(duration)
-                print(f"  请求 {i+1}: {duration:.1f}ms")
+                print(f"  请求 {i + 1}: {duration:.1f}ms")
 
             avg_time = sum(times) / len(times)
             print(f"\n✅ 平均响应时间：{avg_time:.1f}ms")
@@ -42,7 +42,7 @@ def benchmark():
                 "avg_response_ms": round(avg_time, 2),
                 "min_ms": round(min(times), 2),
                 "max_ms": round(max(times), 2),
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
         else:
             print("[Image_MultiModel] ⚠️ 服务返回非 200 状态码")
@@ -55,6 +55,7 @@ def benchmark():
     except Exception as e:
         print(f"[Image_MultiModel] ❌ 异常：{e}")
         return {"error": str(e)}
+
 
 def monitor_vram_leak(iterations: int = 30, interval: float = 5.0, growth_threshold_gb: float = 2.0) -> dict:
     """长运行显存泄漏监控（MLOps P1·可观测）。
@@ -78,7 +79,7 @@ def monitor_vram_leak(iterations: int = 30, interval: float = 5.0, growth_thresh
         if rep["leak_detected"]:
             print(f"  [{i + 1}] ⚠️ 检测到显存泄漏: 累计增长 {rep['growth_gb']}GB（单调={rep['monotonic']}）")
         else:
-            print(f"  [{i + 1}] 峰值分配 {s.allocated_bytes / 1024 ** 3:.3f}GB / free {s.free_vram_gb:.2f}GB")
+            print(f"  [{i + 1}] 峰值分配 {s.allocated_bytes / 1024**3:.3f}GB / free {s.free_vram_gb:.2f}GB")
         if i + 1 < iterations:
             time.sleep(interval)
     return monitor.check_leak()

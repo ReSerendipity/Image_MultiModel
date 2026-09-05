@@ -7,6 +7,7 @@ tests/frontend/_rendered/，smoke.js 再读取。
 
 用法: python scripts/render_pages.py
 """
+
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape

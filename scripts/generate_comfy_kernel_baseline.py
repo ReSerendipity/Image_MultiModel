@@ -11,6 +11,7 @@
 注意：基线清单不随仓库默认提供（保持启动零成本、不阻断上游更新）。
 仅在需要「内核防篡改」加固的发版/构建阶段生成并随产物分发。
 """
+
 from __future__ import annotations
 
 import argparse

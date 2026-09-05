@@ -26,8 +26,14 @@ from integrated_app.model_compat import validate_compatibility_matrix  # noqa: E
 def main() -> int:
     cfg = get_config()
     project_root = Path(cfg.project_root)
-    lora_dir = project_root / cfg.models.portable.internal_models_dir / cfg.models.portable.sub_dirs.get("lora", "loras")
-    ckpt_dir = project_root / cfg.models.portable.internal_models_dir / cfg.models.portable.sub_dirs.get("checkpoint", "checkpoints")
+    lora_dir = (
+        project_root / cfg.models.portable.internal_models_dir / cfg.models.portable.sub_dirs.get("lora", "loras")
+    )
+    ckpt_dir = (
+        project_root
+        / cfg.models.portable.internal_models_dir
+        / cfg.models.portable.sub_dirs.get("checkpoint", "checkpoints")
+    )
 
     lora_files = sorted(lora_dir.glob("*.safetensors")) if lora_dir.exists() else []
     ckpt_files = sorted(ckpt_dir.glob("*.safetensors")) if ckpt_dir.exists() else []

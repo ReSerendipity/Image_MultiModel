@@ -94,9 +94,7 @@ def backup_state(root: Path, out_dir: Path) -> dict:
             "config_sha256": _sha256(root / CONFIG_RELPATH) if (root / CONFIG_RELPATH).is_file() else "",
             "checkpoints": _dir_listing(root / CHECKPOINTS_RELPATH),
         }
-        (tmp / MANIFEST_NAME).write_text(
-            json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
+        (tmp / MANIFEST_NAME).write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
 
         # 4) 打包
         with tarfile.open(archive, "w:gz") as tf:
@@ -201,9 +199,9 @@ def schema_fingerprint(root: Path) -> dict:
 # ────────────────────────── orphans ──────────────────────────
 @dataclass
 class OrphanReport:
-    missing_files: list[dict] = field(default_factory=list)     # DB 记录 → 文件不存在
-    unindexed_files: list[str] = field(default_factory=list)    # outputs/ 文件 → 无 DB 记录
-    orphan_rows: list[dict] = field(default_factory=list)       # outputs.task_id 不在 tasks
+    missing_files: list[dict] = field(default_factory=list)  # DB 记录 → 文件不存在
+    unindexed_files: list[str] = field(default_factory=list)  # outputs/ 文件 → 无 DB 记录
+    orphan_rows: list[dict] = field(default_factory=list)  # outputs.task_id 不在 tasks
     total_output_rows: int = 0
     total_output_files: int = 0
 
@@ -335,8 +333,10 @@ def main() -> int:
     if args.command == "backup":
         manifest = backup_state(root, root / args.backup_dir)
         print(f"[PASS] 备份完成: {manifest['archive']}")
-        print(f"       integrity={manifest['integrity']} tasks={manifest['tasks_rows']} "
-              f"outputs={manifest['outputs_rows']} size={manifest['archive_bytes']}B")
+        print(
+            f"       integrity={manifest['integrity']} tasks={manifest['tasks_rows']} "
+            f"outputs={manifest['outputs_rows']} size={manifest['archive_bytes']}B"
+        )
         return 0
 
     if args.command == "verify":
@@ -359,9 +359,7 @@ def main() -> int:
         print(f"  文件→缺记录 (unindexed):  {len(rep.unindexed_files)}")
         print(f"  outputs 孤儿 task_id:      {len(rep.orphan_rows)}")
         if args.report:
-            Path(args.report).write_text(
-                json.dumps(rep.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8"
-            )
+            Path(args.report).write_text(json.dumps(rep.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8")
             print(f"[INFO] 已写出 {args.report}")
         if args.prune_db:
             if not args.yes:

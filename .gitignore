@@ -120,6 +120,7 @@ docker-compose.override.yml
 # ── Coverage and profiling (扩展) ────────────────────────────
 .coverage.*
 .coverage.xml
+coverage.xml
 htmlcov/
 cover/
 coverage/
