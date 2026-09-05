@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **新增根级** **`AGENTS.md`**（家族自进化协议 v1.3）：补齐此前缺失的项目级 Agent 规范，并明确 `comfy_kernel/AGENTS.md` 为 vendored 上游 ComfyUI 文件、非本项目 AGENTS
 
+### Removed
+
+- **停用 release-please 自动发版**：删除 `.github/workflows/release-please.yml`、`release-please-config.json`、`.release-please-manifest.json`（用户裁决，与 `docs/release-governance.md`「config.yaml 顶层 version 为唯一权威版本位 + 手动打 tag 发布」的明文政策对齐）。v1.5.0 / v1.5.1 为该机制时代的历史产物，原地保留不再延续；后续发布走 `release.yml`（tag 驱动 / workflow_dispatch），版本位三处（config.yaml + AGENTS.md + CHANGELOG）人工同步
+
 ***
 
 ## \[1.2.2] - 2026-08-14
@@ -292,4 +296,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PRD.md 产品需求文档
 
 - 基础测试：test\_config + test\_workflow（39 例）
-
