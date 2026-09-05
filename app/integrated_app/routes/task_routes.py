@@ -86,8 +86,12 @@ async def list_tasks(
     # 统一放入线程池执行。
     tasks, total = await asyncio.to_thread(
         history_db.list_tasks,
-        status=status, engine=engine, q=q, favorite=favorite,
-        page=page, page_size=page_size,
+        status=status,
+        engine=engine,
+        q=q,
+        favorite=favorite,
+        page=page,
+        page_size=page_size,
     )
     return {
         "tasks": tasks,
@@ -118,7 +122,11 @@ async def export_tasks(
     # P1-1：打包过程含多次同步 sqlite 查询 + 磁盘 IO，整体下沉线程池执行，
     # 避免在 async 路由里阻塞事件循环。
     buf, written = await asyncio.to_thread(
-        _build_export_zip, history_db, cfg, task_ids, type,
+        _build_export_zip,
+        history_db,
+        cfg,
+        task_ids,
+        type,
     )
     if written == 0:
         raise HTTPException(404, detail="No exportable outputs found for the given task ids")
@@ -166,11 +174,13 @@ async def redraw_task(task_id: str, request: Request) -> dict[str, Any]:
     # 使用原始参数创建新任务
     from ..engine_interface import GenerationConfig
     from ..lineage import compute_lora_checksums, compute_workflow_version
+
     gen_config = GenerationConfig.from_dict(original.get("generation_config", {}))
     cfg = get_config()
 
     new_task_id = task_queue.generate_task_id()
     from ..task_queue import Task
+
     task = Task(
         task_id=new_task_id,
         engine=original["engine"],
@@ -232,6 +242,21 @@ async def cleanup_tasks(
     """POST /api/tasks/cleanup — 清理超期任务（保留策略）"""
     history_db: HistoryDB = request.app.state.history_db
     deleted = await asyncio.to_thread(
-        history_db.cleanup_old_tasks, keep_days=keep_days, max_gb=max_gb,
+        history_db.cleanup_old_tasks,
+        keep_days=keep_days,
+        max_gb=max_gb,
     )
-    return {"deleted": deleted, "keep_days": keep_days, "max_gb": max_gb}
+    # 数据治理 P1-5：删除量 0 但 outputs 超预算 80% → 告警 + SSE 事件
+    alert: dict[str, Any] | None = None
+    try:
+        from ..config import get_config
+        from ..cost_governance import evaluate_storage_quota_proximity
+        from ..sse import get_sse_bus
+
+        cfg = get_config()
+        alert = evaluate_storage_quota_proximity(cfg.project_root, deleted)
+        if alert:
+            await get_sse_bus().publish("finops_alert", alert)
+    except Exception as e:  # noqa: BLE001 - 告警失败不影响清理结果
+        logging.getLogger(__name__).warning("Storage quota proximity check failed: %s", e)
+    return {"deleted": deleted, "keep_days": keep_days, "max_gb": max_gb, "quota_alert": alert}

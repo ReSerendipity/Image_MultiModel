@@ -24,6 +24,76 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def dir_size_gb(path: str | Path) -> float:
+    """递归统计目录体积（GB）。目录不存在返回 0。
+
+    注意与 ``shutil.disk_usage`` 的区别：后者返回的是**整个卷**的已用空间，
+    无法回答「outputs 目录占了多少」——配额告警必须用真实目录体积。
+    """
+    p = Path(path)
+    if not p.is_dir():
+        return 0.0
+    total = 0
+    for f in p.rglob("*"):
+        try:
+            if f.is_file():
+                total += f.stat().st_size
+        except OSError:  # noqa: BLE001 - 单文件失败不阻断统计
+            continue
+    return total / (1024**3)
+
+
+def evaluate_storage_quota_proximity(
+    project_root: str | Path,
+    deleted_tasks: int,
+    *,
+    warn_ratio: float = 0.8,
+    budget_gb: float | None = None,
+) -> dict[str, Any] | None:
+    """cleanup 后配额逼近检查（数据治理报告 P1-5）。
+
+    触发条件（同时满足）：
+    - 存储预算 > 0（``finops.storage_gb_budget``；0 = 不启用存储预算告警）
+    - ``outputs`` 目录体积 > 预算 × ``warn_ratio``（默认 80%）
+    - 本轮 cleanup 删除量为 0（增长没有被留存策略消化）
+
+    纯逻辑（目录 walk，无 GPU/异步依赖），便于单测；SSE 推送由调用方
+    拿到返回的 alert dict 后自行 ``await get_sse_bus().publish(...)``。
+    ``budget_gb`` 仅供测试注入，生产路径传 None 读真实配置。
+    """
+    if budget_gb is None:
+        try:
+            from .config import get_config
+
+            budget_gb = float(getattr(get_config().finops, "storage_gb_budget", 0) or 0)
+        except Exception:  # noqa: BLE001 - 配置不可用时按未启用处理
+            return None
+    budget = float(budget_gb)
+    if budget <= 0:
+        return None
+
+    outputs_dir = Path(project_root) / "outputs"
+    used_gb = dir_size_gb(outputs_dir)
+    if used_gb <= warn_ratio * budget:
+        return None
+
+    alert: dict[str, Any] = {
+        "level": "warning",
+        "dimension": "storage_gb_quota_proximity",
+        "budget_gb": budget,
+        "used_gb": round(used_gb, 4),
+        "threshold_gb": round(warn_ratio * budget, 4),
+        "deleted_tasks": deleted_tasks,
+        "message": (
+            f"outputs 目录 {used_gb:.2f}GB 已超存储预算 {budget:.1f}GB 的 "
+            f"{int(warn_ratio * 100)}%，且本轮 cleanup 删除 {deleted_tasks} 个任务"
+            "——留存策略未消化增长，请检查 keep_days/max_gb 配置"
+        ),
+    }
+    logger.warning("[FINOPS] %s", alert["message"])
+    return alert
+
+
 # ──────────────────────────────────────────────────────────────
 #  MetricsStore — GPU 指标持久化（反模式 #5 修复）
 # ──────────────────────────────────────────────────────────────
@@ -295,16 +365,18 @@ def finops_cost_report(history_db: Any, config: Any) -> dict[str, Any]:
     for r in rows:
         proc_s = float(r.get("total_processing_s") or 0.0)
         gpu_hours = round(proc_s / 3600.0, 4)
-        by_engine.append({
-            "engine": r.get("engine"),
-            "tasks": r.get("tasks", 0),
-            "completed": r.get("completed", 0),
-            "failed": r.get("failed", 0),
-            "output_count": r.get("output_count", 0),
-            "total_processing_s": round(proc_s, 2),
-            "avg_processing_s": round(proc_s / max(1, r.get("completed", 0)), 3),
-            "est_gpu_hours": gpu_hours,
-        })
+        by_engine.append(
+            {
+                "engine": r.get("engine"),
+                "tasks": r.get("tasks", 0),
+                "completed": r.get("completed", 0),
+                "failed": r.get("failed", 0),
+                "output_count": r.get("output_count", 0),
+                "total_processing_s": round(proc_s, 2),
+                "avg_processing_s": round(proc_s / max(1, r.get("completed", 0)), 3),
+                "est_gpu_hours": gpu_hours,
+            }
+        )
         tot_tasks += r.get("tasks", 0)
         tot_s += proc_s
         tot_out += r.get("output_count", 0)
@@ -345,26 +417,30 @@ def budget_check(config: Any, metrics: dict[str, Any]) -> dict[str, Any]:
     if gpu_budget > 0:
         est = metrics.get("cost", {}).get("est_gpu_hours", 0.0)
         if est > gpu_budget:
-            alerts.append({
-                "level": "warning",
-                "dimension": "gpu_hours",
-                "budget": gpu_budget,
-                "actual": round(est, 4),
-                "message": f"GPU·小时 usage {est:.2f} 超过日预算 {gpu_budget:.2f}",
-            })
+            alerts.append(
+                {
+                    "level": "warning",
+                    "dimension": "gpu_hours",
+                    "budget": gpu_budget,
+                    "actual": round(est, 4),
+                    "message": f"GPU·小时 usage {est:.2f} 超过日预算 {gpu_budget:.2f}",
+                }
+            )
 
     # 存储预算（GB）
     storage_budget = float(getattr(fin, "storage_gb_budget", 0) or 0)
     if storage_budget > 0:
         used = metrics.get("storage", {}).get("used_gb", 0.0)
         if used > storage_budget:
-            alerts.append({
-                "level": "warning",
-                "dimension": "storage_gb",
-                "budget": storage_budget,
-                "actual": round(used, 2),
-                "message": f"存储使用 {used:.1f}GB 超过预算 {storage_budget:.1f}GB",
-            })
+            alerts.append(
+                {
+                    "level": "warning",
+                    "dimension": "storage_gb",
+                    "budget": storage_budget,
+                    "actual": round(used, 2),
+                    "message": f"存储使用 {used:.1f}GB 超过预算 {storage_budget:.1f}GB",
+                }
+            )
 
     return {"alerts": alerts, "within_budget": len(alerts) == 0}
 
@@ -443,7 +519,5 @@ def get_idle_unload_manager() -> IdleUnloadManager:
     if _idle_unload_manager is None:
         from .config import get_config
 
-        _idle_unload_manager = IdleUnloadManager(
-            idle_unload_minutes=get_config().runtime.idle_unload_minutes
-        )
+        _idle_unload_manager = IdleUnloadManager(idle_unload_minutes=get_config().runtime.idle_unload_minutes)
     return _idle_unload_manager

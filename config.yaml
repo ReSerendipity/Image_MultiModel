@@ -75,8 +75,8 @@ models:
       - turbo
       - native
       - low-vram
-      weight_sha256: ''
-      weight_version: ''
+      weight_sha256: ebecd4fd3e55988150be5fc567eb54406fad3ca05b8b902756cf948fa78f4fc4
+      weight_version: auto-sha256:ebecd4fd3e55
       training_data_source: ''
       compatibility_matrix: {}
 inference:
@@ -260,5 +260,5 @@ environment:
   COMFYUI_DISABLE_UPDATE_CHECK: '1'
 finops:
   budget_gpu_hours_per_day: 0.0
-  storage_gb_budget: 0.0
+  storage_gb_budget: 10.0
   alert_level: warning
