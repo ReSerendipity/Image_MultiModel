@@ -311,6 +311,10 @@ jobs:
         run: pip install pyyaml
       - name: Check config field references
         run: python scripts/check_config_refs.py
+      - name: Check integrity manifest freshness (GOTCHAS #15)
+        # 按「检出代码」重算核心模块哈希并与入库清单对账，
+        # 防止「清单先于同批代码变更生成 → 入库即过期」静默合入（2026-09-05 事故）
+        run: python scripts/check_integrity_manifest.py
 
   startup-smoke:
     name: Startup Smoke (P0-1, fake engine)
