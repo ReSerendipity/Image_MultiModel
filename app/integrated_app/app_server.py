@@ -17,6 +17,7 @@ import sys
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import HTTPException
@@ -26,7 +27,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from .checkpoint import TaskCheckpoint
-from .config import get_config, load_config
+from .config import get_config
 from .cost_governance import (
     get_idle_unload_manager,
     get_metrics_store,
@@ -146,12 +147,14 @@ def setup_logging(config) -> None:
         logging.StreamHandler(sys.stdout),
     ]
     try:
-        handlers.append(logging.handlers.RotatingFileHandler(
-            str(log_dir),
-            maxBytes=log_cfg.max_size_mb * 1024 * 1024,
-            backupCount=log_cfg.backup_count,
-            encoding="utf-8",
-        ))
+        handlers.append(
+            logging.handlers.RotatingFileHandler(
+                str(log_dir),
+                maxBytes=log_cfg.max_size_mb * 1024 * 1024,
+                backupCount=log_cfg.backup_count,
+                encoding="utf-8",
+            )
+        )
     except Exception as e:
         logger.warning(f"Could not set up file logging: {e}")
 
@@ -170,7 +173,11 @@ def setup_logging(config) -> None:
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     # ── 启动 ──────────────────────────────────────────────────
-    config = load_config()
+    # get_config()（全局单例）而非 load_config()：后者每次重读 YAML 并**替换**
+    # 单例，会（a）造成 create_app 与 lifespan 两份可能分歧的配置对象；
+    # （b）打穿 conftest 对 db_path/uploads 的测试期重定向（数据治理 P2-3
+    # 补跑曾借此对真实 data/uploads 误清扫）。
+    config = get_config()
     app.state.config = config
     setup_logging(config)
     logger.info(f"=== Image MultiModel starting (v{config.version}) ===")
@@ -187,6 +194,7 @@ async def lifespan(app: FastAPI):
     # 数据治理：配置化 workflow 文件启动期准入校验（§4.4 / 中期 Schema 治理）
     # 拦截缺失/损坏文件并强制携带 schema_version；缺版本仅告警，不阻断启动。
     from .workflow_governance import validate_configured_workflows
+
     for _wf in validate_configured_workflows(config):
         for _err in _wf["errors"]:
             logger.error("[WORKFLOW-GOVERNANCE] engine=%s: %s", _wf["engine"], _err)
@@ -207,6 +215,7 @@ async def lifespan(app: FastAPI):
 
     # P1-1: 核心模块完整性自检（来源：Seedvr2）
     from .security.integrity_selfcheck import run_startup_selfcheck
+
     selfcheck_result = run_startup_selfcheck()
     app.state.integrity_selfcheck = selfcheck_result
     # 安全评估 H-04：skipped > 0 表示有核心模块未被 manifest 覆盖。
@@ -251,12 +260,15 @@ async def lifespan(app: FastAPI):
     _first_seen: dict[str, set[str]] = {}
 
     async def on_progress(task_id: str, progress: int, phase: str, extra: dict):
-        await sse_bus.publish("task_status", {
-            "task_id": task_id,
-            "progress": progress,
-            "phase": phase,
-            **extra,
-        })
+        await sse_bus.publish(
+            "task_status",
+            {
+                "task_id": task_id,
+                "progress": progress,
+                "phase": phase,
+                **extra,
+            },
+        )
         # MLOps P0-3：记录每个任务首次进度 / 首次预览（去重）
         flags = _first_seen.setdefault(task_id, set())
         if "progress" not in flags:
@@ -265,18 +277,24 @@ async def lifespan(app: FastAPI):
         if "preview_b64" in extra and "preview" not in flags:
             flags.add("preview")
             record_generation_first_preview(extra.get("engine", "") or "")
-            await sse_bus.publish("preview", {
-                "task_id": task_id,
-                "b64": extra["preview_b64"],
-                "format": extra.get("preview_format", "jpg"),
-            })
+            await sse_bus.publish(
+                "preview",
+                {
+                    "task_id": task_id,
+                    "b64": extra["preview_b64"],
+                    "format": extra.get("preview_format", "jpg"),
+                },
+            )
 
     async def on_status(task_id: str, status, extra: dict | None = None):
-        await sse_bus.publish("task_status", {
-            "task_id": task_id,
-            "status": status.value if hasattr(status, "value") else str(status),
-            **(extra or {}),
-        })
+        await sse_bus.publish(
+            "task_status",
+            {
+                "task_id": task_id,
+                "status": status.value if hasattr(status, "value") else str(status),
+                **(extra or {}),
+            },
+        )
         # 同时发布 queue_status 事件（§1.6 SSE 补全）
         await sse_bus.publish("queue_status", task_queue.get_queue_status())
 
@@ -361,6 +379,7 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 logger.warning(f"GPU monitor error: {e}")
             await asyncio.sleep(2)
+
     gpu_monitor_task = asyncio.ensure_future(gpu_monitor_loop())
 
     # MLOps P0-4：基于当前进程状态聚合告警快照并驱动 AlertEngine 状态机
@@ -377,10 +396,7 @@ async def lifespan(app: FastAPI):
             completed = m.generation_completed_total.total()
             failure_rate = failed / (failed + completed) if (failed + completed) > 0 else 0.0
             g = get_metrics_store().latest_gpu
-            gpu_free_pct = (
-                (g["free_vram_gb"] / g["total_vram_gb"] * 100.0)
-                if g and g.get("total_vram_gb") else None
-            )
+            gpu_free_pct = (g["free_vram_gb"] / g["total_vram_gb"] * 100.0) if g and g.get("total_vram_gb") else None
             disk_free_pct: float | None = None
             try:
                 import shutil
@@ -389,14 +405,16 @@ async def lifespan(app: FastAPI):
                 disk_free_pct = du.free / du.total * 100.0
             except Exception:
                 disk_free_pct = None
-            get_alert_engine().evaluate({
-                "queue_fill_ratio": fill,
-                "generation_failure_rate": failure_rate,
-                "gpu_free_pct": gpu_free_pct,
-                "disk_free_pct": disk_free_pct,
-                "health_unhealthy": health_unhealthy(),
-                "now": time.time(),
-            })
+            get_alert_engine().evaluate(
+                {
+                    "queue_fill_ratio": fill,
+                    "generation_failure_rate": failure_rate,
+                    "gpu_free_pct": gpu_free_pct,
+                    "disk_free_pct": disk_free_pct,
+                    "health_unhealthy": health_unhealthy(),
+                    "now": time.time(),
+                }
+            )
         except Exception as e:  # noqa: BLE001
             logger.debug("alert evaluation skipped: %s", e)
 
@@ -419,9 +437,19 @@ async def lifespan(app: FastAPI):
 
     # D6: 历史清理 cron 调度（修复空转：keep_days>0 OR max_gb>0 即启用）
     async def history_cleanup_cron():
-        """每日 cron 维护任务：① 写容量日快照（容量规划，无条件执行）
-        ② 按天数/体积双阈值清理超期任务（阈值启用时）"""
+        """每日 cron 维护任务：① 容量日快照 ② uploads TTL ③ 历史清理 ④ 配额告警。
+
+        数据治理报告 P2-3：自实现 cron 补跑（misfire）——启动时若当日槽位
+        已过（服务跨 03:00 未运行），立即补跑一轮维护，不再静默跳到明天。
+        """
         import datetime as _dt
+
+        # 环境开关：测试/CI 禁用维护 cron（IMM_DISABLE_MAINTENANCE_CRON=1）。
+        # 用环境变量而非改配置单例：load_config(path) 会整体替换单例，测试期
+        # 对 cleanup_cron 的修改可能被任何一次配置加载冲掉（GOTCHAS #13）。
+        if os.environ.get("IMM_DISABLE_MAINTENANCE_CRON") == "1":
+            logger.info("History maintenance cron disabled (IMM_DISABLE_MAINTENANCE_CRON=1)")
+            return
         cron_expr = config.output.history.cleanup_cron
         keep_days = config.output.history.keep_days
         max_gb = config.output.history.max_gb
@@ -433,68 +461,95 @@ async def lifespan(app: FastAPI):
             logger.warning(f"Invalid cron expression: {cron_expr}")
             return
         cron_min, cron_hour, _, _, _ = parts
+
+        async def _run_maintenance() -> None:
+            # ① 容量日快照（成本资源治理评估报告 §5-⑤：无条件执行，
+            #    不依赖清理阈值——快照是容量规划数据源，清理只是消费者之一）
+            try:
+                from .cost_governance import build_capacity_snapshot, get_metrics_store
+
+                snap = build_capacity_snapshot(history_db, get_metrics_store(), config.project_root)
+                history_db.record_capacity_snapshot(
+                    snapshot_date=snap["snapshot_date"],
+                    peak_used_gb=snap["peak_used_gb"],
+                    disk_used_gb=snap["disk_used_gb"],
+                    gpu_hours_24h=snap["gpu_hours_24h"],
+                )
+                logger.info(
+                    "Capacity snapshot recorded: %s (peak %.2fGB, disk %.1fGB, gpu %.3fh/24h)",
+                    snap["snapshot_date"],
+                    snap["peak_used_gb"],
+                    snap["disk_used_gb"],
+                    snap["gpu_hours_24h"],
+                )
+            except Exception as e:  # noqa: BLE001
+                logger.warning("Capacity snapshot failed: %s", e)
+            # ② 上传图 TTL 清理（数据治理 P1-2：无条件随日维护联跑，
+            #    与历史清理阈值解耦；ttl_s<=0 时 no-op）
+            try:
+                from .uploads_ttl import cleanup_expired_uploads
+
+                deleted_up, freed_up = cleanup_expired_uploads(
+                    Path(config.project_root) / config.output.uploads.cache_dir,
+                    config.output.uploads.ttl_s,
+                )
+                if deleted_up:
+                    logger.info(
+                        "Uploads TTL cleanup: %d file(s) removed (%.1f KB)",
+                        deleted_up,
+                        freed_up / 1024,
+                    )
+            except Exception as e:  # noqa: BLE001
+                logger.warning("Uploads TTL cleanup failed: %s", e)
+            # ③ 清理（仅阈值启用时；快照与清理解耦）
+            if keep_days <= 0 and max_gb <= 0:
+                return
+            # 灾难恢复：清理前先做一致性备份（数据治理评估报告 §4.9）
+            try:
+                history_db.backup()
+            except Exception as e:  # noqa: BLE001
+                logger.warning("History backup before cleanup failed: %s", e)
+            # 执行清理（同步删除磁盘图片文件，真正释放存储）
+            deleted = history_db.cleanup_old_tasks(keep_days=keep_days, max_gb=max_gb)
+            logger.info(f"History cleanup: deleted {deleted} tasks (keep_days={keep_days}, max_gb={max_gb})")
+            # ④ 配额逼近告警（数据治理 P1-5）：删除量 0 但 outputs 超
+            #    finops.storage_gb_budget 的 80% → warning + SSE 事件
+            try:
+                from .cost_governance import evaluate_storage_quota_proximity
+                from .sse import get_sse_bus
+
+                alert = evaluate_storage_quota_proximity(config.project_root, deleted)
+                if alert:
+                    await get_sse_bus().publish("finops_alert", alert)
+            except Exception as e:  # noqa: BLE001
+                logger.warning("Storage quota proximity check failed: %s", e)
+
+        first_tick = True
         while True:
             try:
                 now = _dt.datetime.now()
-                # 计算下一次运行时间
-                target_hour = int(cron_hour) if cron_hour != "*" else now.hour
-                target_min = int(cron_min) if cron_min != "*" else now.minute
-                next_run = now.replace(hour=target_hour, minute=target_min, second=0, microsecond=0)
-                if next_run <= now:
-                    next_run = next_run + _dt.timedelta(days=1)
+                next_run, missed_today = _compute_cron_next_run(now, cron_min, cron_hour)
+                if first_tick and missed_today:
+                    # P2-3 补跑：启动时当日槽位已过 → 立即补跑一轮再进入正常排程
+                    first_tick = False
+                    logger.info(
+                        "Cron misfire backfill: today's %s:%s slot already passed, running maintenance now",
+                        cron_hour,
+                        cron_min,
+                    )
+                    await _run_maintenance()
+                    continue
+                first_tick = False
                 sleep_s = (next_run - now).total_seconds()
                 logger.info(f"History maintenance scheduled at {next_run}, sleeping {sleep_s:.0f}s")
                 await asyncio.sleep(sleep_s)
-                # ① 容量日快照（成本资源治理评估报告 §5-⑤：无条件执行，
-                #    不依赖清理阈值——快照是容量规划数据源，清理只是消费者之一）
-                try:
-                    from .cost_governance import build_capacity_snapshot, get_metrics_store
-
-                    snap = build_capacity_snapshot(history_db, get_metrics_store(), config.project_root)
-                    history_db.record_capacity_snapshot(
-                        snapshot_date=snap["snapshot_date"],
-                        peak_used_gb=snap["peak_used_gb"],
-                        disk_used_gb=snap["disk_used_gb"],
-                        gpu_hours_24h=snap["gpu_hours_24h"],
-                    )
-                    logger.info(
-                        "Capacity snapshot recorded: %s (peak %.2fGB, disk %.1fGB, gpu %.3fh/24h)",
-                        snap["snapshot_date"], snap["peak_used_gb"], snap["disk_used_gb"], snap["gpu_hours_24h"],
-                    )
-                except Exception as e:  # noqa: BLE001
-                    logger.warning("Capacity snapshot failed: %s", e)
-                # ② 上传图 TTL 清理（数据治理 P1-2：无条件随日维护联跑，
-                #    与历史清理阈值解耦；ttl_s<=0 时 no-op）
-                try:
-                    from .uploads_ttl import cleanup_expired_uploads
-
-                    deleted_up, freed_up = cleanup_expired_uploads(
-                        Path(config.project_root) / config.output.uploads.cache_dir,
-                        config.output.uploads.ttl_s,
-                    )
-                    if deleted_up:
-                        logger.info(
-                            "Uploads TTL cleanup: %d file(s) removed (%.1f KB)",
-                            deleted_up, freed_up / 1024,
-                        )
-                except Exception as e:  # noqa: BLE001
-                    logger.warning("Uploads TTL cleanup failed: %s", e)
-                # ③ 清理（仅阈值启用时；快照与清理解耦）
-                if keep_days <= 0 and max_gb <= 0:
-                    continue
-                # 灾难恢复：清理前先做一致性备份（数据治理评估报告 §4.9）
-                try:
-                    history_db.backup()
-                except Exception as e:  # noqa: BLE001
-                    logger.warning("History backup before cleanup failed: %s", e)
-                # 执行清理（同步删除磁盘图片文件，真正释放存储）
-                deleted = history_db.cleanup_old_tasks(keep_days=keep_days, max_gb=max_gb)
-                logger.info(f"History cleanup: deleted {deleted} tasks (keep_days={keep_days}, max_gb={max_gb})")
+                await _run_maintenance()
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 logger.warning(f"History cleanup cron error: {e}")
                 await asyncio.sleep(3600)  # 出错后 1h 重试
+
     cleanup_task = asyncio.ensure_future(history_cleanup_cron())
 
     # 初始化断点续跑 Checkpoint（§1.3）
@@ -516,7 +571,8 @@ async def lifespan(app: FastAPI):
     try:
         _exclude_ids = [cp.get("task_id", "") for cp in pending_checkpoints]
         _stale = history_db.mark_stale_pending_interrupted(
-            exclude_task_ids=_exclude_ids, stale_after_s=300.0,
+            exclude_task_ids=_exclude_ids,
+            stale_after_s=300.0,
         )
         if _stale > 0:
             logger.warning(f"Marked {_stale} stale pending tasks as interrupted at startup")
@@ -619,6 +675,35 @@ async def unload_all_engines(config) -> None:
 from .services.task_worker import _probe_output_metadata  # noqa: E402,F401
 
 
+def _compute_cron_next_run(now: Any, cron_min: str, cron_hour: str) -> tuple[Any, bool]:
+    """计算 cron 下一次运行时间（模块级纯函数，便于单测回归）。
+
+    Args:
+        now: 当前 ``datetime.datetime``
+        cron_min / cron_hour: cron 表达式的分/时字段（数字或 ``*``）
+
+    Returns:
+        ``(next_run, missed_today)``：``missed_today=True`` 表示当日槽位已过
+        （仅 hour/min 均为显式数字时判定），调用方可据此触发补跑
+        （数据治理报告 P2-3：自实现 cron 无 APScheduler misfire 机制，
+        服务跨 03:00 未运行会导致当日维护被静默跳过）。
+    """
+    import datetime as _dt
+
+    if cron_hour != "*" and cron_min != "*":
+        slot = now.replace(hour=int(cron_hour), minute=int(cron_min), second=0, microsecond=0)
+        if slot <= now:
+            return slot + _dt.timedelta(days=1), True
+        return slot, False
+    # 通配符场景维持旧行为（无补跑语义：每个匹配时刻都应执行）
+    target_hour = int(cron_hour) if cron_hour != "*" else now.hour
+    target_min = int(cron_min) if cron_min != "*" else now.minute
+    next_run = now.replace(hour=target_hour, minute=target_min, second=0, microsecond=0)
+    if next_run <= now:
+        next_run = next_run + _dt.timedelta(days=1)
+    return next_run, False
+
+
 def create_app(enable_rate_limit: bool = True) -> FastAPI:
     """创建 FastAPI 应用
 
@@ -626,7 +711,7 @@ def create_app(enable_rate_limit: bool = True) -> FastAPI:
         enable_rate_limit: 是否启用速率限制中间件。压测/容量基线场景可关闭，
             避免干扰吞吐测量；生产默认开启。
     """
-    config = load_config()
+    config = get_config()
 
     app = FastAPI(
         title="Image MultiModel",
@@ -691,6 +776,7 @@ def create_app(enable_rate_limit: bool = True) -> FastAPI:
 
     # ── 全局错误处理中间件（P1-4: 来源 TTS_MultiModel） ─────────
     from .middleware.error_handler import register_error_handlers
+
     register_error_handlers(app)
 
     # ── Jinja2 模板引擎 + 静态文件托管 ──────────────────────
@@ -781,9 +867,7 @@ def _ssl_kwargs(config) -> dict:
         key_path = Path(config.project_root) / keyfile
 
     if not cert_path.exists() or not key_path.exists():
-        logger.warning(
-            "[SSL] 证书文件不存在（cert=%s, key=%s），已回退为 HTTP", cert_path, key_path
-        )
+        logger.warning("[SSL] 证书文件不存在（cert=%s, key=%s），已回退为 HTTP", cert_path, key_path)
         return {}
 
     logger.info("[SSL] 已启用 HTTPS: cert=%s", cert_path)
