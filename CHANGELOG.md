@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **修复 xdist 跨 worker 的 `database is locked` 竞态**：conftest 会话级 HistoryDB 隔离此前只重定向顶层 `integrated_app.config` 单例，而 `create_app()` 经 `app.integrated_app.*` 相对导入使用**另一份配置单例**（两身份为独立模块对象），重定向失效导致多 worker 并发初始化真实 `data/history.db` 时加锁失败；现同时重定向两份单例（CI 33957856101 复现，FIX_LOG #1）
+
 - **修复** **`config.yaml`** **中失效的** **`bin/`** **路径残留**：`security.integrity_selfcheck.manifest_file` 与 `i18n.locale_dir` 由不存在的 `bin/integrated_app/...` 改为 `app/integrated_app/...`（bin→app 重命名后未同步，会导致完整性自检清单与语言词表无法定位）
 
 - **补齐配置引用门禁脚本** `scripts/check_config_refs.py`：AST 解析 `config_models.py` 提取配置模型字段，扫描 `app/` 代码引用，对账 `config.yaml` security 段「声明即消费」，修复 `tests/test_config_refs_gate.py` 三例因缺脚本而恒失败的问题

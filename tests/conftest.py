@@ -180,21 +180,48 @@ def _isolate_history_db_for_tests():
     ``pytest-current`` 符号链接清理会抛 PermissionError [WinError 5]（与被测代码
     无关，见 test_capacity_baseline._make_root 的同类规避）。
     """
-    from integrated_app.config import get_config
+    from integrated_app.config import get_config as _get_config_top
 
-    cfg = get_config()
-    original_db_path = cfg.output.history.db_path
-    original_uploads_dir = cfg.output.uploads.cache_dir
-    original_cleanup_cron = cfg.output.history.cleanup_cron
+    try:
+        # app 代码全部使用相对导入：经 `app.integrated_app.*` 导入时，
+        # 其配置单例与顶层 `integrated_app.*` 身份是**两个独立模块对象**
+        # （实测 `top is pkg == False`）。conftest 必须同时重定向两份单例，
+        # 否则 create_app()（走 app. 身份）仍指向真实 data/history.db，
+        # xdist 多 worker 并发初始化即触发 `database is locked`
+        # （2026-09-05 CI 33957856101 复现，见 FIX_LOG #1）。
+        from app.integrated_app.config import get_config as _get_config_pkg
+    except ImportError:  # 兜底：仅存在单一导入身份的环境
+        _get_config_pkg = None
+
+    cfgs = []
+    for _get in (_get_config_top, _get_config_pkg):
+        if _get is None:
+            continue
+        try:
+            cfgs.append(_get())
+        except Exception:  # noqa: BLE001 - 任一身份不可用时不阻塞其余身份
+            continue
+    assert cfgs, "至少一个导入身份的配置单例必须可用"
+
+    originals = []
     # 维护 cron 用环境开关禁用（见 app_server.history_cleanup_cron）：
     # load_config(path) 会整体替换配置单例，仅改 cleanup_cron 字段可能被冲掉。
     original_disable_env = os.environ.get("IMM_DISABLE_MAINTENANCE_CRON")
     os.environ["IMM_DISABLE_MAINTENANCE_CRON"] = "1"
     worker_tmp = Path(tempfile.mkdtemp(prefix=f"imm-hist-{os.getpid()}-"))
-    cfg.output.history.db_path = str(worker_tmp / "history.db")
-    # uploads 目录重定向为第二道防线（cron 已关，正常不会扫到真实上传文件）
-    cfg.output.uploads.cache_dir = str(worker_tmp / "uploads")
-    cfg.output.history.cleanup_cron = ""
+    for cfg in cfgs:
+        originals.append(
+            (
+                cfg,
+                cfg.output.history.db_path,
+                cfg.output.uploads.cache_dir,
+                cfg.output.history.cleanup_cron,
+            )
+        )
+        cfg.output.history.db_path = str(worker_tmp / "history.db")
+        # uploads 目录重定向为第二道防线（cron 已关，正常不会扫到真实上传文件）
+        cfg.output.uploads.cache_dir = str(worker_tmp / "uploads")
+        cfg.output.history.cleanup_cron = ""
 
     def _cleanup():
         shutil.rmtree(worker_tmp, ignore_errors=True)
@@ -203,9 +230,10 @@ def _isolate_history_db_for_tests():
     try:
         yield
     finally:
-        cfg.output.history.db_path = original_db_path
-        cfg.output.uploads.cache_dir = original_uploads_dir
-        cfg.output.history.cleanup_cron = original_cleanup_cron
+        for cfg, db_path, uploads_dir, cleanup_cron in originals:
+            cfg.output.history.db_path = db_path
+            cfg.output.uploads.cache_dir = uploads_dir
+            cfg.output.history.cleanup_cron = cleanup_cron
         if original_disable_env is None:
             os.environ.pop("IMM_DISABLE_MAINTENANCE_CRON", None)
         else:
