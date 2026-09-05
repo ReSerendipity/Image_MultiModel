@@ -510,9 +510,14 @@ async def lifespan(app: FastAPI):
     # 启动清理：把遗留 pending 僵尸任务标记为 interrupted（成本资源治理评估报告 P2-⑥）。
     # auto_recover=false 时这些任务无执行者，会永久滞留（实测曾积压 1500/3073 条）。
     # 待续跑的 checkpoint 任务排除在外，保持 pending 以便下方恢复流程接管。
+    # stale_after_s=300 宽限期：蓝绿部署重叠窗口（观察窗 120s）/ 并行 worker 共享 DB
+    # 时，刚创建的 pending 属于在飞任务，不得被本实例启动清扫误杀
+    # （CI run 33939248177：journey 任务提交数秒即被另一 worker 清扫成 interrupted）。
     try:
         _exclude_ids = [cp.get("task_id", "") for cp in pending_checkpoints]
-        _stale = history_db.mark_stale_pending_interrupted(exclude_task_ids=_exclude_ids)
+        _stale = history_db.mark_stale_pending_interrupted(
+            exclude_task_ids=_exclude_ids, stale_after_s=300.0,
+        )
         if _stale > 0:
             logger.warning(f"Marked {_stale} stale pending tasks as interrupted at startup")
     except Exception as e:  # noqa: BLE001

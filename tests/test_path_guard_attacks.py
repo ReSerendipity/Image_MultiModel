@@ -225,7 +225,6 @@ class TestSymlinkLoopFailClosed:
             (b / "back").symlink_to(a, target_is_directory=True)
 
     def test_symlink_loop_rejected(self, tmp_path):
-        import os
 
         self._make_loop(tmp_path)
         guard = PathGuard(["outputs/"], project_root=str(tmp_path))

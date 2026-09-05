@@ -148,6 +148,32 @@ def test_mark_stale_pending_keeps_terminal_states(db):
     assert db.get_task("done-001")["status"] == "completed"
 
 
+def test_mark_stale_pending_grace_keeps_fresh_tasks(db):
+    """宽限期内的新建 pending 不被清扫（CI run 33939248177 回归）。
+
+    蓝绿部署重叠窗口 / pytest-xdist 并行 worker 共享 DB 时，另一实例的
+    启动清扫不得把刚提交的在飞任务打成 interrupted。
+    """
+    db.create_task(task_id="fresh-inflight-0001", engine="test")
+    marked = db.mark_stale_pending_interrupted(stale_after_s=300.0)
+    assert marked == 0
+    assert db.get_task("fresh-inflight-0001")["status"] == "pending"
+
+
+def test_mark_stale_pending_grace_still_sweeps_old_zombies(db):
+    """超过宽限期的天级僵尸仍被清扫（P2-⑥ 治理目标不被宽限期稀释）。"""
+    db.create_task(task_id="old-zombie-0000001", engine="test")
+    # 回填 created_at 为 1 小时前（绕过 DEFAULT datetime('now')）
+    db.conn.execute(
+        "UPDATE tasks SET created_at=datetime('now','-1 hour') WHERE task_id=?",
+        ("old-zombie-0000001",),
+    )
+    db.conn.commit()
+    marked = db.mark_stale_pending_interrupted(stale_after_s=300.0)
+    assert marked == 1
+    assert db.get_task("old-zombie-0000001")["status"] == "interrupted"
+
+
 # ──────────────────────────────────────────────────────────────
 #  P2-⑦ 权重扫描 roots 缺失告警
 # ──────────────────────────────────────────────────────────────

@@ -354,7 +354,11 @@ class HistoryDB:
             logger.warning(f"Recovered {count} stuck tasks (marked as interrupted)")
         return count
 
-    def mark_stale_pending_interrupted(self, exclude_task_ids: list[str] | None = None) -> int:
+    def mark_stale_pending_interrupted(
+        self,
+        exclude_task_ids: list[str] | None = None,
+        stale_after_s: float = 0.0,
+    ) -> int:
         """启动时把遗留 pending 任务标记为 interrupted（成本资源治理评估报告 P2-⑥）。
 
         背景：``runtime.task_queue.auto_recover: false`` 时，上次会话中断的
@@ -363,25 +367,32 @@ class HistoryDB:
 
         Args:
             exclude_task_ids: 需要保留 pending 的任务（即将由 checkpoint 续跑）。
+            stale_after_s: 宽限期（秒）。>0 时仅标记 ``created_at`` 早于该阈值
+                的 pending 任务——蓝绿部署重叠窗口 / pytest-xdist 并行 worker
+                共享 DB 等场景下，**刚创建**的 pending 任务属于在飞任务，
+                不得被另一实例的启动清扫误杀（CI run 33939248177 回归根因：
+                journey 任务提交后数秒即被并行 worker 的启动清扫打成
+                interrupted）。默认 0 保持"全量标记"的历史行为（单测依赖）。
 
         Returns:
             标记的任务数
         """
         conn = self.conn
+        where = ["status='pending'"]
+        params: list = []
+        if stale_after_s > 0:
+            where.append("created_at < datetime('now', ?)")
+            params.append(f"-{float(stale_after_s)} seconds")
         exclude = [t for t in (exclude_task_ids or []) if t]
         if exclude:
             placeholders = ",".join("?" * len(exclude))
-            cur = conn.execute(
-                f"UPDATE tasks SET status='interrupted', interrupted_at_reboot=1, "
-                f"updated_at=datetime('now') "
-                f"WHERE status='pending' AND task_id NOT IN ({placeholders})",
-                tuple(exclude),
-            )
-        else:
-            cur = conn.execute(
-                "UPDATE tasks SET status='interrupted', interrupted_at_reboot=1, "
-                "updated_at=datetime('now') WHERE status='pending'"
-            )
+            where.append(f"task_id NOT IN ({placeholders})")
+            params.extend(exclude)
+        cur = conn.execute(
+            "UPDATE tasks SET status='interrupted', interrupted_at_reboot=1, "
+            f"updated_at=datetime('now') WHERE {' AND '.join(where)}",
+            tuple(params),
+        )
         conn.commit()
         count = cur.rowcount
         if count > 0:
