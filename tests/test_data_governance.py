@@ -121,3 +121,41 @@ def test_classify_error() -> None:
     assert classify_error(TimeoutError("task timeout")) == "TASK_TIMEOUT"
     assert classify_error(ValueError("lora apply failed")) == "LORA_APPLY"
     assert classify_error(Exception("something odd")) == "UNKNOWN"
+
+
+def _real_layout_root() -> Path:
+    """构造真实布局：<root>/data/history.db + <root>/outputs/ + <root>/data/cache/thumbs/。"""
+    root = _tmp()
+    (root / "data" / "cache" / "thumbs").mkdir(parents=True, exist_ok=True)
+    (root / "outputs").mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def test_delete_tasks_with_files_removes_outputs_and_thumbs() -> None:
+    """数据治理报告 P0-2 / P1-1：DELETE 路由同步删主图 + 缩略图，消灭磁盘孤儿。"""
+    root = _real_layout_root()
+    db = HistoryDB(root / "data" / "history.db")
+    db.create_task(task_id="del1", engine="z_image_turbo_native")
+    out_file = root / "outputs" / "del1_out.png"
+    out_file.write_bytes(b"PNGDATA")
+    db.add_output(task_id="del1", path="del1_out.png", format="png", file_size=7)
+    thumb = root / "data" / "cache" / "thumbs" / "del1_0000_0_thumb.png"
+    thumb.write_bytes(b"THUMB")
+    deleted = db.delete_tasks_with_files(["del1"])
+    assert deleted == 1
+    assert not out_file.exists(), "主输出图应被删除"
+    assert not thumb.exists(), "缩略图应被删除"
+    assert db.conn.execute("SELECT COUNT(*) FROM tasks WHERE task_id=?", ["del1"]).fetchone()[0] == 0
+    db.close()
+
+
+def test_delete_tasks_with_files_idempotent_on_missing_files() -> None:
+    """文件已缺失时仍应成功删除 DB 记录（容错，不抛异常）。"""
+    root = _real_layout_root()
+    db = HistoryDB(root / "data" / "history.db")
+    db.create_task(task_id="del2", engine="z_image_turbo_native")
+    # 不写任何磁盘文件
+    deleted = db.delete_tasks_with_files(["del2"])
+    assert deleted == 1
+    assert db.conn.execute("SELECT COUNT(*) FROM tasks WHERE task_id=?", ["del2"]).fetchone()[0] == 0
+    db.close()

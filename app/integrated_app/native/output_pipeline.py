@@ -7,6 +7,7 @@ engine.py（NativeEngine）与 diffusers_engine.py（ZImageDiffusersEngine）共
 from __future__ import annotations
 
 import io
+import json
 import logging
 import time
 from pathlib import Path
@@ -14,6 +15,7 @@ from typing import Any
 
 import numpy as np
 from PIL import Image
+from PIL.PngImagePlugin import PngInfo
 
 from ..watermark import embed_watermark
 
@@ -79,6 +81,55 @@ def embed_provenance(path: Path, product_id: str, task_id: str, image_format: st
         logger.debug("Watermark embedding failed for %s: %s", path.name, e)
 
 
+def build_generation_metadata(task_id: str, config: Any, engine_name: str) -> dict[str, str]:
+    """构造 PNG tEXt 生成参数元数据（数据治理报告 P1-4）。
+
+    目的：图片脱离本系统后仍可凭 tEXt 溯源 task_id / seed / 模型 / LoRA 栈 /
+    workflow 指纹，补齐「图片自描述层」血缘断点。
+    """
+    meta: dict[str, str] = {
+        "Software": "Image_MultiModel",
+        "IMM:task_id": task_id,
+        "IMM:engine": engine_name,
+        "IMM:seed": str(getattr(config, "seed", "") if getattr(config, "seed", -1) != -1 else ""),
+        "IMM:steps": str(getattr(config, "steps", "") or ""),
+        "IMM:cfg": str(getattr(config, "cfg", "") or ""),
+        "IMM:workflow_version": str(getattr(config, "workflow_sha256", "") or ""),
+    }
+    try:
+        stack = config.effective_lora_stack()
+    except Exception:  # noqa: BLE001 - 元数据失败不影响输出
+        stack = getattr(config, "lora_stack", []) or []
+    if stack:
+        try:
+            meta["IMM:lora_stack"] = json.dumps(stack, ensure_ascii=False)
+        except Exception:  # noqa: BLE001
+            pass
+    return {k: v for k, v in meta.items() if v != ""}
+
+
+def embed_png_metadata(path: Path, metadata: dict[str, str]) -> None:
+    """把生成参数写入 PNG tEXt 块（失败静默，不影响输出）。
+
+    必须在 DCT 水印**之后**调用：水印重编码会重建图像缓冲，先写会被剥离。
+    仅 PNG 生效（JPEG/WebP 的 EXIF/_comment 属另一链路，暂不展开）。
+    """
+    if not metadata:
+        return
+    try:
+        if _normalize_format(path.suffix.lstrip(".")) != "PNG":
+            logger.debug("PNG metadata skipped (non-png): %s", path.name)
+            return
+        img = Image.open(path)
+        pnginfo = PngInfo()
+        for k, v in metadata.items():
+            pnginfo.add_text(k, str(v))
+        img.save(path, format="PNG", pnginfo=pnginfo)
+        logger.debug("PNG metadata embedded: %s (%d keys)", path.name, len(metadata))
+    except Exception as e:  # noqa: BLE001
+        logger.debug("PNG metadata embedding failed for %s: %s", path.name, e)
+
+
 def make_thumbnail(
     src: Path,
     thumb_dir: Path,
@@ -123,10 +174,12 @@ def finalize_output(
     image_quality: int = 95,
     thumb_format: str = "png",
     thumb_quality: int = 90,
+    metadata: dict[str, str] | None = None,
 ) -> None:
-    """输出管线唯一入口：落盘 + 来源标识 + 缩略图。
+    """输出管线唯一入口：落盘 + 来源标识 + 缩略图 + 生成参数 tEXt。
 
-    image_format/image_quality 控制主图压缩（P0 WebP/有损）；thumb_* 控制缩略图。
+    image_format/image_quality 控制主图压缩（P0 WebP/有损）；thumb_* 控制缩略图；
+    metadata 为 PNG tEXt 生成参数（数据治理 P1-4，水印后嵌入防剥离）。
     """
     save_image(path, image, is_tensor=is_tensor, image_format=image_format, quality=image_quality)
     # 数据治理：基础生成质量/artifact 检测（§4.1 / 中期-质量 SLA），仅告警不阻断
@@ -142,6 +195,9 @@ def finalize_output(
         logger.debug("quality assessment skipped: %s", e)
     if wm_enabled:
         embed_provenance(path, product_id, task_id, image_format=image_format)
+    # 生成参数 tEXt 必须在水印之后：embed_provenance 重编码会剥离先写入的元数据
+    if metadata:
+        embed_png_metadata(path, metadata)
     if thumb_enabled and thumb_dir is not None:
         make_thumbnail(
             path, thumb_dir, thumb_name, thumb_max_side,
