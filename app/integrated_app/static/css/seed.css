@@ -440,3 +440,75 @@ pre.cfg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;co
 .tabs .tab.active{background:var(--accent);color:var(--seed-fg);border-color:var(--accent);font-weight:600}
 .tabpane{display:none}
 .tabpane.active{display:block}
+
+/* ── P2-4 style-src 类化工具层（后端服务设计评估报告）──────────
+   CSP style-src 移除 'unsafe-inline' 后，原内联 style 属性全部类化。
+   本层必须保持在文件末尾：与既有单类规则同特异性时以本层为准
+   （原内联属性优先级高于一切类规则，类化后需平局必胜以保持视觉不变）。 */
+.hidden{display:none}
+.flex{display:flex}
+.flex-wrap{flex-wrap:wrap}
+.flex-1{flex:1}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.gap-5{gap:5px}
+.gap-6{gap:6px}
+.gap-7{gap:7px}
+.gap-8{gap:8px}
+.ml-auto{margin-left:auto}
+.self-center{align-self:center}
+.mt-2{margin-top:2px}
+.mt-4{margin-top:4px}
+.mt-6{margin-top:6px}
+.mt-8{margin-top:8px}
+.mt-9{margin-top:9px}
+.mt-10{margin-top:10px}
+.mt-12{margin-top:12px}
+.text-danger{color:var(--red)}
+.text-faint{color:var(--ink-faint)}
+.fs-9{font-size:9px}
+.fs-11{font-size:11px}
+.center{text-align:center}
+.grid-span{grid-column:1/-1}
+.w-44{width:44px}
+.w-70{width:70px}
+.w-82{width:82px}
+.w-86{width:86px}
+.w-110{width:110px}
+.minw-92{min-width:92px}
+.h-52{height:52px}
+.hint-pad{padding:6px 2px 0}
+.hint-mb-8{margin-bottom:8px}
+.fgroup-mb-9{margin-bottom:9px}
+.th-empty{width:100%;height:56px}
+/* 占位提示（原内联占位元素） */
+.ph-note{color:var(--ink-faint);text-align:center}
+.ph-note.pad-lg{padding:20px}
+.ph-note.pad-md{padding:14px}
+.ph-note.pad-rec{padding:16px 0}
+.ph-note.pad-sm{padding:8px 0}
+.ph-note.pad-sm2{padding:10px 0}
+.ph-note.pad-sm3{padding:10px}
+.ph-note.fs-10{font-size:10px}
+.ph-note.fs-11{font-size:11px}
+.ph-note.grid-span{grid-column:1/-1}
+/* 一次性组件样式 */
+.ico-pop-wide{width:216px;padding:6px}
+.font-btn-aa{font-weight:700;font-style:italic;font-size:16px}
+.sec-divider{width:40px;height:2px;background:var(--accent);margin:8px 0 18px;border-radius:2px}
+.preset-h{font-size:10.5px;font-weight:700;color:var(--ink-faint);margin:11px 0 8px}
+.hist-foot{margin-top:9px;display:flex;justify-content:space-between;align-items:center;font-size:9.5px;color:var(--ink-faint)}
+.chip-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.thumb-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:10px}
+.btn-remove{height:22px;padding:2px 8px;font-size:10px}
+.btn-row-6{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.btn-row-7-mt6{display:flex;gap:7px;margin-top:6px}
+.btn-row-8{display:flex;gap:8px;margin-top:10px}
+.btn-row-8-mt4{display:flex;gap:8px;margin-top:4px}
+.qp-close{width:20px;height:20px;font-size:10px}
+.qp-foot{margin-top:8px;text-align:right}
+.qi-pct{font-size:10px;color:var(--ink-faint);margin-top:2px}
+.viewer-muted{color:rgba(245,240,234,.5)}
+.viewer-preview{color:rgba(245,240,234,.5);font-size:11px;letter-spacing:.1em}
+.img-fit-lg{max-width:100%;max-height:300px;object-fit:contain}
+.img-fit-md{max-width:100%;max-height:220px;object-fit:contain;display:block;margin:0 auto}
+.img-fit-sm{max-width:100%;max-height:200px;object-fit:contain}

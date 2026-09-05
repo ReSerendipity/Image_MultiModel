@@ -115,7 +115,7 @@ document.getElementById('qpClose').addEventListener('click',function(e){e.stopPr
 /* ---------- 图片展示（抽屉内 + 悬浮查看器） ---------- */
 /* 图库数据由 F7 从 /api/outputs 真实加载，不再使用原型示例 */
 var gMasonry=document.getElementById('gMasonry');
-function renderGallery(filter){filter=filter||'全部';gMasonry.innerHTML='<p style="padding:20px;text-align:center;color:var(--ink-faint)">加载中…</p>';}
+function renderGallery(filter){filter=filter||'全部';gMasonry.innerHTML='<p class="ph-note pad-lg">加载中…</p>';}
 document.querySelectorAll('#galleryDrawer .f-chip').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('#galleryDrawer .f-chip').forEach(function(x){x.classList.remove('on');});b.classList.add('on');renderGallery(b.dataset.f);});});
 var viewer=document.getElementById('viewer'),vImg=document.getElementById('vImg'),vTitle=document.getElementById('vTitle'),vSeed=document.getElementById('vSeed'),vMeta=document.getElementById('vMeta'),vZoomVal=document.getElementById('vZoomVal');
 var zoom=100,compare=false,cur=0,_curViewer=null,_navList=null,_navIdx=-1;
@@ -176,11 +176,11 @@ function readBatchFiles(fileList){
 function renderBFileList(){
   var box=document.getElementById('bFileList');
   if(!box)return;
-  if(!B_FILES.length){box.innerHTML='<p style="text-align:center;color:var(--ink-faint);font-size:10px;padding:8px 0">未添加文件</p>';return;}
+  if(!B_FILES.length){box.innerHTML='<p class="ph-note fs-10 pad-sm">未添加文件</p>';return;}
   box.innerHTML='';
   B_FILES.forEach(function(f,idx){
     var d=document.createElement('div');d.className='f-row';
-    d.innerHTML='<span class="nm">'+escHtml(f.name)+'</span><span class="sz">'+fmtSize(f.size)+' · '+f.lines.length+' 行</span><span class="st ok">已解析</span><button class="btn btn-sm" type="button" style="height:22px;padding:2px 8px;font-size:10px">移除</button>';
+    d.innerHTML='<span class="nm">'+escHtml(f.name)+'</span><span class="sz">'+fmtSize(f.size)+' · '+f.lines.length+' 行</span><span class="st ok">已解析</span><button class="btn btn-sm" class="btn-remove" type="button">移除</button>';
     d.querySelector('button').addEventListener('click',function(){B_FILES.splice(idx,1);renderBFileList();calcBEst();});
     box.appendChild(d);
   });
@@ -417,7 +417,7 @@ function renderStatEngines(engines){
     var st=e.state||(e.ready?'loaded':'unknown');
     var chipTxt=st==='loaded'?'就绪':(st==='loading'?'加载中':(st==='error'?'错误':'未加载'));
     var chipCls=st==='loaded'?'chip ok':(st==='loading'?'chip':'chip red');
-    d.innerHTML='<b>'+escHtml(e.display_name)+'</b><span style="color:var(--ink-faint)">'+escHtml(st)+'</span><span class="'+chipCls+'">'+chipTxt+'</span>';
+    d.innerHTML='<b>'+escHtml(e.display_name)+'</b><span class="text-faint">'+escHtml(st)+'</span><span class="'+chipCls+'">'+chipTxt+'</span>';
     box.appendChild(d);
   });
 }
@@ -508,11 +508,11 @@ function cancelGenReal(){
 // 覆盖 renderOut → 真实输出
 function renderOutReal(imgPaths){
   outGrid.innerHTML='';
-  if(!imgPaths||!imgPaths.length){outGrid.innerHTML='<p style="padding:20px;text-align:center;color:var(--ink-faint)">无输出</p>';return;}
+  if(!imgPaths||!imgPaths.length){outGrid.innerHTML='<p class="ph-note pad-lg">无输出</p>';return;}
   imgPaths.forEach(function(path,i){
     var types=['原图'];
     var c=document.createElement('div');c.className='r-card';c.style.setProperty('--ar','1/1');
-    c.innerHTML='<div class="ph-img"><img src="/api/outputs/'+path+'" style="max-width:100%;max-height:300px;object-fit:contain"><div class="r-actions"><button class="btn btn-sm" type="button" data-act="download">下载</button><button class="btn btn-sm" type="button">收藏</button><button class="btn btn-sm" type="button" data-act="redraw">重绘</button></div></div><div class="r-meta"><b>'+(types[i]||'输出 '+(i+1))+'</b><span>'+escHtml(path.split('/').pop())+'</span></div>';
+    c.innerHTML='<div class="ph-img"><img src="/api/outputs/'+path+'" class="img-fit-lg"><div class="r-actions"><button class="btn btn-sm" type="button" data-act="download">下载</button><button class="btn btn-sm" type="button">收藏</button><button class="btn btn-sm" type="button" data-act="redraw">重绘</button></div></div><div class="r-meta"><b>'+(types[i]||'输出 '+(i+1))+'</b><span>'+escHtml(path.split('/').pop())+'</span></div>';
     // P2-4 CSP 收紧：内联 onclick 改 data-act + 事件绑定（script-src 'self' 禁止属性式处理器）
     var dlBtn=c.querySelector('button[data-act="download"]');
     if(dlBtn)dlBtn.addEventListener('click',function(){window.open('/api/outputs/'+path,'_blank');});
@@ -607,14 +607,14 @@ function renderHist(){
   fetch(qs).then(function(r){return r.json();}).then(function(r){
     tbody.innerHTML='';
     var list=r.tasks||[];
-    if(!list.length){tbody.innerHTML='<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--ink-faint)">暂无历史记录</td></tr>';}
+    if(!list.length){tbody.innerHTML='<tr><td colspan="4" class="ph-note pad-lg">暂无历史记录</td></tr>';}
     var stTxt={completed:'完成',failed:'失败',cancelled:'已取消',processing:'进行中',pending:'排队中'};
     list.forEach(function(t){
       var tr=document.createElement('tr');
       var st=t.status||'';
       var chip=st==='completed'?'ok':(st==='failed'?'red':'warn');
       tr.innerHTML='<td><div class="th">'+(t.output_count>0?t.output_count+' 张':'—')+'</div></td>'+
-        '<td class="pro">'+escHtml(t.prompt||'(无提示词)')+'<br><span style="font-size:9px;color:var(--ink-faint)">'+escHtml(engLabel(t.engine))+'</span></td>'+
+        '<td class="pro">'+escHtml(t.prompt||'(无提示词)')+'<br><span class="fs-9 text-faint">'+escHtml(engLabel(t.engine))+'</span></td>'+
         '<td><span class="chip '+chip+'">'+(stTxt[st]||st)+'</span></td>'+
         '<td><button class="btn btn-sm" type="button">详情</button></td>';
       tr.addEventListener('click',function(){showHistDetail(t);});
@@ -627,7 +627,7 @@ function renderHist(){
     var prev=document.getElementById('histPrev'),next=document.getElementById('histNext');
     if(prev)prev.disabled=_histPage<=1;
     if(next)next.disabled=_histPage>=tp;
-  }).catch(function(e){console.warn('[History] load failed:',e);tbody.innerHTML='<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--ink-faint)">加载失败</td></tr>';});
+  }).catch(function(e){console.warn('[History] load failed:',e);tbody.innerHTML='<tr><td colspan="4" class="ph-note pad-lg">加载失败</td></tr>';});
 }
 function showHistDetail(t){
   document.getElementById('histList').classList.add('hide');
@@ -646,8 +646,8 @@ function showHistDetail(t){
   document.getElementById('ddLora').textContent=(nLora?nLora+' 层':'—')+' · '+(gc.seedvr2_enable?('SeedVR2 '+(gc.seedvr2_resolution||'?')):'SeedVR2 off')+' · '+(gc.eses_enable?('Eses '+(gc.eses_compare_axis||'h')):'Eses off');
   var thumbs=document.getElementById('ddThumbs');
   thumbs.innerHTML=t.output_count>0
-    ?'<div class="th" style="width:100%;height:56px">'+t.output_count+' 张输出</div>'
-    :'<div class="th" style="width:100%;height:56px">无预览</div>';
+    ?'<div class="th th-empty">'+t.output_count+' 张输出</div>'
+    :'<div class="th th-empty">无预览</div>';
   _curDetailTask=t;
 }
 document.getElementById('ddRedraw').addEventListener('click',function(){if(_curDetailTask)redrawTask(_curDetailTask.task_id);showHistList();});
@@ -726,7 +726,7 @@ function renderPresets(){
     // 清理已删除预设的残留选中
     var live={};presets.forEach(function(p){live[p.id]=1;});
     Object.keys(_selPresets).forEach(function(k){if(!live[k])delete _selPresets[k];});
-    if(!presets||!presets.length){pl.innerHTML='<p style="grid-column:1/-1;text-align:center;color:var(--ink-faint);font-size:11px;padding:14px">暂无预设，点击「＋ 新建预设」创建</p>';updatePSelUI();return;}
+    if(!presets||!presets.length){pl.innerHTML='<p class="ph-note fs-11 pad-md grid-span">暂无预设，点击「＋ 新建预设」创建</p>';updatePSelUI();return;}
     presets.forEach(function(p){
       var cfg=p.config||{};
       var chips='<span class="eng">'+engLabel(p.engine_name)+'</span>';
@@ -738,7 +738,7 @@ function renderPresets(){
         '<div class="nm">'+escHtml((p.name||'未命名').substring(0,20))+'</div>'+
         '<p class="ds">'+engLabel(p.engine_name)+'</p>'+
         '<div class="param-chips">'+chips+'</div>'+
-        '<div class="acts"><button class="btn btn-sm ap" type="button">应用</button><button class="btn btn-sm ed" type="button">编辑</button><button class="btn btn-sm del" type="button" style="color:var(--red)">删除</button></div>';
+        '<div class="acts"><button class="btn btn-sm ap" type="button">应用</button><button class="btn btn-sm ed" type="button">编辑</button><button class="btn btn-sm del" class="text-danger" type="button">删除</button></div>';
       c.querySelector('.p-check input').addEventListener('change',function(){
         var chk=this;
         if(chk.checked){_selPresets[p.id]=true;c.classList.add('sel');}
@@ -754,7 +754,7 @@ function renderPresets(){
       pl.appendChild(c);
     });
     updatePSelUI();
-  }).catch(function(e){console.warn('[Presets] load failed:',e);pl.innerHTML='<p style="grid-column:1/-1;text-align:center;color:var(--ink-faint);font-size:11px;padding:14px">加载失败</p>';});
+  }).catch(function(e){console.warn('[Presets] load failed:',e);pl.innerHTML='<p class="ph-note fs-11 pad-md grid-span">加载失败</p>';});
 }
 var pSelectAllBtn=document.getElementById('pSelectAll');
 if(pSelectAllBtn)pSelectAllBtn.addEventListener('click',function(){
@@ -829,19 +829,19 @@ renderGallery=function(filter){
   var f=FILTER_MAP[filter]||null;
   fetch('/api/outputs?page=1&page_size=50').then(function(r){return r.json();}).then(function(r){
     var list=(r.outputs||[]).filter(function(out){return !f||out.output_type===f;});
-    if(!list.length){gMasonry.innerHTML='<p style="padding:20px;text-align:center;color:var(--ink-faint)">暂无图片</p>';return;}
+    if(!list.length){gMasonry.innerHTML='<p class="ph-note pad-lg">暂无图片</p>';return;}
     list.forEach(function(out,idx){
       var d=document.createElement('div');d.className='g-card';
       var ar=(out.width&&out.height)?out.width+'/'+out.height:'1/1';
       d.style.setProperty('--ar',ar);
-      d.innerHTML='<span class="g-type">'+(TYPE_LABELS[out.output_type]||out.output_type||'输出')+'</span><div class="ph"><img src="/api/outputs/'+out.path+'" style="max-width:100%;max-height:200px;object-fit:contain"></div><div class="g-meta"><b>'+escHtml((out.prompt||'生成结果').substring(0,20))+'</b><span>'+escHtml(engLabel(out.engine))+' · '+(out.created_at?String(out.created_at).substring(5,16):'')+'</span></div>';
+      d.innerHTML='<span class="g-type">'+(TYPE_LABELS[out.output_type]||out.output_type||'输出')+'</span><div class="ph"><img src="/api/outputs/'+out.path+'" class="img-fit-sm"></div><div class="g-meta"><b>'+escHtml((out.prompt||'生成结果').substring(0,20))+'</b><span>'+escHtml(engLabel(out.engine))+' · '+(out.created_at?String(out.created_at).substring(5,16):'')+'</span></div>';
       // P2-4 CSP 收紧：onerror 属性改 JS 属性绑定
       var gImg=d.querySelector('.ph img');
       if(gImg)gImg.onerror=function(){this.parentElement.textContent='加载失败';};
       d.addEventListener('click',function(){openViewerReal(out,list,idx);});
       gMasonry.appendChild(d);
     });
-  }).catch(function(e){console.warn('[Gallery] load failed:',e);gMasonry.innerHTML='<p style="padding:20px;text-align:center;color:var(--ink-faint)">加载失败</p>';});
+  }).catch(function(e){console.warn('[Gallery] load failed:',e);gMasonry.innerHTML='<p class="ph-note pad-lg">加载失败</p>';});
 };
 function openViewerReal(out,list,idx){
   _curViewer=out;
@@ -897,10 +897,10 @@ renderImg=function(){
   // P2-4 CSP 收紧：onerror 属性改 JS 属性绑定
   var cmpFail=vImg.querySelector('img[alt="对比图"]');
   if(cmpFail)cmpFail.onerror=function(){this.parentNode.style.display='none';};
-  }else if(compare){vImg.innerHTML='<div class="half"><span class="label">Compare</span><span style="color:rgba(245,240,234,.5)">无对比数据</span></div>';}
+  }else if(compare){vImg.innerHTML='<div class="half"><span class="label">Compare</span><span class="viewer-muted">无对比数据</span></div>';}
   else{
     vImg.className='v-img';
-    vImg.innerHTML=out?'<img src="/api/outputs/'+out.path+'" alt="生成结果">':'<span style="color:rgba(245,240,234,.5);font-size:11px;letter-spacing:.1em">PREVIEW</span>';
+    vImg.innerHTML=out?'<img src="/api/outputs/'+out.path+'" alt="生成结果">':'<span class="viewer-preview">PREVIEW</span>';
   }
   vZoomVal.textContent=zoom+'%';
   document.getElementById('vCompare').classList.toggle('on',compare);
@@ -975,20 +975,21 @@ function renderBatchQueue(batchId){
   if(!box)return;
   var bid=batchId||null;
   if(!bid){try{bid=localStorage.getItem('imm_last_batch')||null;}catch(e){}}
-  if(!bid){box.innerHTML='<p style="text-align:center;color:var(--ink-faint);font-size:10px;padding:10px 0">暂无批量任务</p>';return;}
-  box.innerHTML='<p style="text-align:center;color:var(--ink-faint);font-size:10px;padding:10px 0">查询批次 '+bid.substring(0,8)+'…</p>';
+  if(!bid){box.innerHTML='<p class="ph-note fs-10 pad-sm2">暂无批量任务</p>';return;}
+  box.innerHTML='<p class="ph-note fs-10 pad-sm2">查询批次 '+bid.substring(0,8)+'…</p>';
   API.get('/tasks/batch/'+bid).then(function(r){
     if(r.batch_id){
       var pct=r.progress_pct||0;
       var done=(r.completed+r.failed+r.cancelled)>=r.total;
-      box.innerHTML='<div class="qi-main"><div class="qi-title">batch '+bid.substring(0,8)+' · 共 '+r.total+' 任务</div><div class="qi-sub">'+r.completed+' 完成 · '+r.processing+' 进行中 · '+r.pending+' 排队 · '+r.failed+' 失败 · '+r.cancelled+' 取消</div><div class="progress"><i style="width:'+pct+'%"></i></div><div style="font-size:10px;color:var(--ink-faint);margin-top:2px">'+pct+'%</div></div>';
+      box.innerHTML='<div class="qi-main"><div class="qi-title">batch '+bid.substring(0,8)+' · 共 '+r.total+' 任务</div><div class="qi-sub">'+r.completed+' 完成 · '+r.processing+' 进行中 · '+r.pending+' 排队 · '+r.failed+' 失败 · '+r.cancelled+' 取消</div><div class="progress"><i data-qi-bar></i></div><div class="qi-pct">'+pct+'%</div></div>';
+      var qiBar=box.querySelector('[data-qi-bar]');if(qiBar)qiBar.style.width=pct+'%';
       if(!done){clearTimeout(B_BATCH_POLL);B_BATCH_POLL=setTimeout(function(){renderBatchQueue(bid);},2000);}
       else{loadRecent();}
     }else{
-      box.innerHTML='<p style="text-align:center;color:var(--ink-faint);font-size:10px;padding:10px 0">'+escHtml(r.detail||'批次不存在或已过期')+'</p>';
+      box.innerHTML='<p class="ph-note fs-10 pad-sm2">'+escHtml(r.detail||'批次不存在或已过期')+'</p>';
       try{localStorage.removeItem('imm_last_batch');}catch(e){}
     }
-  }).catch(function(){box.innerHTML='<p style="text-align:center;color:var(--ink-faint);font-size:10px;padding:10px 0">查询失败</p>';});
+  }).catch(function(){box.innerHTML='<p class="ph-note fs-10 pad-sm2">查询失败</p>';});
 }
 
 
@@ -1185,16 +1186,16 @@ function resetToDefaults(){
 function loadRecent(){
   var grid=document.getElementById('outGrid');
   if(!grid)return;
-  grid.innerHTML='<p style="grid-column:1/-1;text-align:center;color:var(--ink-faint);font-size:11px;padding:16px 0">加载最近生成…</p>';
+  grid.innerHTML='<p class="ph-note fs-11 pad-rec grid-span">加载最近生成…</p>';
   fetch('/api/outputs?page=1&page_size=9').then(function(r){return r.json();}).then(function(r){
     var list=r.outputs||[];
-    if(!list.length){grid.innerHTML='<p style="grid-column:1/-1;text-align:center;color:var(--ink-faint);font-size:11px;padding:16px 0">暂无生成记录</p>';return;}
+    if(!list.length){grid.innerHTML='<p class="ph-note fs-11 pad-rec grid-span">暂无生成记录</p>';return;}
     grid.innerHTML='';
     list.forEach(function(out,idx){
       var c=document.createElement('div');c.className='r-card';c.style.setProperty('--ar','1/1');
       var label=TYPE_LABELS[out.output_type]||out.output_type||'输出';
       var meta=engLabel(out.engine)+(out.created_at?' · '+String(out.created_at).substring(5,16):'');
-      c.innerHTML='<div class="ph-img"><img src="/api/outputs/'+out.path+'" style="max-width:100%;max-height:220px;object-fit:contain;display:block;margin:0 auto"><div class="r-actions"><button class="btn btn-sm" type="button" data-act="download">下载</button><button class="btn btn-sm" type="button" data-act="zip">ZIP</button><button class="btn btn-sm" type="button" data-act="redraw">重绘</button></div></div><div class="r-meta"><b>'+escHtml((out.prompt||'生成结果').substring(0,18))+'</b><span>'+escHtml(label)+' · '+escHtml(meta)+'</span></div>';
+      c.innerHTML='<div class="ph-img"><img src="/api/outputs/'+out.path+'" class="img-fit-md"><div class="r-actions"><button class="btn btn-sm" type="button" data-act="download">下载</button><button class="btn btn-sm" type="button" data-act="zip">ZIP</button><button class="btn btn-sm" type="button" data-act="redraw">重绘</button></div></div><div class="r-meta"><b>'+escHtml((out.prompt||'生成结果').substring(0,18))+'</b><span>'+escHtml(label)+' · '+escHtml(meta)+'</span></div>';
       // P2-4 CSP 收紧：内联 onclick/onerror 改 data-act + 事件绑定；
       // 顺带消除 onclick 属性里 path/task_id 未经转义直接拼接的注入向量
       var hImg=c.querySelector('.ph-img img');
@@ -1208,16 +1209,16 @@ function loadRecent(){
       c.addEventListener('click',function(){openViewerReal(out,list,idx);});
       grid.appendChild(c);
     });
-  }).catch(function(){grid.innerHTML='<p style="grid-column:1/-1;text-align:center;color:var(--ink-faint);font-size:11px;padding:16px 0">加载失败</p>';});
+  }).catch(function(){grid.innerHTML='<p class="ph-note fs-11 pad-rec grid-span">加载失败</p>';});
 }
 
 /* ---------- F13: 队列悬浮球（真实任务） ---------- */
 function renderQueue(){
   var box=document.getElementById('queueItems');if(!box)return;
-  box.innerHTML='<p style="text-align:center;color:var(--ink-faint);font-size:10px;padding:10px">加载中…</p>';
+  box.innerHTML='<p class="ph-note fs-10 pad-sm3">加载中…</p>';
   fetch('/api/tasks?page=1&page_size=30').then(function(r){return r.json();}).then(function(r){
     var list=(r.tasks||[]).filter(function(t){return t.status==='pending'||t.status==='processing'||t.status==='queued';});
-    if(!list.length){box.innerHTML='<p style="text-align:center;color:var(--ink-faint);font-size:10px;padding:10px">队列空闲</p>';return;}
+    if(!list.length){box.innerHTML='<p class="ph-note fs-10 pad-sm3">队列空闲</p>';return;}
     box.innerHTML='';
     list.forEach(function(t){
       var d=document.createElement('div');d.className='q-item';
@@ -1225,7 +1226,7 @@ function renderQueue(){
       d.innerHTML='<div class="t"><b>'+escHtml((t.task_id||'').substring(0,12))+' · '+escHtml((t.prompt||'未命名').substring(0,16))+'</b><span>'+st+' · '+(t.output_count||0)+' 输出</span></div><span class="p">'+(t.status==='processing'?'…':'—')+'</span>';
       box.appendChild(d);
     });
-  }).catch(function(){box.innerHTML='<p style="text-align:center;color:var(--ink-faint);font-size:10px;padding:10px">加载失败</p>';});
+  }).catch(function(){box.innerHTML='<p class="ph-note fs-10 pad-sm3">加载失败</p>';});
 }
 function loadQueueSummary(){
   fetch('/api/tasks?page=1&page_size=30').then(function(r){return r.json();}).then(function(r){
