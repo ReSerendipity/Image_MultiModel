@@ -6,6 +6,7 @@ routes/preset_routes.py — 预设 CRUD + 导入导出 + apply
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -15,6 +16,9 @@ from pydantic import BaseModel
 from ..history_db import HistoryDB
 
 logger = logging.getLogger(__name__)
+
+# P1-1：history_db 为同步 sqlite3；async 路由里直调会阻塞事件循环（本报告 P1-1），
+# 因此本模块所有 history_db 调用统一经 ``asyncio.to_thread`` 下沉线程池。
 
 router = APIRouter(prefix="/api/presets", tags=["presets"])
 
@@ -39,7 +43,7 @@ async def list_presets(
 ) -> list[dict[str, Any]]:
     """GET /api/presets — 列出预设"""
     history_db: HistoryDB = request.app.state.history_db
-    return history_db.list_presets(engine_name)
+    return await asyncio.to_thread(history_db.list_presets, engine_name)
 
 
 @router.post("")
@@ -47,7 +51,8 @@ async def create_preset(req: PresetCreate, request: Request) -> dict[str, Any]:
     """POST /api/presets — 创建预设"""
     history_db: HistoryDB = request.app.state.history_db
     try:
-        preset_id = history_db.create_preset(
+        preset_id = await asyncio.to_thread(
+            history_db.create_preset,
             engine_name=req.engine_name,
             name=req.name,
             config=req.config,
@@ -62,7 +67,7 @@ async def create_preset(req: PresetCreate, request: Request) -> dict[str, Any]:
 async def get_preset(preset_id: int, request: Request) -> dict[str, Any]:
     """GET /api/presets/{id} — 获取预设详情"""
     history_db: HistoryDB = request.app.state.history_db
-    preset = history_db.get_preset(preset_id)
+    preset = await asyncio.to_thread(history_db.get_preset, preset_id)
     if not preset:
         raise HTTPException(404, detail="Preset not found")
     return preset
@@ -74,9 +79,10 @@ async def update_preset(
 ) -> dict[str, Any]:
     """PUT /api/presets/{id} — 更新预设"""
     history_db: HistoryDB = request.app.state.history_db
-    if not history_db.get_preset(preset_id):
+    if not await asyncio.to_thread(history_db.get_preset, preset_id):
         raise HTTPException(404, detail="Preset not found")
-    history_db.update_preset(
+    await asyncio.to_thread(
+        history_db.update_preset,
         preset_id, name=req.name, config=req.config, thumbnail=req.thumbnail,
     )
     return {"status": "updated"}
@@ -86,7 +92,7 @@ async def update_preset(
 async def delete_preset(preset_id: int, request: Request) -> dict[str, Any]:
     """DELETE /api/presets/{id} — 删除预设"""
     history_db: HistoryDB = request.app.state.history_db
-    if not history_db.delete_preset(preset_id):
+    if not await asyncio.to_thread(history_db.delete_preset, preset_id):
         raise HTTPException(404, detail="Preset not found")
     return {"status": "deleted"}
 
@@ -101,7 +107,7 @@ async def delete_presets(ids: str, request: Request) -> dict[str, Any]:
         raise HTTPException(422, detail="ids must be comma-separated integers")
     if not preset_ids:
         raise HTTPException(422, detail="ids must not be empty")
-    deleted = history_db.delete_presets(preset_ids)
+    deleted = await asyncio.to_thread(history_db.delete_presets, preset_ids)
     return {"deleted": deleted, "status": "deleted"}
 
 
@@ -109,7 +115,7 @@ async def delete_presets(ids: str, request: Request) -> dict[str, Any]:
 async def apply_preset(preset_id: int, request: Request) -> dict[str, Any]:
     """POST /api/presets/{id}/apply — 应用预设 → 返回参数回填前端"""
     history_db: HistoryDB = request.app.state.history_db
-    preset = history_db.get_preset(preset_id)
+    preset = await asyncio.to_thread(history_db.get_preset, preset_id)
     if not preset:
         raise HTTPException(404, detail="Preset not found")
     # 返回 config 用于前端回填
@@ -128,7 +134,8 @@ async def import_presets(req: list[dict[str, Any]], request: Request) -> dict[st
     errors: list[str] = []
     for p in req:
         try:
-            history_db.create_preset(
+            await asyncio.to_thread(
+                history_db.create_preset,
                 engine_name=p.get("engine_name", ""),
                 name=p.get("name", ""),
                 config=p.get("config", {}),
@@ -147,4 +154,4 @@ async def export_presets(
 ) -> list[dict[str, Any]]:
     """GET /api/presets/export — 导出所有/指定引擎的预设"""
     history_db: HistoryDB = request.app.state.history_db
-    return history_db.list_presets(engine_name)
+    return await asyncio.to_thread(history_db.list_presets, engine_name)

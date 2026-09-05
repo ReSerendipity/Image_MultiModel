@@ -6,6 +6,7 @@ routes/task_routes.py — 任务历史 + 取消 + 重绘 + 批量删除
 
 from __future__ import annotations
 
+import asyncio
 import io
 import logging
 import zipfile
@@ -21,51 +22,18 @@ from ..task_queue import TaskQueue
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
+def _build_export_zip(
+    history_db: HistoryDB,
+    cfg: Any,
+    task_ids: list[str],
+    type: str | None,
+) -> tuple[io.BytesIO, int]:
+    """同步构建导出 ZIP（供线程池执行，见 ``export_tasks``）。
 
-@router.get("")
-async def list_tasks(
-    request: Request,
-    status: str | None = None,
-    engine: str | None = None,
-    q: str | None = None,
-    favorite: bool | None = None,
-    page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=200),
-) -> dict[str, Any]:
-    """GET /api/tasks — 历史分页筛选"""
-    history_db: HistoryDB = request.app.state.history_db
-    tasks, total = history_db.list_tasks(
-        status=status, engine=engine, q=q, favorite=favorite,
-        page=page, page_size=page_size,
-    )
-    return {
-        "tasks": tasks,
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-        "total_pages": (total + page_size - 1) // page_size,
-    }
-
-
-@router.get("/export")
-async def export_tasks(
-    request: Request,
-    ids: str = Query(..., description="逗号分隔的任务 ID"),
-    type: str | None = Query(None, description="original/upscaled/compare"),
-) -> StreamingResponse:
-    """GET /api/tasks/export?ids= — 打包 ZIP 导出
-
-    注意：本静态路由必须注册在 ``/{task_id}`` 之前，否则会被动态路由
-    吞掉并始终返回 404（Full test regression 阶段发现并修复）。
+    Returns:
+        ``(buffer, written)``：written 为写入的文件数；为 0 时调用方返回 404。
     """
-    history_db: HistoryDB = request.app.state.history_db
-    cfg = get_config()
-    task_ids = [t.strip() for t in ids.split(",") if t.strip()]
-    if not task_ids:
-        raise HTTPException(400, detail="No task_ids provided")
-
     # M-01 修复：此前直接用 Path(db_path) 拼接，既无 PathGuard（DB 被污染即任意文件
     # 读取），又因 outputs 存的是相对路径、按 cwd 解析导致导出空 ZIP（功能已坏）。
     # 改为用 PathGuard 以 outputs 基目录解析，越界路径跳过，缺失文件跳过。
@@ -96,6 +64,62 @@ async def export_tasks(
                 arcname = f"{tid}/{safe_path.name}"
                 zf.write(str(safe_path), arcname)
                 written += 1
+    return buf, written
+
+
+router = APIRouter(prefix="/api/tasks", tags=["tasks"])
+
+
+@router.get("")
+async def list_tasks(
+    request: Request,
+    status: str | None = None,
+    engine: str | None = None,
+    q: str | None = None,
+    favorite: bool | None = None,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+) -> dict[str, Any]:
+    """GET /api/tasks — 历史分页筛选"""
+    history_db: HistoryDB = request.app.state.history_db
+    # P1-1：history_db 为同步 sqlite3；在 async 路由里直调会阻塞事件循环，
+    # 统一放入线程池执行。
+    tasks, total = await asyncio.to_thread(
+        history_db.list_tasks,
+        status=status, engine=engine, q=q, favorite=favorite,
+        page=page, page_size=page_size,
+    )
+    return {
+        "tasks": tasks,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": (total + page_size - 1) // page_size,
+    }
+
+
+@router.get("/export")
+async def export_tasks(
+    request: Request,
+    ids: str = Query(..., description="逗号分隔的任务 ID"),
+    type: str | None = Query(None, description="original/upscaled/compare"),
+) -> StreamingResponse:
+    """GET /api/tasks/export?ids= — 打包 ZIP 导出
+
+    注意：本静态路由必须注册在 ``/{task_id}`` 之前，否则会被动态路由
+    吞掉并始终返回 404（Full test regression 阶段发现并修复）。
+    """
+    history_db: HistoryDB = request.app.state.history_db
+    cfg = get_config()
+    task_ids = [t.strip() for t in ids.split(",") if t.strip()]
+    if not task_ids:
+        raise HTTPException(400, detail="No task_ids provided")
+
+    # P1-1：打包过程含多次同步 sqlite 查询 + 磁盘 IO，整体下沉线程池执行，
+    # 避免在 async 路由里阻塞事件循环。
+    buf, written = await asyncio.to_thread(
+        _build_export_zip, history_db, cfg, task_ids, type,
+    )
     if written == 0:
         raise HTTPException(404, detail="No exportable outputs found for the given task ids")
     buf.seek(0)
@@ -110,7 +134,7 @@ async def export_tasks(
 async def get_task(task_id: str, request: Request) -> dict[str, Any]:
     """GET /api/tasks/{id} — 任务详情（含 generation_config 22 项 + 三路输出）"""
     history_db: HistoryDB = request.app.state.history_db
-    task = history_db.get_task(task_id)
+    task = await asyncio.to_thread(history_db.get_task, task_id)
     if not task:
         raise HTTPException(404, detail=f"Task not found: {task_id}")
     return task
@@ -125,7 +149,7 @@ async def cancel_task(task_id: str, request: Request) -> dict[str, Any]:
         raise HTTPException(404, detail=f"Task not found or not cancellable: {task_id}")
     # 更新历史状态
     history_db: HistoryDB = request.app.state.history_db
-    history_db.update_task_status(task_id, "cancelled")
+    await asyncio.to_thread(history_db.update_task_status, task_id, "cancelled")
     return {"status": "cancelled", "task_id": task_id}
 
 
@@ -135,7 +159,7 @@ async def redraw_task(task_id: str, request: Request) -> dict[str, Any]:
     history_db: HistoryDB = request.app.state.history_db
     task_queue: TaskQueue = request.app.state.task_queue
 
-    original = history_db.get_task(task_id)
+    original = await asyncio.to_thread(history_db.get_task, task_id)
     if not original:
         raise HTTPException(404, detail=f"Task not found: {task_id}")
 
@@ -154,7 +178,8 @@ async def redraw_task(task_id: str, request: Request) -> dict[str, Any]:
         mode=original.get("mode", "txt2img"),
     )
 
-    history_db.create_task(
+    await asyncio.to_thread(
+        history_db.create_task,
         task_id=new_task_id,
         engine=original["engine"],
         mode=original.get("mode", "txt2img"),
@@ -178,7 +203,9 @@ async def delete_tasks(
     history_db: HistoryDB = request.app.state.history_db
     if not task_ids:
         raise HTTPException(400, detail="No task_ids provided")
-    count = history_db.delete_tasks(task_ids)
+    # 数据治理报告 P0-2 / P1-1：同步删除磁盘主图 + 缩略图，避免产生孤儿文件
+    # P1-1：该调用含 DB 写 + 磁盘删除，放入线程池避免阻塞事件循环
+    count = await asyncio.to_thread(history_db.delete_tasks_with_files, task_ids)
     return {"deleted": count}
 
 
@@ -192,7 +219,7 @@ async def add_tags(
     history_db: HistoryDB = request.app.state.history_db
     if not task_ids or not tags:
         raise HTTPException(400, detail="task_ids and tags are required")
-    count = history_db.add_task_tags(task_ids, tags)
+    count = await asyncio.to_thread(history_db.add_task_tags, task_ids, tags)
     return {"tagged": count}
 
 
@@ -204,5 +231,7 @@ async def cleanup_tasks(
 ) -> dict[str, Any]:
     """POST /api/tasks/cleanup — 清理超期任务（保留策略）"""
     history_db: HistoryDB = request.app.state.history_db
-    deleted = history_db.cleanup_old_tasks(keep_days=keep_days, max_gb=max_gb)
+    deleted = await asyncio.to_thread(
+        history_db.cleanup_old_tasks, keep_days=keep_days, max_gb=max_gb,
+    )
     return {"deleted": deleted, "keep_days": keep_days, "max_gb": max_gb}

@@ -17,7 +17,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 
 from ..config import get_config
-from ..gpu_utils import get_gpu_info
+from ..gpu_utils import get_gpu_info_async
 from ..observability.alerts import record_health_failure, record_health_success
 from ..sse import get_sse_bus
 
@@ -82,8 +82,8 @@ async def _health_check_impl(request: Request) -> dict[str, Any]:
             "cancelled": status_count["cancelled"],
         }
 
-    # GPU 状态
-    gpu = get_gpu_info()
+    # GPU 状态（P2-1：走线程池，避免 nvidia-smi 同步 subprocess 阻塞事件循环）
+    gpu = await get_gpu_info_async()
 
     # 系统内存（psutil，requirements 已声明）
     memory_info: dict[str, Any] = {}
@@ -194,7 +194,7 @@ async def sse_events(request: Request) -> StreamingResponse:
 @router.get("/gpu")
 async def gpu_status() -> dict[str, Any]:
     """GET /api/gpu — GPU 状态"""
-    gpu = get_gpu_info()
+    gpu = await get_gpu_info_async()
     return {
         "name": gpu.gpu_name,
         "backend": gpu.backend,

@@ -6,6 +6,7 @@ routes/output_routes.py — 图库 + 收藏
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -31,7 +32,9 @@ async def list_outputs(
 ) -> dict[str, Any]:
     """GET /api/outputs — 图库真实文件（宽高→masonry 比例）"""
     history_db: HistoryDB = request.app.state.history_db
-    outputs, total = history_db.list_outputs(
+    # P1-1：同步 sqlite 查询下沉线程池，避免阻塞事件循环
+    outputs, total = await asyncio.to_thread(
+        history_db.list_outputs,
         output_type=type, favorite=fav, page=page, page_size=page_size,
     )
     return {
@@ -71,8 +74,8 @@ async def toggle_favorite(file_path: str, request: Request) -> dict[str, Any]:
         raise HTTPException(403, detail=f"Path not allowed: {e}")
 
     history_db: HistoryDB = request.app.state.history_db
-    # 切换收藏状态
-    history_db.set_output_favorite(str(safe_path), True)
+    # 切换收藏状态（P1-1：下沉线程池）
+    await asyncio.to_thread(history_db.set_output_favorite, str(safe_path), True)
     return {"status": "favorited", "path": str(safe_path)}
 
 

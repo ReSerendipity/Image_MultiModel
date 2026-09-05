@@ -8,12 +8,20 @@ gpu_utils.py — 显存预检 + FP8 回退 + chunk 推荐
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# P2-1：GPU 信息缓存（nvidia-smi 兜底为同步 subprocess，timeout=5s，会阻塞调用线程）。
+# 加一个短 TTL 缓存，使得健康探测等长尾路径最多每 TTL 秒才阻塞一次，避免无 torch
+# 环境下事件循环被卡 5s（见后端服务设计评估报告 P2-1）。
+_GPU_CACHE_TTL_S = 2.0
+_gpu_cache_lock = threading.Lock()
+_gpu_cache: tuple[float, GPUInfo | None] = (0.0, None)
 
 
 @dataclass
@@ -27,8 +35,37 @@ class GPUInfo:
 
 
 def get_gpu_info() -> GPUInfo:
+    """获取当前 GPU 显存信息（带 TTL 缓存）。
+
+    ``_compute_gpu_info`` 中的 nvidia-smi 兜底是**同步 subprocess**，在无 torch
+    环境下最多阻塞调用线程 5s。这里用 ``_GPU_CACHE_TTL_S`` 做短 TTL 缓存，使热点
+    路径（如 ``/api/health``）最多每 TTL 秒才真正阻塞一次。
     """
-    获取当前 GPU 显存信息。
+    global _gpu_cache
+    now = time.time()
+    with _gpu_cache_lock:
+        ts, cached = _gpu_cache
+        if cached is not None and (now - ts) < _GPU_CACHE_TTL_S:
+            return cached
+    info = _compute_gpu_info()
+    with _gpu_cache_lock:
+        _gpu_cache = (time.time(), info)
+    return info
+
+
+async def get_gpu_info_async() -> GPUInfo:
+    """协程侧获取 GPU 信息（在线程池执行，避免阻塞事件循环）。
+
+    异步路由（如 ``/api/health``）应使用本函数代替同步 ``get_gpu_info()``。
+    """
+    import asyncio
+
+    return await asyncio.to_thread(get_gpu_info)
+
+
+def _compute_gpu_info() -> GPUInfo:
+    """
+    实际获取当前 GPU 显存信息（可能阻塞）。
     优先使用 PyTorch CUDA，回退到 CPU。
     """
     try:
