@@ -162,3 +162,4 @@ data/*.bak
 # 前端测试产物（依赖与渲染快照）
 tests/node_modules/
 tests/frontend/_rendered/
+data/config_audit.log

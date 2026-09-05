@@ -16,6 +16,8 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from integrated_app.history_db import HistoryDB
 from integrated_app.lineage import (
     classify_error,
@@ -158,4 +160,129 @@ def test_delete_tasks_with_files_idempotent_on_missing_files() -> None:
     deleted = db.delete_tasks_with_files(["del2"])
     assert deleted == 1
     assert db.conn.execute("SELECT COUNT(*) FROM tasks WHERE task_id=?", ["del2"]).fetchone()[0] == 0
+    db.close()
+
+
+# ── 数据治理报告 P2-4：PRAGMA user_version 版本化迁移 ──────────────
+import sqlite3
+
+from integrated_app.history_db import HistoryDB as _HDB
+
+
+def _make_old_db(path: Path) -> None:
+    """构造 v0 旧库：血缘列/outputs.sha256 均不存在的真实旧 schema。"""
+    conn = sqlite3.connect(str(path))
+    conn.executescript(
+        """
+        CREATE TABLE tasks (
+            task_id          TEXT PRIMARY KEY,
+            engine           TEXT NOT NULL,
+            mode             TEXT NOT NULL DEFAULT 'txt2img',
+            status           TEXT NOT NULL DEFAULT 'pending',
+            prompt           TEXT DEFAULT '',
+            negative_prompt  TEXT DEFAULT '',
+            generation_config TEXT DEFAULT '{}',
+            thumbnail        TEXT DEFAULT '',
+            output_count     INTEGER DEFAULT 0,
+            processing_time_s REAL DEFAULT 0,
+            error            TEXT DEFAULT '',
+            favorite         INTEGER DEFAULT 0,
+            tags             TEXT DEFAULT '[]',
+            created_at       TEXT DEFAULT (datetime('now')),
+            updated_at       TEXT DEFAULT (datetime('now')),
+            interrupted_at_reboot INTEGER DEFAULT 0
+        );
+        CREATE TABLE outputs (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id    TEXT NOT NULL,
+            path       TEXT NOT NULL,
+            format     TEXT DEFAULT 'png',
+            file_size  INTEGER DEFAULT 0,
+            width      INTEGER DEFAULT 0,
+            height     INTEGER DEFAULT 0,
+            seed       TEXT DEFAULT '',
+            output_type TEXT DEFAULT 'original',
+            created_at TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (task_id) REFERENCES tasks(task_id) ON DELETE CASCADE
+        );
+        CREATE TABLE presets (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            engine_name TEXT NOT NULL,
+            name        TEXT NOT NULL,
+            thumbnail   TEXT DEFAULT '',
+            config      TEXT DEFAULT '{}',
+            created_at  TEXT DEFAULT (datetime('now')),
+            UNIQUE(engine_name, name)
+        );
+        """
+    )
+    conn.execute("INSERT INTO tasks (task_id, engine, prompt) VALUES ('old1', 'e1', 'legacy row')")
+    conn.commit()
+    conn.close()
+
+
+def test_old_db_migrated_and_versioned() -> None:
+    """旧库（user_version=0）打开后：血缘列 + outputs.sha256 补齐、版本推进、旧数据保留。"""
+    d = _tmp()
+    db_path = d / "history.db"
+    _make_old_db(db_path)
+    v0 = sqlite3.connect(str(db_path)).execute("PRAGMA user_version").fetchone()[0]
+    assert v0 == 0, "前置：构造的旧库版本号应为 0"
+
+    db = HistoryDB(db_path)
+    task_cols = {r["name"] for r in db.conn.execute("PRAGMA table_info(tasks)")}
+    out_cols = {r["name"] for r in db.conn.execute("PRAGMA table_info(outputs)")}
+    assert {"workflow_version", "lora_checksums", "error_code"} <= task_cols
+    assert "sha256" in out_cols
+    assert db.conn.execute("PRAGMA user_version").fetchone()[0] == _HDB.SCHEMA_VERSION
+    # 旧数据保留且新列取默认值
+    row = db.get_task("old1")
+    assert row["prompt"] == "legacy row"
+    assert row["workflow_version"] == ""
+    db.close()
+
+
+def test_fresh_db_reaches_schema_version() -> None:
+    d = _tmp()
+    db = HistoryDB(d / "history.db")
+    assert db.conn.execute("PRAGMA user_version").fetchone()[0] == _HDB.SCHEMA_VERSION
+    # 幂等：二次打开不再推进也不报错
+    db.close()
+    db2 = HistoryDB(d / "history.db")
+    assert db2.conn.execute("PRAGMA user_version").fetchone()[0] == _HDB.SCHEMA_VERSION
+    db2.close()
+
+
+def test_migration_fail_closed(monkeypatch) -> None:
+    """迁移单步失败必须终止启动（fail-closed），而非 warning 后继续跑。"""
+    d = _tmp()
+    db_path = d / "history.db"
+    _make_old_db(db_path)
+
+    def _boom(self):  # noqa: ANN001
+        return (
+            (2, self._migrate_v2_lineage_columns),
+            (3, self._migrate_v3_outputs_sha256),
+            (4, _raise_step),
+        )
+
+    def _raise_step(_conn: sqlite3.Connection) -> None:
+        raise RuntimeError("simulated migration failure")
+
+    monkeypatch.setattr(_HDB, "_migrations", _boom)
+    with pytest.raises(RuntimeError, match="simulated migration failure"):
+        HistoryDB(db_path)
+    # 版本号不得推进到失败步骤之后
+    conn = sqlite3.connect(str(db_path))
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 3
+
+
+def test_add_output_sha256_persisted() -> None:
+    """Q1-①：outputs.sha256 写入点落地。"""
+    d = _tmp()
+    db = HistoryDB(d / "history.db")
+    db.create_task(task_id="t_sha", engine="z_image_turbo_native")
+    db.add_output(task_id="t_sha", path="a.png", sha256="ab" * 32)
+    row = db.conn.execute("SELECT sha256 FROM outputs WHERE task_id=?", ["t_sha"]).fetchone()
+    assert row["sha256"] == "ab" * 32
     db.close()

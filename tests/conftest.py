@@ -107,9 +107,7 @@ def pytest_collection_modifyitems(config, items):
     """
     if _ENGINE_OK:
         return
-    skip_marker = pytest.mark.skip(
-        reason="原生引擎栈不可用（缺 PyTorch 或 comfy_aimdo），跳过引擎相关测试"
-    )
+    skip_marker = pytest.mark.skip(reason="原生引擎栈不可用（缺 PyTorch 或 comfy_aimdo），跳过引擎相关测试")
     for item in items:
         name = Path(item.path).name
         if name.startswith("test_native_") or name in _NATIVE_TEST_FILES:
@@ -186,8 +184,17 @@ def _isolate_history_db_for_tests():
 
     cfg = get_config()
     original_db_path = cfg.output.history.db_path
+    original_uploads_dir = cfg.output.uploads.cache_dir
+    original_cleanup_cron = cfg.output.history.cleanup_cron
+    # 维护 cron 用环境开关禁用（见 app_server.history_cleanup_cron）：
+    # load_config(path) 会整体替换配置单例，仅改 cleanup_cron 字段可能被冲掉。
+    original_disable_env = os.environ.get("IMM_DISABLE_MAINTENANCE_CRON")
+    os.environ["IMM_DISABLE_MAINTENANCE_CRON"] = "1"
     worker_tmp = Path(tempfile.mkdtemp(prefix=f"imm-hist-{os.getpid()}-"))
     cfg.output.history.db_path = str(worker_tmp / "history.db")
+    # uploads 目录重定向为第二道防线（cron 已关，正常不会扫到真实上传文件）
+    cfg.output.uploads.cache_dir = str(worker_tmp / "uploads")
+    cfg.output.history.cleanup_cron = ""
 
     def _cleanup():
         shutil.rmtree(worker_tmp, ignore_errors=True)
@@ -197,5 +204,10 @@ def _isolate_history_db_for_tests():
         yield
     finally:
         cfg.output.history.db_path = original_db_path
+        cfg.output.uploads.cache_dir = original_uploads_dir
+        cfg.output.history.cleanup_cron = original_cleanup_cron
+        if original_disable_env is None:
+            os.environ.pop("IMM_DISABLE_MAINTENANCE_CRON", None)
+        else:
+            os.environ["IMM_DISABLE_MAINTENANCE_CRON"] = original_disable_env
         _cleanup()
-
