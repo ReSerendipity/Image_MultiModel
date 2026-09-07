@@ -15,3 +15,13 @@ repos:
       - id: check-added-large-files
       - id: check-merge-conflict
       - id: debug-statements
+
+  - repo: local
+    hooks:
+      - id: structure-guard
+        name: Structure Guard (root layout)
+        entry: python .github/scripts/check_layout.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit, pre-push]

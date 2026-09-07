@@ -163,3 +163,10 @@ data/*.bak
 tests/node_modules/
 tests/frontend/_rendered/
 data/config_audit.log
+
+# --- 2026-09-07 守卫暴露的遗漏（缓存目录）---
+.ruff_cache/
+.mypy_cache/
+
+# --- auto-tidy: 运行时产物自动补齐 (auto) ---
+.benchmarks/
