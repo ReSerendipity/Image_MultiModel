@@ -54,8 +54,8 @@
    ```
    应显示类似 `Python 3.12.x`
 3. 双击运行 **`install.bat`**（会自动检测系统 Python，安装 PyTorch CUDA 版 + 全部依赖）
-4. **（可选）配置环境变量**  
-   - **新手**：跳过此步，默认便携模式即可使用  
+4. **（可选）配置环境变量**
+   - **新手**：跳过此步，默认便携模式即可使用
    - **高级用户**：复制 `.env.example` 为 `.env`，按需修改（配置说明文档 `docs/PATH-CONFIGURATION.md` 为本地保留、未随仓库发布）
 5. 确认模型文件已就位（存放于 `pretrained_models/`，portable 模式，完全自包含）
 6. 双击运行：
@@ -284,4 +284,15 @@ python -m pytest tests/e2e -m e2e
 
 ## 许可证
 
-本项目采用 [Apache License 2.0](LICENSE) 开源协议。
+本项目采用 [Apache License 2.0](LICENSE) 开源协议。---
+
+## 桌面版（Windows，P1-3）
+
+桌面分发提供安装器与增量更新两条路径：
+
+- **安装器**：`desktop/installer/setup.nsi`（NSIS 3.09）编译 `ImageMultiModel-Setup-v{ver}.exe`，与数据分卷（`ImageMultiModel-Data.7z.001` 起）同目录；自动终止运行中的壳与 Python 子进程后安装。
+- **桌面壳**：`desktop/src-tauri`（Tauri v2）——单实例、系统托盘、崩溃自动重启、窗口状态记忆、隐藏控制台；启动侧载 Python（`app/runtime` 或开发环境 `.venv`）并管理后端生命周期（健康检查 `/api/system/health` 的 `security.integrity` 字段，完整性失败在托盘告警）。
+- **增量更新**：应用代码打包 `scripts/package_app.py` → `app-v{ver}.zip` + SHA256；壳内更新器拉取 GitHub Release `shell-update.json`，验 SHA256 后原子换载 `app/`（保留 `runtime/model/data/logs` 与 `config.yaml`、`.watermark_key`）。
+- **分卷发布**：`scripts/split_release_volumes.py` 按 ≤900MB 切片 + `SHA256SUMS.txt` 全覆校验。
+- **质量门禁**：`scripts/release_gate.py`（构建→静态→测试→清单签名→发布物）与 `scripts/diag_portable_verify.py`（安装环境验签/完整性诊断）。
+- **分层与安全文档**：`docs/桌面分发分层定案-20260910.md`、`docs/闭源编译评估-Cython-pyd-20260910.md`。
