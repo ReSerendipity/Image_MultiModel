@@ -54,20 +54,39 @@ def _copy_real_manifest(tmp_path: Path) -> Path:
     return dst
 
 
+@pytest.fixture
+def sk_with_private_key():
+    """提供 secret_key 模块；签发机私钥缺失时跳过（CI 没有私钥，属设计如此）。
+
+    真实 Ed25519 签名（sign_manifest_ed25519 / _public_key_consistency_ok）依赖
+    签发机私钥 `data/.manifest_signing_key` —— 它不得进入 CI checkout（否则攻击者
+    拿到私钥就破解了完整性防线）。因此这些用例只在有能力签名的环境（本机/签发机/自托管）
+    执行；CI 上跳过而非失败。其余用例（篡改后拒签、缺失清单、HMAC 回退、行尾归一化、
+    权限自愈）不依赖私钥，照常全跑。
+    """
+    sk = _load_secret_key_module()
+    if not sk.manifest_private_key_path().exists():
+        pytest.skip(
+            "清单签名私钥(data/.manifest_signing_key)仅签发机持有，未入库："
+            "真实签名路径在具备私钥的环境验证，CI 跳过。"
+        )
+    return sk
+
+
 # ── Ed25519 签名 / 验签 ──────────────────────────────────
 class TestEd25519SignVerify:
-    def test_sign_then_verify_roundtrip(self, tmp_path):
+    def test_sign_then_verify_roundtrip(self, tmp_path, sk_with_private_key):
         """真实私钥签名 → 内置公钥回验 PASS（构建期回验闸门）。"""
-        sk = _load_secret_key_module()
+        sk = sk_with_private_key
         manifest = _copy_real_manifest(tmp_path)
 
         sig_path = sk.sign_manifest_ed25519(manifest)
         assert sig_path is not None and sig_path.exists()
         assert sk.verify_manifest_signature_ed25519(manifest) is True
 
-    def test_tampered_manifest_verify_fails(self, tmp_path):
+    def test_tampered_manifest_verify_fails(self, tmp_path, sk_with_private_key):
         """篡改清单任意字节 → 验签失败（无私钥无法重签）。"""
-        sk = _load_secret_key_module()
+        sk = sk_with_private_key
         manifest = _copy_real_manifest(tmp_path)
         sk.sign_manifest_ed25519(manifest)
 
@@ -100,7 +119,7 @@ class TestEd25519SignVerify:
         with pytest.raises(RuntimeError, match="拒绝启动"):
             selfcheck.run_startup_selfcheck(enforce=True)
 
-    def test_public_key_consistency_gate(self):
+    def test_public_key_consistency_gate(self, sk_with_private_key):
         """公钥一致性闸门：私钥派生公钥 == 仓库内置公钥（GOTCHAS #97）。"""
         import importlib.util
 
@@ -116,10 +135,10 @@ class TestEd25519SignVerify:
 
 # ── enforce 拒绝启动语义 ─────────────────────────────────
 class TestEnforceSemantics:
-    def test_enforce_passes_on_signed_clean_manifest(self, tmp_path, monkeypatch):
+    def test_enforce_passes_on_signed_clean_manifest(self, tmp_path, monkeypatch, sk_with_private_key):
         """签名有效 + 哈希一致 → enforce 不抛（发布版正常启动路径）。"""
         selfcheck = _load_selfcheck_module()
-        sk = _load_secret_key_module()
+        sk = sk_with_private_key
 
         manifest = _copy_real_manifest(tmp_path)
         sk.sign_manifest_ed25519(manifest)
