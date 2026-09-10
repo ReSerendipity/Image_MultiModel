@@ -41,6 +41,7 @@ Image MultiModel 项目代码采用 [Apache License 2.0](LICENSE)。
 | einops | MIT | 张量重排 |
 | transformers | Apache-2.0 | 模型库 |
 | PyYAML | MIT | 配置解析 |
-| comfy-aimdo / comfy-kitchen | 未核验 | 原生引擎依赖，见包内 LICENSE |
+| comfy-aimdo | GPL-3.0 | 原生引擎进程内依赖（`tests/conftest.py` 有 `import comfy_aimdo`）；上游 `LICENSE` 首行明示 "GNU General Public License v3.0"。GitHub 标 `NOASSERTION` 仅因许可正文前置了非标准声明，不影响判定。**义务范围同 `comfy_kernel/`**，见 `docs/GPL_COMPLIANCE.md` |
+| comfy-kitchen | Apache-2.0 | 原生引擎进程内依赖；与 GPL 无冲突 |
 
 > 商用分发前，建议对 `requirements-lock.txt` 锁定的依赖版本做一次完整许可扫描；尤其注意 `comfy_kernel/` 的 GPL-3.0 义务。

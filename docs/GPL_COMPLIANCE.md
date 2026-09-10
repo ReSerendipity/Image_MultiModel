@@ -11,18 +11,27 @@
 | 组件 | `comfy_kernel/` — vendored ComfyUI 内核源码 |
 | 上游 | <https://github.com/comfyanonymous/ComfyUI> |
 | 版本 | ComfyUI 0.32.0（`comfy_kernel/pyproject.toml`） |
-| 源码对应提交 | `9883be7c5ec4082a090347d461bb0bd4131516f5`（2026-08-17，含本地内核维护提交） |
+| 上游基线提交 | `bd34f338`（2026-08-12，v0.32.0 + 5 commits，`comfy_kernel/UPGRADE_STRATEGY.md` 的 Current Commit，可在上游仓库查得） |
+| 本地内核仓 HEAD | `9883be7c5ec4082a090347d461bb0bd4131516f5`（2026-08-17，**本地新增的管理提交**，不在上游，其父链即完整上游历史共 5755 个提交） |
 | 许可 | GNU GPL-3.0（`comfy_kernel/LICENSE`） |
 | 主项目许可 | Apache-2.0（`LICENSE`） |
 | 引用方式 | 进程内复用（native 引擎 `comfy_source_dir: comfy_kernel`），非独立进程/网络调用 |
+
+> ⚠️ **语义澄清**：`9883be7c` 是内核本地 git 仓库的 HEAD（含本地维护提交），**不是**上游提交——
+> 拿去上游仓库按此哈希查询会得到 `No commit found`。可追溯的上游提交是 `bd34f338`。
+> 二者在升级/重放内核时都可能变化，§4 要求两行同步更新。
 
 ## 2. 「提供对应源码」的两种履行方式（分发者二选一）
 
 **方式 A（推荐）：源码随包分发**
 - 便携包（`scripts/pack_portable.ps1`）：STEP 4 人工嵌入 comfy_kernel 时，**必须**将
   完整 `comfy_kernel/` 目录（含 `LICENSE`）复制进分发包——打包脚本该步骤即履行义务；
-- Docker 镜像：构建上下文包含 `comfy_kernel/`（确认未被 `.dockerignore` 排除），
-  镜像内 `/app/comfy_kernel/` 即源码提供。
+- Docker 镜像：**当前镜像不含内核** —— `.dockerignore` 排除 `comfy_kernel/`，因此
+  `COPY . .` 不会把 GPL 源码打进镜像；运行时内核由 `docker-compose.bluegreen.yml`
+  以 `./comfy_kernel:/app/comfy_kernel:ro` **只读挂载**（使用者自备）提供。此形态下
+  镜像分发物本身不含 ComfyUI 代码，**不触发** GPL 源码提供义务，代价是单独
+  `docker run`（或走未声明该挂载的主 `docker-compose.yml`）时 native 引擎不可用——
+  后者的缺挂载属已知缺陷，应使用 bluegreen 配置或手工 `-v` 提供内核。
 
 **方式 B：书面提供承诺（offline 分发无法附带源码时）**
 - 分发包内附本文件与上游地址、提交哈希，承诺自分发之日起三年内、
@@ -41,4 +50,5 @@
 ## 4. 版本升级时的义务
 
 升级 vendored 内核（替换/重放 commit）后，必须同步更新本文件 §1 的
-「版本」与「源码对应提交」两行，保证哈希可追溯。
+「版本」、「上游基线提交」、「本地内核仓 HEAD」三行，保证哈希可追溯——
+三者都随内核演进变化，任一不同步即为文档与实现漂移。
