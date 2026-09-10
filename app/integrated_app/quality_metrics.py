@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from PIL import Image
+
     _HAS_PIL = True
 except Exception:  # pragma: no cover - 依赖缺失
     _HAS_PIL = False
@@ -28,6 +29,7 @@ except Exception:  # pragma: no cover - 依赖缺失
 
 try:
     import numpy as np
+
     _HAS_NUMPY = True
 except Exception:  # pragma: no cover - 依赖缺失
     _HAS_NUMPY = False
@@ -174,15 +176,23 @@ class GoldenFileRegistry:
             gp.parent.mkdir(parents=True, exist_ok=True)
             generated.save(gp)
             return GoldenComparison(
-                name=name, ssim=1.0, psnr=float("inf"),
-                passed=True, ssim_threshold=self.ssim_threshold,
-                psnr_threshold=self.psnr_threshold, detail="regenerated baseline",
+                name=name,
+                ssim=1.0,
+                psnr=float("inf"),
+                passed=True,
+                ssim_threshold=self.ssim_threshold,
+                psnr_threshold=self.psnr_threshold,
+                detail="regenerated baseline",
             )
         if not gp.exists():
             return GoldenComparison(
-                name=name, ssim=0.0, psnr=0.0,
-                passed=False, ssim_threshold=self.ssim_threshold,
-                psnr_threshold=self.psnr_threshold, detail="golden baseline missing",
+                name=name,
+                ssim=0.0,
+                psnr=0.0,
+                passed=False,
+                ssim_threshold=self.ssim_threshold,
+                psnr_threshold=self.psnr_threshold,
+                detail="golden baseline missing",
             )
         ref = Image.open(gp).convert("RGB")  # type: ignore[union-attr]
         ssim = compute_ssim(ref, generated)
@@ -190,8 +200,12 @@ class GoldenFileRegistry:
         passed = ssim >= self.ssim_threshold and psnr >= self.psnr_threshold
         detail = "" if passed else f"ssim={ssim:.4f}<{self.ssim_threshold} or psnr={psnr:.2f}<{self.psnr_threshold}"
         return GoldenComparison(
-            name=name, ssim=ssim, psnr=psnr, passed=passed,
-            ssim_threshold=self.ssim_threshold, psnr_threshold=self.psnr_threshold,
+            name=name,
+            ssim=ssim,
+            psnr=psnr,
+            passed=passed,
+            ssim_threshold=self.ssim_threshold,
+            psnr_threshold=self.psnr_threshold,
             detail=detail,
         )
 

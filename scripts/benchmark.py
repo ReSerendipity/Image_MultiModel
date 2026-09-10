@@ -71,8 +71,10 @@ def bench_homepage_html() -> dict:
         print(f"  gzip 压缩后: {gzip_kb:.1f} KB")
         print(f"  结果: {'✅ PASS' if gzip_kb <= 50 else '❌ FAIL'}")
         return {
-            "name": name, "gzip_kb": round(gzip_kb, 2),
-            "threshold_kb": 50, "passed": gzip_kb <= 50,
+            "name": name,
+            "gzip_kb": round(gzip_kb, 2),
+            "threshold_kb": 50,
+            "passed": gzip_kb <= 50,
         }
 
 
@@ -91,8 +93,11 @@ def bench_with_stats(name: str, url: str, threshold_ms: float, samples: int = SA
         except Exception as e:
             print(f"  样本 {i + 1} 失败: {e}")
             return {
-                "name": name, "samples": i, "error": str(e)[:200],
-                "threshold_ms": threshold_ms, "passed": False,
+                "name": name,
+                "samples": i,
+                "error": str(e)[:200],
+                "threshold_ms": threshold_ms,
+                "passed": False,
             }
 
     avg = statistics.mean(latencies)
@@ -114,11 +119,16 @@ def bench_with_stats(name: str, url: str, threshold_ms: float, samples: int = SA
     print(f"  结果: {'✅ PASS' if passed else '❌ FAIL'}")
 
     return {
-        "name": name, "samples": len(latencies),
-        "avg_ms": round(avg, 1), "min_ms": round(min_lat, 1),
-        "max_ms": round(max_lat, 1), "p50_ms": round(p50, 1),
-        "p95_ms": round(p95, 1), "p99_ms": round(p99, 1),
-        "threshold_ms": threshold_ms, "passed": passed,
+        "name": name,
+        "samples": len(latencies),
+        "avg_ms": round(avg, 1),
+        "min_ms": round(min_lat, 1),
+        "max_ms": round(max_lat, 1),
+        "p50_ms": round(p50, 1),
+        "p95_ms": round(p95, 1),
+        "p99_ms": round(p99, 1),
+        "threshold_ms": threshold_ms,
+        "passed": passed,
     }
 
 
@@ -187,8 +197,10 @@ def bench_sse_gpu_status() -> dict:
                     print(f"  事件延迟: {elapsed:.1f}s")
                     print(f"  结果: {'✅ PASS' if elapsed <= 5 else '❌ FAIL'}")
                     return {
-                        "name": name, "elapsed_s": round(elapsed, 2),
-                        "threshold_s": 5, "passed": elapsed <= 5,
+                        "name": name,
+                        "elapsed_s": round(elapsed, 2),
+                        "threshold_s": 5,
+                        "passed": elapsed <= 5,
                     }
     except Exception as e:
         print(f"  SSE 不可用: {e}")

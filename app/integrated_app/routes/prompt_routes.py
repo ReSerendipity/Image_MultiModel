@@ -28,6 +28,7 @@ router = APIRouter(prefix="/api/prompt", tags=["prompt"])
 # ── 请求/响应模型 ──────────────────────────────────────────────
 class ExpandPromptRequest(BaseModel):
     """POST /api/prompt/expand 请求体"""
+
     prompt: str = Field(..., min_length=1, max_length=10000)
     style: str = Field(default="none")
     auto_enhance: bool = Field(default=True)
@@ -36,6 +37,7 @@ class ExpandPromptRequest(BaseModel):
 
 class ExpandPromptResponse(BaseModel):
     """扩写结果"""
+
     expanded_prompt: str
     negative_prompt: str
     original_prompt: str
@@ -45,11 +47,13 @@ class ExpandPromptResponse(BaseModel):
 
 class SuggestRequest(BaseModel):
     """POST /api/prompt/suggest 请求体"""
+
     subject: str = Field(..., min_length=1, max_length=5000)
 
 
 class SuggestResponse(BaseModel):
     """推荐结果"""
+
     positive: str
     style: str
     negative: str

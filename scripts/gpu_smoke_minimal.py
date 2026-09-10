@@ -132,10 +132,7 @@ def _golden_compare(baseline: dict, entries: list[dict]) -> list[str]:
         if want is None:
             problems.append(f"golden: 基线缺少输出 {e['name']}")
         elif want != e["sha256"]:
-            problems.append(
-                f"golden: {e['name']} sha256 不一致 "
-                f"(基线 {want[:12]}… / 本次 {e['sha256'][:12]}…)"
-            )
+            problems.append(f"golden: {e['name']} sha256 不一致 " f"(基线 {want[:12]}… / 本次 {e['sha256'][:12]}…)")
     extra = set(base_map) - {e["name"] for e in entries}
     if extra:
         problems.append(f"golden: 本次输出缺少基线条目 {sorted(extra)}")
@@ -151,12 +148,11 @@ def main() -> int:
     ap.add_argument("--steps", type=int, default=4)
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--prompt", default="gpu real-inference smoke")
-    ap.add_argument("--with-seedvr2", action="store_true",
-                    help="开启 SeedVR2 后处理超分（需 runner 预置 SeedVR2-lite）")
-    ap.add_argument("--golden-file", default="",
-                    help="固定 seed 回归基线 JSON 路径（配合 --update-golden）")
-    ap.add_argument("--update-golden", action="store_true",
-                    help="生成/更新 golden 基线而非比对")
+    ap.add_argument(
+        "--with-seedvr2", action="store_true", help="开启 SeedVR2 后处理超分（需 runner 预置 SeedVR2-lite）"
+    )
+    ap.add_argument("--golden-file", default="", help="固定 seed 回归基线 JSON 路径（配合 --update-golden）")
+    ap.add_argument("--update-golden", action="store_true", help="生成/更新 golden 基线而非比对")
     ap.add_argument("--timeout", type=float, default=600, help="等待推理完成的超时（秒）")
     ap.add_argument("--output", default="")
     args = ap.parse_args()
@@ -238,11 +234,13 @@ def main() -> int:
                     for o in outs:
                         real = _resolve(str(o.get("path") or ""))
                         if real:
-                            entries.append({
-                                "name": os.path.basename(real),
-                                "sha256": _sha256(real),
-                                "bytes": os.path.getsize(real),
-                            })
+                            entries.append(
+                                {
+                                    "name": os.path.basename(real),
+                                    "sha256": _sha256(real),
+                                    "bytes": os.path.getsize(real),
+                                }
+                            )
                     if args.update_golden:
                         baseline = {
                             "engine": args.engine,
@@ -255,22 +253,19 @@ def main() -> int:
                         }
                         with open(args.golden_file, "w", encoding="utf-8") as f:
                             json.dump(baseline, f, indent=2, ensure_ascii=False)
-                        step("golden_update", True,
-                             f"baseline written: {args.golden_file} ({len(entries)} entries)")
+                        step("golden_update", True, f"baseline written: {args.golden_file} ({len(entries)} entries)")
                     else:
                         try:
                             with open(args.golden_file, encoding="utf-8") as f:
                                 baseline = json.load(f)
                         except Exception as e:
-                            step("golden_compare", False,
-                                 f"baseline unreadable: {args.golden_file} ({e})")
+                            step("golden_compare", False, f"baseline unreadable: {args.golden_file} ({e})")
                             return _finish(report, args.output)
                         problems = _golden_compare(baseline, entries)
                         if problems:
                             step("golden_compare", False, "; ".join(problems))
                             return _finish(report, args.output)
-                        step("golden_compare", True,
-                             f"{len(entries)} output(s) match baseline")
+                        step("golden_compare", True, f"{len(entries)} output(s) match baseline")
                     report["golden"] = {
                         "file": args.golden_file,
                         "mode": "update" if args.update_golden else "compare",

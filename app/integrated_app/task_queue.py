@@ -163,9 +163,7 @@ class TaskQueue:
         if self._running:
             return
         self._running = True
-        self._executor = ThreadPoolExecutor(
-            max_workers=1, thread_name_prefix="taskqueue-worker"
-        )
+        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="taskqueue-worker")
         self._worker_task = asyncio.create_task(self._worker_loop(worker_func))
         logger.info("TaskQueue worker started")
 
@@ -183,9 +181,7 @@ class TaskQueue:
         保证调用方返回后不会再有任何线程写库；超时只能记日志后继续——
         此时由 ``HistoryDB`` 的关闭护栏把误用变成明确异常，而不是崩溃。
         """
-        timeout = (
-            self._shutdown_drain_timeout_s if drain_timeout_s is None else float(drain_timeout_s)
-        )
+        timeout = self._shutdown_drain_timeout_s if drain_timeout_s is None else float(drain_timeout_s)
         self._running = False
         if self._worker_task:
             self._worker_task.cancel()
@@ -199,16 +195,13 @@ class TaskQueue:
 
         inflight = self._inflight
         if inflight is not None and not inflight.done():
-            logger.info(
-                "TaskQueue: 等待在飞行的 worker 线程结束（最多 %.1fs）…", timeout
-            )
+            logger.info("TaskQueue: 等待在飞行的 worker 线程结束（最多 %.1fs）…", timeout)
             try:
                 await asyncio.wait_for(asyncio.shield(inflight), timeout=timeout)
                 logger.info("TaskQueue: 在飞行 worker 线程已结束")
             except TimeoutError:  # asyncio.TimeoutError 自 3.11 起即内置 TimeoutError
                 logger.warning(
-                    "TaskQueue: 等待在飞行 worker 线程超时（%.1fs），"
-                    "关闭流程继续，但数据库可能仍被写入",
+                    "TaskQueue: 等待在飞行 worker 线程超时（%.1fs），" "关闭流程继续，但数据库可能仍被写入",
                     timeout,
                 )
             except Exception as e:  # noqa: BLE001

@@ -78,9 +78,8 @@ async def metrics(request: Request) -> dict[str, Any]:
             "enabled": get_idle_unload_manager().idle_unload_minutes > 0,
             "idle_minutes": get_idle_unload_manager().idle_minutes,
         },
-        "queue_size": getattr(request.app.state, "task_queue", None) and len(
-            getattr(request.app.state.task_queue, "list_tasks", lambda: [])()
-        ),
+        "queue_size": getattr(request.app.state, "task_queue", None)
+        and len(getattr(request.app.state.task_queue, "list_tasks", lambda: [])()),
     }
 
 
@@ -163,7 +162,10 @@ async def finops_budget_endpoint(request: Request) -> dict[str, Any]:
         "storage": {
             "used_gb": _storage_usage(project_root, cfg.output.base_dir).get("used_gb", 0.0),
         },
-        "cost": (finops_cost_report(getattr(request.app.state, "history_db", None), cfg)
-                 if getattr(request.app.state, "history_db", None) else {"est_gpu_hours": 0.0}),
+        "cost": (
+            finops_cost_report(getattr(request.app.state, "history_db", None), cfg)
+            if getattr(request.app.state, "history_db", None)
+            else {"est_gpu_hours": 0.0}
+        ),
     }
     return budget_check(cfg, metrics)

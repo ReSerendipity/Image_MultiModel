@@ -437,10 +437,12 @@ __all__ = [
     "model_size_from_dit_model",
 ]
 
+
 # ── Image output size validation ──
 def validate_output_size(width: int, height: int) -> tuple[int, int]:
     """Validate and sanitize output dimensions. Width aligned to 16, height capped at 4096."""
     from math import ceil
+
     MAX_DIM = 4096
     ALIGNMENT = 16
     w = int(width)

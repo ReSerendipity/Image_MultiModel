@@ -35,7 +35,10 @@ async def list_outputs(
     # P1-1：同步 sqlite 查询下沉线程池，避免阻塞事件循环
     outputs, total = await asyncio.to_thread(
         history_db.list_outputs,
-        output_type=type, favorite=fav, page=page, page_size=page_size,
+        output_type=type,
+        favorite=fav,
+        page=page,
+        page_size=page_size,
     )
     return {
         "outputs": outputs,

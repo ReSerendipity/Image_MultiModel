@@ -175,3 +175,9 @@ data/config_audit.log
 
 # --- auto-tidy: 运行时产物自动补齐 (auto) ---
 .benchmarks/
+
+desktop/src-tauri/tauri.key
+
+# 发布构建产物（增量包/分卷）
+release/packages/
+desktop/src-tauri/target/

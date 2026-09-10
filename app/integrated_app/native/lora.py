@@ -109,6 +109,7 @@ def apply_lora_stack(
     # 及时告警，避免「以为开了校验其实没生效」的虚假安全感（报告 §3.2 / §4.11）。
     try:
         from ..config import get_config
+
         _mfmt = get_config().security.model_format
         if _mfmt.verify_weights and not _mfmt.weight_manifest_file:
             logger.warning(
@@ -142,10 +143,7 @@ def apply_lora_stack(
                 # 行为一致），registered=False 表示未登记，走 allow_unregistered_weights 策略
                 expected_sha256, registered = resolve_expected_sha256(path, cfg)
                 if not registered and not mfmt.allow_unregistered_weights:
-                    msg = (
-                        f"LoRA '{name}' 未在完整性清单登记，"
-                        f"且 allow_unregistered_weights=false: {path}"
-                    )
+                    msg = f"LoRA '{name}' 未在完整性清单登记，" f"且 allow_unregistered_weights=false: {path}"
                     if mfmt.fail_closed_on_corrupt_weight:
                         raise WeightIntegrityError(msg)
                     logger.warning("%s，跳过该层", msg)
@@ -167,9 +165,7 @@ def apply_lora_stack(
                 logger.warning("LoRA 校验异常（已放行）: %s", e)
         try:
             lora_sd = comfy.utils.load_torch_file(path)
-            model, clip = comfy.sd.load_lora_for_models(
-                model, clip, lora_sd, strength, strength
-            )
+            model, clip = comfy.sd.load_lora_for_models(model, clip, lora_sd, strength, strength)
             applied += 1
             logger.info("Applied LoRA '%s' (strength=%.3f)", name, strength)
         except Exception as e:  # noqa: BLE001 - 静默跳过不阻断主推理

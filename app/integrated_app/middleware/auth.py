@@ -157,14 +157,16 @@ class AuthMiddleware(BaseHTTPMiddleware):
     SSE 事件流（/api/events）**不豁免**，因为它是真实数据通道。
     """
 
-    EXEMPT_PATHS = frozenset({
-        "/",
-        "/api/health",
-        "/docs",
-        "/redoc",
-        "/openapi.json",
-        "/favicon.ico",
-    })
+    EXEMPT_PATHS = frozenset(
+        {
+            "/",
+            "/api/health",
+            "/docs",
+            "/redoc",
+            "/openapi.json",
+            "/favicon.ico",
+        }
+    )
     EXEMPT_PREFIXES = ("/static/", "/docs", "/redoc")
 
     def __init__(self, app, config: Any = None) -> None:
@@ -234,13 +236,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 try:
                     decoded = base64.b64decode(auth_header[6:].strip()).decode("utf-8")
                     user, _, pwd = decoded.partition(":")
-                    username_ok = secrets.compare_digest(
-                        user, str(getattr(basic, "username", "") or "")
-                    )
+                    username_ok = secrets.compare_digest(user, str(getattr(basic, "username", "") or ""))
                     if username_ok:
-                        password_ok = verify_password(
-                            pwd, str(getattr(basic, "password_bcrypt_hash", "") or "")
-                        )
+                        password_ok = verify_password(pwd, str(getattr(basic, "password_bcrypt_hash", "") or ""))
                 except (ValueError, binascii.Error, UnicodeDecodeError):
                     username_ok = password_ok = False
             if username_ok and password_ok:

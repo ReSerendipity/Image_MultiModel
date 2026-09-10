@@ -55,6 +55,7 @@ class MiDaSDepthEstimator:
         try:
             import torch  # noqa: F401
             import torchvision  # noqa: F401
+
             return True
         except ImportError:
             return False

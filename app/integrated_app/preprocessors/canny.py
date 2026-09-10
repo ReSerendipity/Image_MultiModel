@@ -53,6 +53,7 @@ class CannyPreprocessor:
         """
         try:
             import cv2  # noqa: F401
+
             return True
         except ImportError:
             return False

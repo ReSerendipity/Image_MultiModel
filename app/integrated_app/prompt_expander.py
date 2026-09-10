@@ -18,30 +18,12 @@ from typing import Any
 
 # ── 风格模板库 ──────────────────────────────────────────────────
 STYLE_TEMPLATES: dict[str, str] = {
-    "cinematic": (
-        "cinematic lighting, dramatic shadows, movie still, "
-        "highly detailed, 8k resolution, film grain"
-    ),
-    "anime": (
-        "anime style, cel shaded, vibrant colors, "
-        "studio Ghibli inspired, soft lighting"
-    ),
-    "photorealistic": (
-        "photorealistic, ultra detailed, 8k, RAW photo, "
-        "professional photography, depth of field"
-    ),
-    "oil_painting": (
-        "oil painting, textured brushstrokes, impasto, "
-        "classical art, rich colors, canvas texture"
-    ),
-    "digital_art": (
-        "digital art, concept art, trending on artstation, "
-        "highly detailed, sharp focus, vibrant"
-    ),
-    "fantasy": (
-        "fantasy art, ethereal, magical atmosphere, "
-        "intricate details, mystical lighting, epic"
-    ),
+    "cinematic": ("cinematic lighting, dramatic shadows, movie still, " "highly detailed, 8k resolution, film grain"),
+    "anime": ("anime style, cel shaded, vibrant colors, " "studio Ghibli inspired, soft lighting"),
+    "photorealistic": ("photorealistic, ultra detailed, 8k, RAW photo, " "professional photography, depth of field"),
+    "oil_painting": ("oil painting, textured brushstrokes, impasto, " "classical art, rich colors, canvas texture"),
+    "digital_art": ("digital art, concept art, trending on artstation, " "highly detailed, sharp focus, vibrant"),
+    "fantasy": ("fantasy art, ethereal, magical atmosphere, " "intricate details, mystical lighting, epic"),
 }
 
 # ── 质量增强词 ──────────────────────────────────────────────────
@@ -70,26 +52,19 @@ NEGATIVE_DEFAULTS: list[str] = [
 SCENE_SUGGESTIONS: dict[str, dict[str, str]] = {
     "portrait": {
         "positive": (
-            "a beautiful portrait of {subject}, "
-            "detailed face, expressive eyes, "
-            "soft lighting, bokeh background"
+            "a beautiful portrait of {subject}, " "detailed face, expressive eyes, " "soft lighting, bokeh background"
         ),
         "style": "photorealistic",
         "negative": "cartoon, anime, drawing, sketch",
     },
     "landscape": {
-        "positive": (
-            "a stunning landscape of {subject}, "
-            "scenic view, golden hour, majestic"
-        ),
+        "positive": ("a stunning landscape of {subject}, " "scenic view, golden hour, majestic"),
         "style": "cinematic",
         "negative": "urban, buildings, people, cars",
     },
     "still_life": {
         "positive": (
-            "a still life of {subject}, "
-            "carefully arranged, soft natural light, "
-            "rich textures, detailed"
+            "a still life of {subject}, " "carefully arranged, soft natural light, " "rich textures, detailed"
         ),
         "style": "oil_painting",
         "negative": "people, animals, motion, blur",
@@ -179,6 +154,7 @@ class PromptExpander:
         Returns:
             统一格式后的提示词。
         """
+
         def replace_weight(match: re.Match[str]) -> str:
             keyword = match.group(1).strip()
             weight = float(match.group(2))
@@ -186,7 +162,7 @@ class PromptExpander:
 
         # 匹配 (keyword:weight) 但不匹配 (( keyword ):weight)
         # 负向断言确保前面不是 (
-        return re.sub(r'(?<!\()\(([^()]+):([\d.]+)\)', replace_weight, prompt)
+        return re.sub(r"(?<!\()\(([^()]+):([\d.]+)\)", replace_weight, prompt)
 
     def generate_negative_prompt(self, user_negative: str = "") -> str:
         """生成负面提示词。
@@ -243,10 +219,7 @@ class PromptExpander:
         Returns:
             风格列表，每项含 name 和 description。
         """
-        return [
-            {"name": name, "description": desc}
-            for name, desc in self.style_templates.items()
-        ]
+        return [{"name": name, "description": desc} for name, desc in self.style_templates.items()]
 
     def list_scenes(self) -> list[str]:
         """列出所有可用场景关键词。

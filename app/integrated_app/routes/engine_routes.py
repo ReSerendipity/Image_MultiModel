@@ -101,6 +101,7 @@ async def switch_engine_with_rollback(
 
 class EngineLoadRequest(BaseModel):
     """POST /api/engine/load 请求体"""
+
     engine_name: str
 
 
@@ -120,20 +121,22 @@ async def list_engines(request: Request) -> dict[str, Any]:
     engines = []
     for eng_name, eng_cfg in cfg.models.engines.items():
         state = model_mgr.get_state(eng_name).value
-        engines.append({
-            "name": eng_name,
-            "display_name": eng_cfg.display_name,
-            "display_name_en": eng_cfg.display_name_en,
-            "backend": eng_cfg.backend,
-            "ready": state == "loaded",
-            "state": state,
-            "active": eng_name == registry.active_engine_name,
-            "vram_gb": eng_cfg.vram_gb,
-            "ram_gb": eng_cfg.ram_gb,
-            "default_precision": eng_cfg.default_precision,
-            "supported_features": eng_cfg.supported_features,
-            "tags": eng_cfg.tags,
-        })
+        engines.append(
+            {
+                "name": eng_name,
+                "display_name": eng_cfg.display_name,
+                "display_name_en": eng_cfg.display_name_en,
+                "backend": eng_cfg.backend,
+                "ready": state == "loaded",
+                "state": state,
+                "active": eng_name == registry.active_engine_name,
+                "vram_gb": eng_cfg.vram_gb,
+                "ram_gb": eng_cfg.ram_gb,
+                "default_precision": eng_cfg.default_precision,
+                "supported_features": eng_cfg.supported_features,
+                "tags": eng_cfg.tags,
+            }
+        )
 
     return {
         "engines": engines,
@@ -170,6 +173,7 @@ async def load_engine(req: EngineLoadRequest, request: Request) -> dict[str, Any
                     "custom_nodes_dir": eng_cfg.custom_nodes_dir,
                 },
             )
+
         registry.register(engine_name, native_factory)
 
     # 注册 SSE 观察者（如果未注册）
@@ -178,13 +182,17 @@ async def load_engine(req: EngineLoadRequest, request: Request) -> dict[str, Any
 
         def on_model_status(eng: str, state: ModelState, extra: dict):
             asyncio.run_coroutine_threadsafe(
-                sse_bus.publish("model_status", {
-                    "engine": eng,
-                    "state": state.value,
-                    **extra,
-                }),
+                sse_bus.publish(
+                    "model_status",
+                    {
+                        "engine": eng,
+                        "state": state.value,
+                        **extra,
+                    },
+                ),
                 main_loop,
             )
+
         model_mgr.register_observer(on_model_status)
 
     engine = registry.get(engine_name)

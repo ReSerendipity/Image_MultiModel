@@ -78,7 +78,10 @@ class AlertEngine:
     def _default_notifier(alert: Alert) -> None:
         logger.warning(
             "[ALERT][%s] %s — %s (runbook: %s)",
-            alert.severity.upper(), alert.name, alert.message, alert.runbook,
+            alert.severity.upper(),
+            alert.name,
+            alert.message,
+            alert.runbook,
         )
 
     def set_notifier(self, notifier: Callable[[Alert], None]) -> None:
@@ -114,8 +117,7 @@ class AlertEngine:
                 "for_s": 300.0,
                 "check": lambda s: float(s.get("queue_fill_ratio", 0.0)) >= 0.85,
                 "message": lambda s: (
-                    f"队列填充率 {float(s.get('queue_fill_ratio', 0.0)) * 100:.0f}% "
-                    f">= 85%（持续 5min）"
+                    f"队列填充率 {float(s.get('queue_fill_ratio', 0.0)) * 100:.0f}% " f">= 85%（持续 5min）"
                 ),
                 "value": lambda s: float(s.get("queue_fill_ratio", 0.0)),
             },
@@ -124,27 +126,17 @@ class AlertEngine:
                 "severity": "critical",
                 "runbook": _RUNBOOK["gpu_oom"],
                 "for_s": 120.0,
-                "check": lambda s: (
-                    s.get("gpu_free_pct") is not None
-                    and float(s["gpu_free_pct"]) < 15.0
-                ),
-                "message": lambda s: (
-                    f"GPU 可用显存 {float(s.get('gpu_free_pct', 0.0)):.1f}% < 15%（持续 2min）"
-                ),
+                "check": lambda s: (s.get("gpu_free_pct") is not None and float(s["gpu_free_pct"]) < 15.0),
+                "message": lambda s: (f"GPU 可用显存 {float(s.get('gpu_free_pct', 0.0)):.1f}% < 15%（持续 2min）"),
                 "value": lambda s: float(s.get("gpu_free_pct", 0.0)),
             },
             {
                 "name": "DiskSpaceLow",
                 "severity": "critical",
                 "runbook": _RUNBOOK["disk_full"],
-                "check": lambda s: (
-                    s.get("disk_free_pct") is not None
-                    and float(s["disk_free_pct"]) < 15.0
-                ),
+                "check": lambda s: (s.get("disk_free_pct") is not None and float(s["disk_free_pct"]) < 15.0),
                 "for_s": 0.0,
-                "message": lambda s: (
-                    f"磁盘可用空间 {float(s.get('disk_free_pct', 0.0)):.1f}% < 15%"
-                ),
+                "message": lambda s: (f"磁盘可用空间 {float(s.get('disk_free_pct', 0.0)):.1f}% < 15%"),
                 "value": lambda s: float(s.get("disk_free_pct", 0.0)),
             },
         ]

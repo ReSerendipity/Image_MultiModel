@@ -38,8 +38,11 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             if not token:
                 token = secrets.token_hex(16)
             response.set_cookie(
-                self.cookie_name, token,
-                httponly=True, samesite="lax", max_age=3600,
+                self.cookie_name,
+                token,
+                httponly=True,
+                samesite="lax",
+                max_age=3600,
             )
             response.headers[self.TOKEN_HEADER] = token
             return response

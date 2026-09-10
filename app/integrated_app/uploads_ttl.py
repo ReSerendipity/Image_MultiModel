@@ -58,7 +58,9 @@ def cleanup_expired_uploads(
     if deleted:
         logger.info(
             "Uploads TTL cleanup: removed %d file(s), freed %.1f KB (ttl_s=%d)",
-            deleted, freed / 1024, ttl_s,
+            deleted,
+            freed / 1024,
+            ttl_s,
         )
     return (deleted, freed)
 

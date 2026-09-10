@@ -51,10 +51,7 @@ def _refresh_resource_gauges(request: Request) -> None:
         try:
             size = task_queue.queue_size
             m.queue_depth.set(float(size))
-            processing = sum(
-                1 for t in task_queue.list_tasks()
-                if t.status == TaskStatus.PROCESSING
-            )
+            processing = sum(1 for t in task_queue.list_tasks() if t.status == TaskStatus.PROCESSING)
             m.queue_processing.set(float(processing))
             now = time.time()
             oldest = None
