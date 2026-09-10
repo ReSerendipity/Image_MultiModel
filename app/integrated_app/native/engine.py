@@ -210,9 +210,7 @@ class NativeEngine:
         ):
             fut = loop.run_in_executor(
                 None,
-                lambda: executor.txt2img(
-                    config, self._model_paths, on_progress=on_progress, cancel_flag=cancel_flag
-                ),
+                lambda: executor.txt2img(config, self._model_paths, on_progress=on_progress, cancel_flag=cancel_flag),
             )
 
             # 注册取消：内部标志置位 + 取消 future
@@ -266,6 +264,7 @@ class NativeEngine:
 
         wm_enabled = cfg.watermark.enabled_in_code
         product_id = cfg.watermark.product_id
+        watermark_failure_mode = cfg.watermark.failure_mode
         thumb_enabled = cfg.output.save_thumbnail
         thumb_max_side = cfg.output.thumbnail_max_side
         image_format = cfg.output.image_format
@@ -301,6 +300,7 @@ class NativeEngine:
                 thumb_format=thumb_format,
                 thumb_quality=thumb_quality,
                 metadata=metadata,
+                watermark_failure_mode=watermark_failure_mode,
             )
 
             # 存相对路径（相对 outputs/ 目录），供前端 /api/outputs/<rel> 直接访问

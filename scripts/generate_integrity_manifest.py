@@ -109,7 +109,10 @@ def main() -> None:
     }
 
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(manifest_path, "w", encoding="utf-8") as f:
+    # newline="\n"：强制 LF 输出（Windows 文本模式默认 \n→\r\n，会使本地
+    # 生成的 manifest 为 CRLF，而 git 入库规范化为 LF → CI/远端验签内容
+    # 与本地签名内容不一致，Ed25519 签名必然失败。任务书 P0 实测。
+    with open(manifest_path, "w", encoding="utf-8", newline="\n") as f:
         json.dump(manifest, f, indent=2, ensure_ascii=False)
         f.write("\n")
 

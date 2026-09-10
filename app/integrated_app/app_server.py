@@ -214,9 +214,12 @@ async def lifespan(app: FastAPI):
     configure_tracing()
 
     # P1-1: 核心模块完整性自检（来源：Seedvr2）
+    # P0（任务书 2026-09-10）：enforce 接线——验签/哈希失败拒绝启动（fail-closed）。
+    # enforce 开启的前提是签名密钥分发定案（CI Secret 注入 + 公钥入库），
+    # 详见 docs/agents/SOPS.md SOP-19 与本仓 security/secret_key.py。
     from .security.integrity_selfcheck import run_startup_selfcheck
 
-    selfcheck_result = run_startup_selfcheck()
+    selfcheck_result = run_startup_selfcheck(enforce=config.security.integrity_selfcheck.enforce)
     app.state.integrity_selfcheck = selfcheck_result
     # 安全评估 H-04：skipped > 0 表示有核心模块未被 manifest 覆盖。
     # 此前这些模块被静默计入 skipped 且仍打印"自检通过"，属误导性日志，

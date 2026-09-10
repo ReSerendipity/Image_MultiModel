@@ -154,9 +154,7 @@ def validate_weight_file(
         if warn_if_pickle_found is None:
             warn_if_pickle_found = _cfg_warn_if_pickle_found()
         if warn_if_pickle_found:
-            logger.warning(
-                "[WEIGHT-INTEGRITY] 检测到 pickle 载荷（CWE-502 反序列化风险）: %s", p
-            )
+            logger.warning("[WEIGHT-INTEGRITY] 检测到 pickle 载荷（CWE-502 反序列化风险）: %s", p)
         return result
 
     if is_safetensors_ext:

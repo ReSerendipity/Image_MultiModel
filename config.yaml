@@ -129,6 +129,7 @@ watermark:
   embed_timestamp: true
   embed_task_id: true
   strength: 0.008
+  failure_mode: sidecar
 runtime:
   task_queue:
     maxsize: 100
@@ -197,6 +198,7 @@ security:
   integrity_selfcheck:
     enabled: true
     manifest_file: app/integrated_app/security/integrity_manifest.json
+    enforce: true
   content_filter:
     fail_closed_on_clip_missing: true
   headers:

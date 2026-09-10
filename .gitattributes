@@ -41,3 +41,6 @@
 *.mp4  binary
 *.db   binary
 *.sqlite binary
+
+# 公钥 PEM 强制 LF：防止 Windows checkout 转 CRLF 导致公钥一致性闸门误报（任务书 P0）
+*.pem  text eol=lf
