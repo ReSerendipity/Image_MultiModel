@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## \[Unreleased]
 
+### Added
+
+- **桌面化分发（P1-3）**：Tauri v2 壳（`desktop/src-tauri`：单实例/托盘/崩溃自启/窗口状态记忆/隐藏控制台/增量更新器）；NSIS 安装器（`desktop/installer/setup.nsi`：分卷解压/运行中进程自动终止/卸载清理）；分层定案（`docs/桌面分发分层定案-20260910.md`）；增量应用包打包（`scripts/package_app.py`）；Release 分卷切片（`scripts/split_release_volumes.py`，900MB/卷 + SHA256SUMS 全覆）；版本单一来源闸门（`scripts/check_config_refs.py` 扩展，config.yaml 权威位一致性校验）。
+- **发布质量（P2）**：安装环境诊断（`scripts/diag_portable_verify.py`：cryptography→清单→验签→自检→enforce 五环节）；发布门禁五步（`scripts/release_gate.py`：构建→静态→测试→签名→发布物）；闭源编译评估（`docs/闭源编译评估-Cython-pyd-20260910.md`，含公开声明）。
+- **服务端支撑**：`app_server.run()` 支持 `--host/--port`（桌面壳传入空闲端口）。
+
+### Security
+
+- **桌面端完整性**：壳健康检查解析 `/api/system/health` 的 `security.integrity`（含 manifest_signed），完整性失败在托盘展示篡改告警。
+- **更新签名**：独立生成 Tauri 更新签名密钥对（私钥 `desktop/src-tauri/tauri.key` gitignore + 离线备份，公钥入库并写入 `tauri.conf.json` pubkey）。
 ### Fixed
 
 - **修复 xdist 跨 worker 的 `database is locked` 竞态**：conftest 会话级 HistoryDB 隔离此前只重定向顶层 `integrated_app.config` 单例，而 `create_app()` 经 `app.integrated_app.*` 相对导入使用**另一份配置单例**（两身份为独立模块对象），重定向失效导致多 worker 并发初始化真实 `data/history.db` 时加锁失败；现同时重定向两份单例（CI 33957856101 复现，FIX_LOG #1）
