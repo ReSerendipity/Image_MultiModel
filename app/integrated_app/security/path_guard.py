@@ -22,16 +22,14 @@ def _normalize_platform_path(decoded: str, platform_name: str) -> str:
        仍可正常通过白名单检查）。
     """
     decoded = decoded.replace("\\", "/")
-    if (
-        len(decoded) >= 2
-        and decoded[0].isalpha()
-        and decoded[1] == ":"
-        and platform_name != "nt"
-    ):
+    if len(decoded) >= 2 and decoded[0].isalpha() and decoded[1] == ":" and platform_name != "nt":
         decoded = "/" + decoded
     return decoded
+
+
 class PathGuardError(PermissionError):
     """路径穿越安全异常"""
+
     pass
 
 
@@ -102,9 +100,7 @@ class PathGuard:
         try:
             resolved = p.resolve()
         except (OSError, RuntimeError) as e:
-            raise PathGuardError(
-                f"Path '{user_path}' could not be resolved safely: {e}"
-            ) from e
+            raise PathGuardError(f"Path '{user_path}' could not be resolved safely: {e}") from e
 
         # 检查是否在白名单目录内
         if base_dir:
@@ -113,16 +109,12 @@ class PathGuard:
                 bp = self.project_root / bp
             bp = bp.resolve()
             if not self._is_within(resolved, bp):
-                raise PathGuardError(
-                    f"Path '{user_path}' is outside allowed base dir '{base_dir}'"
-                )
+                raise PathGuardError(f"Path '{user_path}' is outside allowed base dir '{base_dir}'")
         else:
             # 检查所有白名单目录
             allowed = any(self._is_within(resolved, base) for base in self.allowed_bases)
             if not allowed:
-                raise PathGuardError(
-                    f"Path '{user_path}' is outside all allowed base dirs"
-                )
+                raise PathGuardError(f"Path '{user_path}' is outside all allowed base dirs")
 
         return resolved
 

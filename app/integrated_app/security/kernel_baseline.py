@@ -139,13 +139,15 @@ def verify_kernel_baseline(
 
     extra = len([p for p in _iter_source_files(root) if str(p.relative_to(root)) not in present])
 
-    ok = (mismatched == 0 and missing == 0)
+    ok = mismatched == 0 and missing == 0
     if not ok:
         # fail-open：仅告警，不抛异常、不阻断加载
         logger.warning(
             "[KERNEL-BASELINE] vendored 内核与基线不符（mismatched=%d missing=%d extra=%d），"
             "请确认是否来自预期的上游更新。",
-            mismatched, missing, extra,
+            mismatched,
+            missing,
+            extra,
         )
     else:
         logger.info("[KERNEL-BASELINE] 内核基线校验通过（%d 文件）", len(expected))

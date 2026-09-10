@@ -37,9 +37,7 @@ class ServerConfig(BaseModel):
         """安全强制：host 只读校验，不允许改成 0.0.0.0"""
         allowed = {"127.0.0.1", "localhost", "::1"}
         if v not in allowed:
-            raise ValueError(
-                f"host must be loopback (127.0.0.1 / localhost / ::1), got: {v}"
-            )
+            raise ValueError(f"host must be loopback (127.0.0.1 / localhost / ::1), got: {v}")
         return v
 
 
@@ -77,6 +75,7 @@ class PortableConfig(BaseModel):
 
 class ModelPaths(BaseModel):
     """单个模型文件的路径声明（如 text_encoder / unet / vae）"""
+
     sub_dir: str = ""
     sub_path: str = ""
 
@@ -88,6 +87,7 @@ class EngineConfig(BaseModel):
     通过 comfy_source_dir / custom_nodes_dir 指向复用源码位置。
     backend == "diffusers" 时，使用 HuggingFace diffusers 管线（M8 新引擎）。
     """
+
     name: str
     display_name: str = ""
     display_name_en: str = ""
@@ -102,8 +102,8 @@ class EngineConfig(BaseModel):
     unet: ModelPaths | None = None
     vae: ModelPaths | None = None
     # ── diffusers 引擎字段（backend == "diffusers" 时使用）──
-    model_id: str = ""              # HF model ID (e.g. "Tongyi-MAI/Z-Image-Turbo")
-    local_model_dir: str = ""       # 本地目录名（相对于 internal_models_dir 或 comfy_models_dir）
+    model_id: str = ""  # HF model ID (e.g. "Tongyi-MAI/Z-Image-Turbo")
+    local_model_dir: str = ""  # 本地目录名（相对于 internal_models_dir 或 comfy_models_dir）
     vram_gb: float = 16.0
     ram_gb: float = 24.0
     default_precision: str = "fp8"
@@ -118,9 +118,9 @@ class EngineConfig(BaseModel):
     license: str = ""
     tags: list[str] = Field(default_factory=list)
     # ── MLOps P2·治理：权重级 Model Card 元数据（消除反模式 #3）──
-    weight_sha256: str = ""           # 主权重 SHA256（防供应链投毒 / 静默损坏）
-    weight_version: str = ""          # 权重版本号（语义化，便于回滚与血缘）
-    training_data_source: str = ""    # 训练数据来源（数据血缘溯源）
+    weight_sha256: str = ""  # 主权重 SHA256（防供应链投毒 / 静默损坏）
+    weight_version: str = ""  # 权重版本号（语义化，便于回滚与血缘）
+    training_data_source: str = ""  # 训练数据来源（数据血缘溯源）
     compatibility_matrix: dict[str, list[str]] = Field(default_factory=dict)  # LoRA / ControlNet 兼容性矩阵
 
 
@@ -130,11 +130,12 @@ class DiffusersEngineConfig(BaseModel):
     对应 config.yaml → models.engines.{name} where backend == "diffusers"
     用于 ZImagePipeline.from_pretrained(local_dir) 加载完整模型目录。
     """
+
     name: str
     display_name: str = ""
     display_name_en: str = ""
-    model_id: str = ""              # HF model ID (fallback if local_model_dir not found)
-    local_model_dir: str = ""       # 本地目录名（相对于 internal_models_dir 或 comfy_models_dir）
+    model_id: str = ""  # HF model ID (fallback if local_model_dir not found)
+    local_model_dir: str = ""  # 本地目录名（相对于 internal_models_dir 或 comfy_models_dir）
     vram_gb: float = 10.0
     ram_gb: float = 16.0
     default_precision: str = "bf16"
@@ -149,6 +150,7 @@ class DiffusersEngineConfig(BaseModel):
 
 class ModelsConfig(BaseModel):
     """模型源双模式配置"""
+
     model_source_mode: str = "shared"  # "shared" | "portable"
     default_engine: str = "z_image_turbo_native"
     shared: SharedConfig = SharedConfig()
@@ -214,10 +216,10 @@ class OutputConfig(BaseModel):
     naming_template: str = "{engine}_{date}_{taskid}_{seed}_{idx}"
     organize_by: str = "engine_date"
     # P0 输出压缩：图像格式与质量（webp 可显著降低存储与带宽成本）
-    image_format: str = "png"          # png | webp | jpeg
-    image_quality: int = 95            # 仅对 webp/jpeg 生效
+    image_format: str = "png"  # png | webp | jpeg
+    image_quality: int = 95  # 仅对 webp/jpeg 生效
     save_thumbnail: bool = True
-    thumbnail_format: str = "png"      # png | webp
+    thumbnail_format: str = "png"  # png | webp
     thumbnail_quality: int = 90
     thumbnail_max_side: int = 512
     history: HistoryOutputConfig = HistoryOutputConfig()
@@ -239,6 +241,12 @@ class WatermarkConfig(BaseModel):
     embed_timestamp: bool = True
     embed_task_id: bool = True
     strength: float = 0.008
+    # P0（任务书 2026-09-10）：水印失败策略（报告2 §六合规落地）。
+    # 原实现 fail-open（失败静默跳过）构成合规缺口；策略化后为：
+    #   重试 1 次 → 写 .provenance.json 侧车元数据（默认 sidecar）→ 阻断产出（block）。
+    # sidecar: 嵌入失败后以侧车 JSON 保留溯源信息（默认，不阻断用户产出）；
+    # block:   嵌入失败直接阻断产出（合规强约束场景）。
+    failure_mode: str = "sidecar"
 
 
 # ──────────────────────────────────────────────────────────────
@@ -271,6 +279,7 @@ class SSEConfig(BaseModel):
 
 class VRamSchedulerConfig(BaseModel):
     """P2-1: ComfyUI VRAM 感知调度配置"""
+
     enabled: bool = False
     vram_high_watermark_pct: int = 90
     vram_low_watermark_pct: int = 70
@@ -342,15 +351,21 @@ class ModelFormatConfig(BaseModel):
 class IntegritySelfcheckConfig(BaseModel):
     enabled: bool = True
     manifest_file: str = "app/integrated_app/security/integrity_manifest.json"
+    # P0（任务书 2026-09-10）：验签/哈希失败拒绝启动（fail-closed）。
+    # 发布配置 enforce: true；开发/CI 环境保持默认 false（验签失败仅告警），
+    # 避免无签名环境（未执行 sign_integrity_manifest.py）锁死启动。
+    enforce: bool = False
 
 
 class CSRFConfig(BaseModel):
     """CSRF (Double-Submit Cookie) 防护开关"""
+
     enabled: bool = True
 
 
 class ContentFilterConfig(BaseModel):
     """内容过滤（CLIP 安全检测）配置"""
+
     fail_closed_on_clip_missing: bool = True
 
 
@@ -361,20 +376,17 @@ class SecurityHeadersConfig(BaseModel):
         enabled: 是否下发安全响应头（默认开启）。
         csp: 自定义 CSP 策略串；为空时使用中间件内置默认策略。
     """
+
     enabled: bool = True
     csp: str = ""
 
 
 class SecurityConfig(BaseModel):
-    allowed_base_dirs: list[str] = Field(
-        default_factory=lambda: ["outputs/", "data/", "workflows/", "model/"]
-    )
+    allowed_base_dirs: list[str] = Field(default_factory=lambda: ["outputs/", "data/", "workflows/", "model/"])
     # 只读图片接口（/api/safety/check-image 等）专用白名单。
     # 与 allowed_base_dirs 分离，避免通过图片检查接口读取 model/ 下的权重文件
     # （对应安全评估 M-07）。留空时回退到 allowed_base_dirs。
-    image_read_base_dirs: list[str] = Field(
-        default_factory=lambda: ["outputs/", "data/"]
-    )
+    image_read_base_dirs: list[str] = Field(default_factory=lambda: ["outputs/", "data/"])
     rate_limit: RateLimitConfig = RateLimitConfig()
     basic_auth: BasicAuthConfig = BasicAuthConfig()
     api_token: APITokenConfig = APITokenConfig()
@@ -423,9 +435,7 @@ class UIConfig(BaseModel):
 
 class I18nConfig(BaseModel):
     default_locale: str = "zh"
-    available_locales: list[str] = Field(
-        default_factory=lambda: ["zh", "en", "ja", "ko"]
-    )
+    available_locales: list[str] = Field(default_factory=lambda: ["zh", "en", "ja", "ko"])
     locale_dir: str = "app/integrated_app/locales"
     fallback_to_en: bool = True
 
@@ -487,8 +497,8 @@ class FinOpsConfig(BaseModel):
     """
 
     budget_gpu_hours_per_day: float = 0.0  # 单 GPU 日均 GPU·小时预算
-    storage_gb_budget: float = 0.0         # 输出目录体积预算（GB）
-    alert_level: str = "warning"           # warning | error
+    storage_gb_budget: float = 0.0  # 输出目录体积预算（GB）
+    alert_level: str = "warning"  # warning | error
 
 
 # ──────────────────────────────────────────────────────────────
@@ -496,6 +506,7 @@ class FinOpsConfig(BaseModel):
 # ──────────────────────────────────────────────────────────────
 class AppConfig(BaseModel):
     """整个 config.yaml 的 Pydantic 映射"""
+
     version: str = "1.0.0"
     server: ServerConfig = ServerConfig()
     models: ModelsConfig = ModelsConfig()

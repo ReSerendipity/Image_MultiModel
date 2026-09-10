@@ -110,6 +110,11 @@ docker-compose.override.yml
 # 水印签名密钥（仅本机，严禁入库/随包分发）
 .watermark_key
 
+# 清单签名密钥（任务书 P0：签发机私钥，严禁入库/随包分发；公钥 manifest_signing_public_key.pem 随仓库入库）
+data/.manifest_signing_key
+data/.imm_secret
+data/watermark_audit.log
+
 # ── Hypothesis property-based testing ───────────────────────
 .hypothesis/
 

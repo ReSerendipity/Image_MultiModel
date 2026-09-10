@@ -45,13 +45,33 @@ class SafetyResult:
 
 # ── 不安全关键词列表 ────────────────────────────────────────────
 _UNSAFE_KEYWORDS: list[str] = [
-    "naked", "nude", "sexy", "pornographic", "nsfw",
-    "violent", "gore", "bloodbath", "massacre",
-    "hate", "racist", "kill", "murder", "assassinate",
-    "death", "suicide", "self-harm", "selfharm",
-    "weapon", "bomb", "explosive", "terrorist",
-    "drug", "cocaine", "heroin",
-    "child abuse", "underage",
+    "naked",
+    "nude",
+    "sexy",
+    "pornographic",
+    "nsfw",
+    "violent",
+    "gore",
+    "bloodbath",
+    "massacre",
+    "hate",
+    "racist",
+    "kill",
+    "murder",
+    "assassinate",
+    "death",
+    "suicide",
+    "self-harm",
+    "selfharm",
+    "weapon",
+    "bomb",
+    "explosive",
+    "terrorist",
+    "drug",
+    "cocaine",
+    "heroin",
+    "child abuse",
+    "underage",
 ]
 
 # CLIP 文本提示（英文，CLIP 原生支持英文最佳）
@@ -70,15 +90,43 @@ _CLIP_THRESHOLD = 0.7
 # ── 提示词绕过对抗（H-03 修复：纯关键词 .lower() 可被轻易绕过）─────────────
 # 1) 同形字（Cyrillic / 数学单体等）映射到 ASCII
 _HOMOGLYPH_MAP: dict[str, str] = {
-    "а": "a", "е": "e", "о": "o", "с": "c", "і": "i", "ѕ": "s", "у": "y",
-    "х": "x", "р": "p", "қ": "k", "п": "n", "ԛ": "q", "ԝ": "w", "һ": "h",
-    "𝚊": "a", "𝚎": "e", "𝚘": "o", "𝚌": "c", "𝚒": "i", "𝚜": "s", "𝚝": "t",
-    "𝚞": "u", "𝚔": "k", "ⅰ": "i",
+    "а": "a",
+    "е": "e",
+    "о": "o",
+    "с": "c",
+    "і": "i",
+    "ѕ": "s",
+    "у": "y",
+    "х": "x",
+    "р": "p",
+    "қ": "k",
+    "п": "n",
+    "ԛ": "q",
+    "ԝ": "w",
+    "һ": "h",
+    "𝚊": "a",
+    "𝚎": "e",
+    "𝚘": "o",
+    "𝚌": "c",
+    "𝚒": "i",
+    "𝚜": "s",
+    "𝚝": "t",
+    "𝚞": "u",
+    "𝚔": "k",
+    "ⅰ": "i",
 }
 # 2) 莱特字符（leetspeak）映射
 _LEET_MAP: dict[str, str] = {
-    "4": "a", "1": "i", "3": "e", "0": "o", "5": "s", "7": "t",
-    "@": "a", "$": "s", "!": "i", "8": "b",
+    "4": "a",
+    "1": "i",
+    "3": "e",
+    "0": "o",
+    "5": "s",
+    "7": "t",
+    "@": "a",
+    "$": "s",
+    "!": "i",
+    "8": "b",
 }
 # 3) 用于"压缩匹配"的分隔符（含零宽字符），移除后检测 n a k e d 这类插入式绕过
 _SEP_CHARS = set(" \u00a0\t\n\r\u200b\u200c\u200d\u2060\ufeff._/\\|-")
@@ -183,9 +231,7 @@ class ContentSafetyFilter:
             from PIL import Image  # noqa: F401 — 确认 Pillow 可用
 
             self._device = "cuda" if torch.cuda.is_available() else "cpu"
-            self._model, self._preprocess = clip_lib.load(
-                self._model_name, device=self._device
-            )
+            self._model, self._preprocess = clip_lib.load(self._model_name, device=self._device)
             self._loaded = True
             logger.info(f"CLIP 模型加载成功: {self._model_name} @ {self._device}")
             return True
@@ -228,12 +274,15 @@ class ContentSafetyFilter:
         # 仅缓存确定性结果：CLIP 缺失 / 检查失败等降级结果不缓存，
         # 否则环境修复后仍会长期返回降级结论。
         if result.violation_type not in ("clip_unavailable", "check_error"):
-            get_cache("safety").put(key, {
-                "is_safe": result.is_safe,
-                "violation_type": result.violation_type,
-                "confidence": result.confidence,
-                "details": result.details,
-            })
+            get_cache("safety").put(
+                key,
+                {
+                    "is_safe": result.is_safe,
+                    "violation_type": result.violation_type,
+                    "confidence": result.confidence,
+                    "details": result.details,
+                },
+            )
         return result
 
     def _cache_key(self, image_path: str | Path) -> str | None:
@@ -241,10 +290,7 @@ class ContentSafetyFilter:
         try:
             p = Path(image_path)
             st = p.stat()
-            return (
-                f"{p.resolve()}|{st.st_size}|{st.st_mtime}"
-                f"|{_CLIP_THRESHOLD}|{self._fail_closed_on_clip_missing}"
-            )
+            return f"{p.resolve()}|{st.st_size}|{st.st_mtime}|{_CLIP_THRESHOLD}|{self._fail_closed_on_clip_missing}"
         except Exception:  # noqa: BLE001 - stat 失败即不缓存，不影响检测
             return None
 
@@ -290,6 +336,7 @@ class ContentSafetyFilter:
             image = self._preprocess(Image.open(str(image_path))).unsqueeze(0).to(self._device)
 
             import clip as clip_lib
+
             text_tokens = clip_lib.tokenize(_UNSAFE_CLIP_PROMPTS).to(self._device)
 
             with torch.no_grad():
@@ -396,9 +443,7 @@ def get_content_filter(
     """
     global _content_filter
     if _content_filter is None:
-        _content_filter = ContentSafetyFilter(
-            fail_closed_on_clip_missing=bool(fail_closed_on_clip_missing)
-        )
+        _content_filter = ContentSafetyFilter(fail_closed_on_clip_missing=bool(fail_closed_on_clip_missing))
     elif fail_closed_on_clip_missing is not None:
         _content_filter.set_fail_closed_on_clip_missing(fail_closed_on_clip_missing)
     return _content_filter

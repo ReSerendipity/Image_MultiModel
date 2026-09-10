@@ -122,7 +122,11 @@ class ZImageDiffusersEngine:
         if cfg.models.model_source_mode == "portable":
             base_dir = Path(cfg.project_root) / cfg.models.portable.internal_models_dir
         else:
-            base_dir = Path(cfg.models.shared.comfy_models_dir) if cfg.models.shared.comfy_models_dir else Path(cfg.project_root)
+            base_dir = (
+                Path(cfg.models.shared.comfy_models_dir)
+                if cfg.models.shared.comfy_models_dir
+                else Path(cfg.project_root)
+            )
 
         self._model_dir = base_dir / local_model_dir
 
@@ -197,6 +201,7 @@ class ZImageDiffusersEngine:
                 self._pipe = None
                 # 强制清理 GPU 缓存
                 import torch
+
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
                     logger.info("CUDA cache cleared")
@@ -206,6 +211,7 @@ class ZImageDiffusersEngine:
         # 卸载 SeedVR2（如果已加载，避免显存泄漏）
         try:
             from ..services.seedvr2_service import get_seedvr2_service
+
             svr = get_seedvr2_service()
             if svr.is_loaded:
                 await svr.unload()
@@ -324,9 +330,17 @@ class ZImageDiffusersEngine:
         cfg = get_config()
         # LoRA 路径解析（相对于 portable.loras 或 shared.loras）
         if cfg.models.model_source_mode == "portable":
-            lora_base = Path(cfg.project_root) / cfg.models.portable.internal_models_dir / cfg.models.portable.sub_dirs.get("lora", "loras")
+            lora_base = (
+                Path(cfg.project_root)
+                / cfg.models.portable.internal_models_dir
+                / cfg.models.portable.sub_dirs.get("lora", "loras")
+            )
         else:
-            lora_base = Path(cfg.models.shared.comfy_models_dir) / cfg.models.shared.mount_map.get("lora", "loras") if cfg.models.shared.comfy_models_dir else Path(cfg.project_root) / "loras"
+            lora_base = (
+                Path(cfg.models.shared.comfy_models_dir) / cfg.models.shared.mount_map.get("lora", "loras")
+                if cfg.models.shared.comfy_models_dir
+                else Path(cfg.project_root) / "loras"
+            )
 
         adapter_names = []
         adapter_weights = []
@@ -355,14 +369,9 @@ class ZImageDiffusersEngine:
                 mfmt = cfg.security.model_format
                 if mfmt.verify_weights:
                     # 期望 hash 从清单解析；未登记权重走 allow_unregistered_weights 策略
-                    expected_sha256, registered = resolve_expected_sha256(
-                        str(lora_path), cfg
-                    )
+                    expected_sha256, registered = resolve_expected_sha256(str(lora_path), cfg)
                     if not registered and not mfmt.allow_unregistered_weights:
-                        msg = (
-                            f"LoRA '{lora_name}' 未在完整性清单登记，"
-                            f"且 allow_unregistered_weights=false: {lora_path}"
-                        )
+                        msg = f"LoRA '{lora_name}' 未在完整性清单登记，且 allow_unregistered_weights=false: {lora_path}"
                         if mfmt.fail_closed_on_corrupt_weight:
                             raise WeightIntegrityError(msg)
                         logger.warning("%s，跳过该层", msg)
@@ -449,9 +458,13 @@ class ZImageDiffusersEngine:
             for i, img in enumerate(images):
                 if on_progress:
                     pct = 85 + int(5 * (i + 1) / total)
-                    on_progress(pct, _map_phase("Post-processing..."), {
-                        "seedvr2": f"upscaling {i+1}/{total}",
-                    })
+                    on_progress(
+                        pct,
+                        _map_phase("Post-processing..."),
+                        {
+                            "seedvr2": f"upscaling {i + 1}/{total}",
+                        },
+                    )
 
                 # SeedVR2 接口要求文件路径 → 临时保存
                 with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
@@ -463,7 +476,7 @@ class ZImageDiffusersEngine:
                         image_path=tmp_path,
                         target_resolution=target_resolution,
                         color_correction=color_correction,
-                        seed=self._last_seed if hasattr(self, '_last_seed') else -1,
+                        seed=self._last_seed if hasattr(self, "_last_seed") else -1,
                     )
                     upscaled.append(Image.open(output_path).copy())
                 finally:
@@ -508,6 +521,7 @@ class ZImageDiffusersEngine:
 
         wm_enabled = cfg.watermark.enabled_in_code
         product_id = cfg.watermark.product_id
+        watermark_failure_mode = cfg.watermark.failure_mode
         thumb_enabled = cfg.output.save_thumbnail
         thumb_max_side = cfg.output.thumbnail_max_side
         thumb_dir: Path | None = None
@@ -533,6 +547,7 @@ class ZImageDiffusersEngine:
                 thumb_name=f"{task_id[:16]}_{seed}_{idx}_thumb.png",
                 thumb_max_side=thumb_max_side,
                 metadata=metadata,
+                watermark_failure_mode=watermark_failure_mode,
             )
 
             # 存相对路径（相对 outputs/ 目录），供前端 /api/outputs/<rel> 直接访问
@@ -544,7 +559,9 @@ class ZImageDiffusersEngine:
             # 当 batch > 1 且启用 EsEs 时，生成第一张与当前张的对比图
             if config.eses_enable and len(images) > 1 and idx > 0:
                 compare_img = output_pipeline.generate_compare_image(
-                    images[0], img, config.eses_compare_axis,
+                    images[0],
+                    img,
+                    config.eses_compare_axis,
                 )
                 compare_fname = f"{task_id[:16]}_{seed}_{idx}_compare.png"
                 compare_path = engine_dir / compare_fname
@@ -560,11 +577,10 @@ class ZImageDiffusersEngine:
                     thumb_name=f"{task_id[:16]}_{seed}_{idx}_compare_thumb.png",
                     thumb_max_side=thumb_max_side,
                     metadata=metadata,
+                    watermark_failure_mode=watermark_failure_mode,
                 )
 
                 compare_rel = str(compare_path.relative_to(base)).replace("\\", "/")
                 saved.append(compare_rel)
 
         return saved
-
-

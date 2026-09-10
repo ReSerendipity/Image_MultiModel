@@ -40,10 +40,7 @@ def enforce_upload_limits(
     limit_bytes = int(max_size_mb) * 1024 * 1024
 
     if len(image_data) > limit_bytes:
-        msg = (
-            f"Uploaded image too large: {len(image_data)} bytes "
-            f"exceeds limit {limit_bytes} bytes ({max_size_mb} MB)"
-        )
+        msg = f"Uploaded image too large: {len(image_data)} bytes exceeds limit {limit_bytes} bytes ({max_size_mb} MB)"
         logger.warning("[UPLOAD-LIMIT] %s", msg)
         raise HTTPException(413, detail=msg)
 
@@ -66,9 +63,6 @@ def enforce_upload_limits(
         Image.MAX_IMAGE_PIXELS = max_pixels
 
     if width * height > max_pixels:
-        msg = (
-            f"Uploaded image pixel count {width * height} "
-            f"exceeds limit {max_pixels}"
-        )
+        msg = f"Uploaded image pixel count {width * height} exceeds limit {max_pixels}"
         logger.warning("[UPLOAD-LIMIT] %s", msg)
         raise HTTPException(413, detail=msg)
