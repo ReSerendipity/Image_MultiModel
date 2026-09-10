@@ -878,14 +878,30 @@ def _ssl_kwargs(config) -> dict:
 
 
 def run():
-    """直接运行"""
+    """直接运行（桌面壳 P1：支持 --host/--port 覆盖，由 Tauri 壳传入空闲端口）。
+
+    命令行参数优先级高于 config.yaml server 段（桌面壳启动时指定可用端口，
+    避免多实例端口冲突；普通 `python -m integrated_app.app_server` 不受影响）。
+    """
+    import argparse
+
     import uvicorn
+
+    parser = argparse.ArgumentParser(description="Image MultiModel 服务端")
+    parser.add_argument("--host", default=None, help="监听地址（默认取 config.yaml server.host）")
+    parser.add_argument("--port", type=int, default=None, help="监听端口（默认取 config.yaml server.port）")
+    parser.add_argument(
+        "--no-browser",
+        action="store_true",
+        help="禁止自动打开浏览器（桌面壳使用；Web 直启场景由 auto_open_browser 控制）",
+    )
+    args = parser.parse_args()
 
     config = get_config()
     uvicorn.run(
         "integrated_app.app_server:app",
-        host=config.server.host,
-        port=config.server.port,
+        host=args.host or config.server.host,
+        port=args.port or config.server.port,
         workers=config.server.workers,
         reload=False,
         **_ssl_kwargs(config),

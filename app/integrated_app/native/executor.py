@@ -227,15 +227,8 @@ def txt2img(
         # 2. 构造空 latent 与噪声（通道数/下采样比按引擎 config 下发，否则查模型，最后回退 Z-Image 默认 16/8）
         batch = max(1, config.batch_size)
         lf = models.latent_format
-        channels = (
-            config.latent_channels
-            or int(getattr(lf, "latent_channels", None) or LATENT_CHANNELS)
-        )
-        downscale = int(
-            config.latent_downscale
-            or getattr(lf, "spacial_downscale_ratio", None)
-            or SPATIAL_DOWNSCALE
-        )
+        channels = config.latent_channels or int(getattr(lf, "latent_channels", None) or LATENT_CHANNELS)
+        downscale = int(config.latent_downscale or getattr(lf, "spacial_downscale_ratio", None) or SPATIAL_DOWNSCALE)
         latent = build_latent(batch, config.width, config.height, channels, downscale).to(models.device)
         seed = _fixed_seed(config.seed)
         gen = torch.Generator(device=models.device).manual_seed(seed)

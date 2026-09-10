@@ -388,7 +388,8 @@ class MCPServer:
                     "name": tool.name,
                     "description": tool.description,
                     "required_params": [
-                        k for k, v in tool.input_schema.get("properties", {}).items()
+                        k
+                        for k, v in tool.input_schema.get("properties", {}).items()
                         if k in tool.input_schema.get("required", [])
                     ],
                 }
@@ -481,8 +482,7 @@ class MCPServer:
                 return {
                     "success": False,
                     "message": (
-                        f"显存不足: 需要 {vram_est.needed_vram_gb:.1f}GB / "
-                        f"可用 {vram_est.available_vram_gb:.1f}GB"
+                        f"显存不足: 需要 {vram_est.needed_vram_gb:.1f}GB / " f"可用 {vram_est.available_vram_gb:.1f}GB"
                     ),
                 }
 

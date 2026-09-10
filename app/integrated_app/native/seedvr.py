@@ -137,6 +137,7 @@ def _image_bytes_to_tensor(image_bytes: bytes) -> torch.Tensor:
 
     # SECURITY: 显式魔数校验（对齐 SeedVR2），阻断伪装/非图片数据
     from app.integrated_app.security.magic_check import validate_image_magic
+
     is_magic, _, error = validate_image_magic(image_bytes)
     if not is_magic:
         raise ValueError(f"Invalid image magic: {error}")

@@ -28,6 +28,7 @@ def _disk_info() -> dict[str, Any]:
     """获取磁盘空间信息"""
     try:
         import shutil
+
         total, used, free = shutil.disk_usage("/")
         return {
             "total_gb": round(total / (1024**3), 1),
@@ -36,6 +37,7 @@ def _disk_info() -> dict[str, Any]:
         }
     except Exception:
         return {"total_gb": 0, "used_gb": 0, "free_gb": 0}
+
 
 router = APIRouter(prefix="/api", tags=["system"])
 
@@ -66,8 +68,11 @@ async def _health_check_impl(request: Request) -> dict[str, Any]:
     if task_queue is not None:
         tasks = task_queue.list_tasks()
         status_count = {
-            "pending": 0, "processing": 0, "completed": 0,
-            "failed": 0, "cancelled": 0,
+            "pending": 0,
+            "processing": 0,
+            "completed": 0,
+            "failed": 0,
+            "cancelled": 0,
         }
         for t in tasks:
             key = t.status.value if hasattr(t.status, "value") else str(t.status)
@@ -89,6 +94,7 @@ async def _health_check_impl(request: Request) -> dict[str, Any]:
     memory_info: dict[str, Any] = {}
     try:
         import psutil
+
         vm = psutil.virtual_memory()
         memory_info = {
             "total_gb": round(vm.total / (1024**3), 1),
@@ -105,27 +111,32 @@ async def _health_check_impl(request: Request) -> dict[str, Any]:
     try:
         from ..engine_interface import get_registry
         from ..model_manager import get_model_manager
+
         registry = get_registry()
         model_mgr = get_model_manager()
         for eng_name, eng_cfg in cfg.models.engines.items():
             state = model_mgr.get_state(eng_name).value
-            engines.append({
-                "name": eng_name,
-                "display_name": eng_cfg.display_name,
-                "ready": state == "loaded",
-                "state": state,
-                "active": eng_name == registry.active_engine_name,
-            })
+            engines.append(
+                {
+                    "name": eng_name,
+                    "display_name": eng_cfg.display_name,
+                    "ready": state == "loaded",
+                    "state": state,
+                    "active": eng_name == registry.active_engine_name,
+                }
+            )
     except Exception as e:
         logger.warning(f"Engine state unavailable: {e}")
         for eng_name, eng_cfg in cfg.models.engines.items():
-            engines.append({
-                "name": eng_name,
-                "display_name": eng_cfg.display_name,
-                "ready": False,
-                "state": "unknown",
-                "active": eng_name == registry.active_engine_name,
-            })
+            engines.append(
+                {
+                    "name": eng_name,
+                    "display_name": eng_cfg.display_name,
+                    "ready": False,
+                    "state": "unknown",
+                    "active": eng_name == registry.active_engine_name,
+                }
+            )
 
     _health_payload = {
         "status": "ok",

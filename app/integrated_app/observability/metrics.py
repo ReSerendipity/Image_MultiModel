@@ -20,8 +20,20 @@ from collections.abc import Iterable
 
 # 默认直方图桶（秒）：覆盖 5ms ~ 120s 的生成链路典型区间
 _DEFAULT_BUCKETS = (
-    0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0,
-    2.5, 5.0, 10.0, 30.0, 60.0, 120.0,
+    0.005,
+    0.01,
+    0.025,
+    0.05,
+    0.1,
+    0.25,
+    0.5,
+    1.0,
+    2.5,
+    5.0,
+    10.0,
+    30.0,
+    60.0,
+    120.0,
 )
 
 
@@ -58,10 +70,7 @@ class _Base:
     def _label_text(self, key: tuple[str, ...]) -> str:
         if not self.labelnames:
             return ""
-        parts = [
-            f'{label}="{_escape_label_value(v)}"'
-            for label, v in zip(self.labelnames, key)
-        ]
+        parts = [f'{label}="{_escape_label_value(v)}"' for label, v in zip(self.labelnames, key)]
         return "{" + ",".join(parts) + "}"
 
 
@@ -200,9 +209,7 @@ class Histogram(_Base):
                     if not samples:
                         continue
                     lt = self._label_text(k)
-                    lines.append(
-                        f"{self.name}_{suffix}{lt} {self._quantile(samples, q):g}"
-                    )
+                    lines.append(f"{self.name}_{suffix}{lt} {self._quantile(samples, q):g}")
         return lines
 
 
@@ -345,17 +352,31 @@ class MetricsRegistry:
 
     def _register_all(self) -> None:
         for attr in (
-            "http_requests_total", "http_request_duration_seconds",
-            "generation_submitted_total", "generation_accepted_total",
-            "generation_rejected_total", "generation_started_total",
-            "generation_first_progress_total", "generation_first_preview_total",
-            "generation_completed_total", "generation_failed_total",
-            "generation_cancelled_total", "generation_duration_seconds",
-            "generation_queue_wait_seconds", "generation_inference_seconds",
-            "queue_depth", "queue_processing", "queue_oldest_age_seconds",
-            "queue_rejected_total", "gpu_memory_used_bytes", "gpu_memory_total_bytes",
-            "gpu_oom_total", "sse_connected", "sse_events_dropped_total",
-            "disk_free_bytes", "disk_total_bytes",
+            "http_requests_total",
+            "http_request_duration_seconds",
+            "generation_submitted_total",
+            "generation_accepted_total",
+            "generation_rejected_total",
+            "generation_started_total",
+            "generation_first_progress_total",
+            "generation_first_preview_total",
+            "generation_completed_total",
+            "generation_failed_total",
+            "generation_cancelled_total",
+            "generation_duration_seconds",
+            "generation_queue_wait_seconds",
+            "generation_inference_seconds",
+            "queue_depth",
+            "queue_processing",
+            "queue_oldest_age_seconds",
+            "queue_rejected_total",
+            "gpu_memory_used_bytes",
+            "gpu_memory_total_bytes",
+            "gpu_oom_total",
+            "sse_connected",
+            "sse_events_dropped_total",
+            "disk_free_bytes",
+            "disk_total_bytes",
         ):
             self._metrics.append(getattr(self, attr))
 

@@ -22,6 +22,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 APP_DIR = Path(__file__).resolve().parent
 
+
 # ── WinPython 自动检测 ───────────────────────────────────────
 # 安全约束（M-05）：禁止硬编码其它项目 / 系统的绝对解释器路径。
 # 这类硬编码既破坏可移植性，又可能被攻击者以同名路径劫持。仅允许：
@@ -51,7 +52,8 @@ def find_winpython():
                 try:
                     code = subprocess.run(
                         [str(py), "-c", "import torch; assert torch.cuda.is_available()"],
-                        capture_output=True, timeout=30,
+                        capture_output=True,
+                        timeout=30,
                     )
                     if code.returncode == 0:
                         return str(py)
@@ -106,9 +108,7 @@ def check_dependencies():
         print(f"[WARN] Missing packages: {', '.join(missing)}")
         if lock.exists():
             print(f"[INFO] 从锁定文件安装（版本钉死，避免投毒）: {lock}")
-            subprocess.check_call(
-                [sys.executable, "-m", "pip", "install", "-r", str(lock)]
-            )
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", str(lock)])
         else:
             print(f"[ERROR] 依赖缺失且未找到锁定文件 {lock}，请先运行 install.bat/install.sh")
             print("        或手动执行: pip install -r requirements-lock.txt")
@@ -230,6 +230,7 @@ def launch():
     import uvicorn
 
     from integrated_app.config import load_config
+
     cfg = load_config()
 
     # 端口被占用时自动向上顺延，避免启动失败（对齐 TTS_MultiModel / Seedvr2）
@@ -241,6 +242,7 @@ def launch():
     # 根据配置自动打开浏览器
     auto_open = getattr(cfg.server, "auto_open_browser", False)
     if auto_open:
+
         def _auto_open_browser(ip, port, timeout=300):
             url = f"http://{ip}:{port}"
             print(f"[INFO] 等待服务就绪后将自动打开浏览器: {url}")

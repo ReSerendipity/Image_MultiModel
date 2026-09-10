@@ -62,7 +62,7 @@ def validate_configured_workflows(config: Any) -> list[dict[str, Any]]:
         if not sv:
             rec["warnings"].append(
                 "workflow has no 'schema_version' field (not version-controlled; "
-                "add \"schema_version\": \"1.0.0\" for reproducible lineage)"
+                'add "schema_version": "1.0.0" for reproducible lineage)'
             )
         else:
             vr = validate_workflow(data)

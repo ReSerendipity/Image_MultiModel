@@ -20,9 +20,7 @@ from typing import Any
 from ..engine_interface import GenerationConfig, ProgressCallback
 
 # 1×1 透明 PNG（base64 解码，免依赖 PIL）
-_FAKE_PNG_B64 = (
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
-)
+_FAKE_PNG_B64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
 _FAKE_PNG = base64.b64decode(_FAKE_PNG_B64)
 
 
@@ -86,6 +84,7 @@ class FakeEngine:
         """
         batch = max(1, int(getattr(config, "batch_size", 1) or 1))
         import sys as _sys
+
         print(f"[FAKE_ENGINE] batch_size={getattr(config, 'batch_size', None)!r} -> writing {batch}", file=_sys.stderr)
         paths: list[str] = []
         for i in range(batch):

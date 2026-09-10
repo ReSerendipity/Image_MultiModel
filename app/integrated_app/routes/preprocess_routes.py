@@ -33,6 +33,7 @@ router = APIRouter(prefix="/api/preprocess", tags=["preprocess"])
 # ── 请求/响应模型 ──────────────────────────────────────────────
 class PreprocessRequest(BaseModel):
     """预处理请求体（Base64 图片输入）"""
+
     image_b64: str = Field(..., min_length=10, description="Base64 编码的图片数据")
     # Canny 专用参数
     low_threshold: float = Field(default=0.1, ge=0.0, le=1.0)
@@ -41,6 +42,7 @@ class PreprocessRequest(BaseModel):
 
 class PreprocessResponse(BaseModel):
     """预处理结果"""
+
     status: str = "ok"
     preprocessor: str
     result_b64: str
@@ -75,12 +77,11 @@ def _decode_b64_image(image_b64: str) -> np.ndarray:
         from ..security.upload_limits import enforce_upload_limits
 
         cfg = get_config()
-        enforce_upload_limits(
-            img_data, cfg.output.uploads.max_size_mb, cfg.output.uploads.max_pixels
-        )
+        enforce_upload_limits(img_data, cfg.output.uploads.max_size_mb, cfg.output.uploads.max_pixels)
 
         # SECURITY: 显式魔数校验（对齐 SeedVR2），阻断伪装/非图片数据
         from ..security.magic_check import validate_image_magic
+
         is_magic, detected_type, error = validate_image_magic(img_data)
         if not is_magic:
             raise HTTPException(400, detail=f"Image decode failed: {error}")
@@ -160,10 +161,12 @@ async def list_available() -> dict[str, Any]:
     for name in names:
         pp = get_preprocessor(name)
         if pp is not None:
-            result.append({
-                "name": name,
-                "available": pp.is_available(),
-            })
+            result.append(
+                {
+                    "name": name,
+                    "available": pp.is_available(),
+                }
+            )
     return {"preprocessors": result, "count": len(result)}
 
 

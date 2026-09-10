@@ -27,11 +27,13 @@ router = APIRouter(prefix="/api/safety", tags=["safety"])
 
 class CheckPromptRequest(BaseModel):
     """POST /api/safety/check-prompt 请求体"""
+
     prompt: str = Field(..., min_length=1, max_length=10000)
 
 
 class CheckPromptResponse(BaseModel):
     """提示词检测结果"""
+
     is_safe: bool
     violation_type: str | None = None
     confidence: float
@@ -56,11 +58,13 @@ async def check_prompt(req: CheckPromptRequest) -> CheckPromptResponse:
 
 class CheckImageRequest(BaseModel):
     """POST /api/safety/check-image 请求体"""
+
     image_path: str = Field(..., min_length=1, max_length=2000)
 
 
 class CheckImageResponse(BaseModel):
     """图片检测结果"""
+
     is_safe: bool
     violation_type: str | None = None
     confidence: float

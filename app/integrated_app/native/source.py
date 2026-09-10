@@ -57,13 +57,10 @@ def resolve_custom_nodes_dir(custom_nodes_dir: str | Path) -> Path:
     try:
         cnd = guard.resolve(str(custom_nodes_dir), base_dir=str(_PROJECT_ROOT))
     except PathGuardError as e:
-        raise RuntimeError(
-            f"custom_nodes_dir 越权被拒绝（必须位于项目内）: {custom_nodes_dir} ({e})"
-        ) from e
+        raise RuntimeError(f"custom_nodes_dir 越权被拒绝（必须位于项目内）: {custom_nodes_dir} ({e})") from e
     if not cnd.is_dir():
         raise RuntimeError(f"custom_nodes_dir 不存在或非目录: {custom_nodes_dir}")
     return cnd
-
 
 
 def ensure_loaded(

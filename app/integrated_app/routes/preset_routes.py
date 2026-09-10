@@ -75,7 +75,9 @@ async def get_preset(preset_id: int, request: Request) -> dict[str, Any]:
 
 @router.put("/{preset_id}")
 async def update_preset(
-    preset_id: int, req: PresetUpdate, request: Request,
+    preset_id: int,
+    req: PresetUpdate,
+    request: Request,
 ) -> dict[str, Any]:
     """PUT /api/presets/{id} — 更新预设"""
     history_db: HistoryDB = request.app.state.history_db
@@ -83,7 +85,10 @@ async def update_preset(
         raise HTTPException(404, detail="Preset not found")
     await asyncio.to_thread(
         history_db.update_preset,
-        preset_id, name=req.name, config=req.config, thumbnail=req.thumbnail,
+        preset_id,
+        name=req.name,
+        config=req.config,
+        thumbnail=req.thumbnail,
     )
     return {"status": "updated"}
 

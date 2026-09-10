@@ -46,6 +46,7 @@ class OpenPosePreprocessor:
         """
         try:
             from controlnet_aux import OpenPoseDetector  # noqa: F401
+
             return True
         except ImportError:
             return False

@@ -79,7 +79,7 @@ def _load_yaml() -> dict:
 
 
 # ── 2) 代码对配置的引用提取 ────────────────────────────────
-def _collect_flatten_yaml_fields(data: dict) -> set[str]:
+def _collect_flatten_yaml_fields(data: dict) -> tuple[set[str], set[str]]:
     """config.yaml 全部键（含嵌套叶）+ 每个叶子所在路径。"""
     fields: set[str] = set()
     paths: set[str] = set()
@@ -181,6 +181,45 @@ def check_security_keys_consumed(consumed_paths: set[str], consumed_tokens: set[
     walk(security, "security")
 
 
+def check_version_consistency() -> None:
+    """版本单一来源闸门（任务书 P1-3.6，用户裁决 A：config.yaml 为权威位）。
+
+    规则：
+    - ``config.yaml version`` 是唯一权威版本位（git d9c997e 用户裁决）。
+    - ``pyproject.toml`` 若声明 ``[project] version`` 必须与 config.yaml 一致
+      （当前 pyproject.toml 无 version 字段，属于允许状态）。
+    - ``app/version.json``（发布产物，桌面增量更新版本依据）若存在必须与 config.yaml 一致。
+    - 壳版本（desktop/package.json / tauri.conf.json）独立演进（updater
+      minimum_shell_version 语义），不参与本闸门。
+    """
+    data = _load_yaml()
+    cfg_version = data.get("version")
+    if not isinstance(cfg_version, str) or not cfg_version:
+        errors.append(f"config.yaml 缺少权威版本位 version（当前: {cfg_version!r}）")
+        return
+
+    pyproject = ROOT / "pyproject.toml"
+    if pyproject.exists():
+        text = pyproject.read_text(encoding="utf-8", errors="ignore")
+        # 仅匹配 [project] 段内的 version（避免匹配 [tool.*] 中同名键）
+        m = re.search(r"^\[project\]\s*$.*?^version\s*=\s*[\"']([^\"']+)[\"']", text, re.M | re.S)
+        if m and m.group(1) != cfg_version:
+            errors.append(f"版本不一致：pyproject.toml version={m.group(1)!r}，config.yaml version={cfg_version!r}")
+
+    app_version_json = ROOT / "app" / "version.json"
+    if app_version_json.exists():
+        try:
+            import json
+
+            vj = json.loads(app_version_json.read_text(encoding="utf-8"))
+            if vj.get("version") != cfg_version:
+                errors.append(
+                    f"版本不一致：app/version.json version={vj.get('version')!r}，config.yaml version={cfg_version!r}"
+                )
+        except Exception as exc:  # noqa: BLE001 - 门禁需报告解析失败
+            errors.append(f"app/version.json 解析失败: {exc}")
+
+
 def scan_source_for_missing(source: str, known_fields: set[str]) -> list[str]:
     """扫描一段源码，返回「访问了不存在的配置字段」的错误列表（空列表=干净）。
 
@@ -266,13 +305,14 @@ def main() -> int:
     check_code_refs(all_fields, class_fields)
     check_yaml_runtime(class_fields)
     check_security_keys_consumed(consumed_paths, consumed_tokens)
+    check_version_consistency()
 
     if errors:
         print("❌ 配置引用门禁未通过：")
         for e in errors:
             print("   -", e)
         return 1
-    print("✅ 配置引用门禁通过（安全键声明即消费 / 引用字段均存在）")
+    print("✅ 配置引用门禁通过（安全键声明即消费 / 引用字段均存在 / 版本单一来源一致）")
     return 0
 
 

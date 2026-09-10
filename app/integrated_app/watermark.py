@@ -27,11 +27,11 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 # ── 水印参数 ─────────────────────────────────────────────
-BLOCK = 8                 # DCT 块大小
-COEF_RC = (4, 3)          # 中频嵌入系数位置
-QUANT_RATIO = 0.05        # 量化步长相对块能量比例（越小越不可感知）
-MIN_Q = 8.0               # 量化步长下限（≥8 才能在 uint8/PNG 量化噪声下保持符号稳定）
-MAX_Q = 16.0              # 量化步长上限（约束像素扰动，保证不可感知）
+BLOCK = 8  # DCT 块大小
+COEF_RC = (4, 3)  # 中频嵌入系数位置
+QUANT_RATIO = 0.05  # 量化步长相对块能量比例（越小越不可感知）
+MIN_Q = 8.0  # 量化步长下限（≥8 才能在 uint8/PNG 量化噪声下保持符号稳定）
+MAX_Q = 16.0  # 量化步长上限（约束像素扰动，保证不可感知）
 
 
 class WatermarkEmbedError(RuntimeError):
@@ -121,7 +121,7 @@ def _verify_signed(signed_payload: str, key: bytes) -> str | None:
     """
     if len(signed_payload) < _SIG_LEN + 1:
         return None
-    payload, digest = signed_payload[:-_SIG_LEN - 1], signed_payload[-_SIG_LEN:]
+    payload, digest = signed_payload[: -_SIG_LEN - 1], signed_payload[-_SIG_LEN:]
     if not digest.isascii() or any(c not in "0123456789abcdefABCDEF" for c in digest):
         return None
     expected = hmac.new(key, payload.encode("utf-8"), hashlib.sha256).hexdigest()
@@ -177,8 +177,7 @@ def embed_watermark(
             payload = _sign_payload(payload, key)
         else:
             logger.debug(
-                "未配置水印签名密钥，将嵌入未签名水印（不可证伪归属）。"
-                "请运行 scripts/init_watermark_key.py 生成密钥"
+                "未配置水印签名密钥，将嵌入未签名水印（不可证伪归属）。" "请运行 scripts/init_watermark_key.py 生成密钥"
             )
         bits = _str_to_bits(payload)
 
@@ -202,14 +201,14 @@ def embed_watermark(
                 if idx >= need:
                     break
                 y, x = bi * BLOCK, bj * BLOCK
-                block = out[y:y + BLOCK, x:x + BLOCK]
+                block = out[y : y + BLOCK, x : x + BLOCK]
                 coef = _dct2(block)
                 energy = float(np.abs(coef).sum()) + 1e-6
                 q = min(max(energy * QUANT_RATIO, MIN_Q), MAX_Q)
                 bit = bits[idx]
                 # 符号编码：bit=1 → +q, bit=0 → -q
                 coef[r, c] = q if bit == 1 else -q
-                out[y:y + BLOCK, x:x + BLOCK] = _idct2(coef)
+                out[y : y + BLOCK, x : x + BLOCK] = _idct2(coef)
                 idx += 1
             if idx >= need:
                 break
@@ -224,9 +223,7 @@ def embed_watermark(
     if verify_after_embed:
         try:
             if not verify(result, product_id, task_id, ts):
-                raise WatermarkEmbedError(
-                    "水印嵌入后无法还原溯源信息，拒绝返回未签名图片（fail-closed）"
-                )
+                raise WatermarkEmbedError("水印嵌入后无法还原溯源信息，拒绝返回未签名图片（fail-closed）")
         except WatermarkEmbedError:
             raise
         except Exception as e:  # noqa: BLE001
@@ -250,7 +247,7 @@ def extract_watermark(image: np.ndarray, n_bits: int) -> list[int]:
             if idx >= n_bits:
                 break
             y, x = bi * BLOCK, bj * BLOCK
-            coef = _dct2(work[y:y + BLOCK, x:x + BLOCK])
+            coef = _dct2(work[y : y + BLOCK, x : x + BLOCK])
             bits.append(1 if coef[r, c] > 0 else 0)
             idx += 1
         if idx >= n_bits:

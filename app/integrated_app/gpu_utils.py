@@ -27,6 +27,7 @@ _gpu_cache: tuple[float, GPUInfo | None] = (0.0, None)
 @dataclass
 class GPUInfo:
     """GPU 显存信息"""
+
     total_vram_gb: float = 0.0
     used_vram_gb: float = 0.0
     free_vram_gb: float = 0.0
@@ -70,6 +71,7 @@ def _compute_gpu_info() -> GPUInfo:
     """
     try:
         import torch
+
         if torch.cuda.is_available():
             props = torch.cuda.get_device_properties(0)
             total = props.total_memory / (1024**3)
@@ -92,9 +94,10 @@ def _compute_gpu_info() -> GPUInfo:
         import subprocess
 
         out = subprocess.run(
-            ["nvidia-smi", "--query-gpu=name,memory.total,memory.used,memory.free",
-             "--format=csv,noheader,nounits"],
-            capture_output=True, text=True, timeout=5,
+            ["nvidia-smi", "--query-gpu=name,memory.total,memory.used,memory.free", "--format=csv,noheader,nounits"],
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if out.returncode == 0 and out.stdout.strip():
             parts = [p.strip() for p in out.stdout.strip().splitlines()[0].split(",")]
@@ -120,6 +123,7 @@ def _compute_gpu_info() -> GPUInfo:
 @dataclass
 class VRAMEstimate:
     """显存预检结果"""
+
     can_run: bool
     needed_vram_gb: float
     available_vram_gb: float
@@ -220,8 +224,14 @@ def preflight_vram(
     # MLOps P0-2: LoRA 增量以「满精度」计入（保守，避免低估致 OOM）；
     # 精度回退（fp8 约减半）只作用于引擎本体，不缩放 LoRA 增量。
     base_needed = estimate_vram_requirement(
-        engine_vram_gb, width, height, batch_size,
-        enable_seedvr2, multisample_rule, headroom_gb, lora_extra_vram_gb=0.0,
+        engine_vram_gb,
+        width,
+        height,
+        batch_size,
+        enable_seedvr2,
+        multisample_rule,
+        headroom_gb,
+        lora_extra_vram_gb=0.0,
     )
 
     available = gpu_info.free_vram_gb
@@ -321,7 +331,10 @@ def preflight_vram_with_loras(
 
     lora_extra = estimate_lora_stack_vram_from_stack(lora_stack or [], lora_paths or {})
     return preflight_vram(
-        engine_vram_gb, width, height, batch_size,
+        engine_vram_gb,
+        width,
+        height,
+        batch_size,
         enable_seedvr2=enable_seedvr2,
         fallback_precision=fallback_precision,
         default_precision=default_precision,
@@ -438,10 +451,9 @@ class VRAMLeakMonitor:
                 "monotonic": False,
                 "reason": "insufficient_samples",
             }
-        recent = self._samples[-self.window:]
+        recent = self._samples[-self.window :]
         monotonic = all(
-            recent[i + 1].allocated_bytes >= recent[i].allocated_bytes - self._tolerance
-            for i in range(len(recent) - 1)
+            recent[i + 1].allocated_bytes >= recent[i].allocated_bytes - self._tolerance for i in range(len(recent) - 1)
         )
         growth_gb = (recent[-1].allocated_bytes - recent[0].allocated_bytes) / (1024**3)
         leak = bool(monotonic and growth_gb >= self.growth_threshold_gb)

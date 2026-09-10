@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SSEEvent:
     """SSE 事件"""
+
     event: str  # 事件类型
     data: dict[str, Any] = field(default_factory=dict)
     id: str | None = None

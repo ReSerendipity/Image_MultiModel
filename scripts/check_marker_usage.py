@@ -22,9 +22,7 @@ from pathlib import Path
 
 def _declared_markers(pyproject: Path) -> list[str]:
     data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
-    markers = (
-        data.get("tool", {}).get("pytest", {}).get("ini_options", {}).get("markers", [])
-    )
+    markers = data.get("tool", {}).get("pytest", {}).get("ini_options", {}).get("markers", [])
     names = []
     for m in markers:
         # 每项形如 "slow: marks tests as slow"，取冒号前的标识符

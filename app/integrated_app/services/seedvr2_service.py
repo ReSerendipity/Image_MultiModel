@@ -31,6 +31,7 @@ SEEDVR2_AVAILABLE = False
 try:
     # SeedVR2-lite 的引擎类（独立项目，Apache-2.0）
     from app.integrated_app.engines.seedvr2_engine import ImageInferenceConfig, SeedVR2Engine
+
     SEEDVR2_AVAILABLE = True
     logger.debug("SeedVR2-lite available")
 except ImportError:
@@ -120,8 +121,7 @@ class SeedVR2Service:
             logger.error(f"SeedVR2 model load failed: {e}")
             self._engine = None
             raise RuntimeError(
-                f"Failed to load SeedVR2 {model_size} model. "
-                f"Ensure model weights are in: {models_root}"
+                f"Failed to load SeedVR2 {model_size} model. " f"Ensure model weights are in: {models_root}"
             ) from e
 
         self._model_size = model_size
@@ -173,7 +173,9 @@ class SeedVR2Service:
                     resolution=target_resolution,
                     seed=seed,
                     color_correction=color_correction,
-                ) if ImageInferenceConfig else None,
+                )
+                if ImageInferenceConfig
+                else None,
             )
             logger.info(f"SeedVR2 upscale completed: {result.output_path}")
             return result.output_path

@@ -28,6 +28,7 @@ class GenerationConfig:
 
     8 基础 + LoRA 6 层 × (name, strength) + SeedVR2 + Eses + VRAM + 输出 + 引擎版本
     """
+
     # ── 8 基础参数 ──
     positive_prompt: str = ""
     negative_prompt: str = ""
@@ -215,12 +216,14 @@ class InMemoryEngineRegistry:
         result = []
         for name, factory in self._factories.items():
             eng = self._instances.get(name)
-            result.append({
-                "name": name,
-                "display_name": getattr(eng, "display_name", name) if eng else name,
-                "ready": eng.is_ready() if eng else False,
-                "active": name == self._active,
-            })
+            result.append(
+                {
+                    "name": name,
+                    "display_name": getattr(eng, "display_name", name) if eng else name,
+                    "ready": eng.is_ready() if eng else False,
+                    "active": name == self._active,
+                }
+            )
         return result
 
     def set_active(self, name: str) -> None:
@@ -243,6 +246,7 @@ class InMemoryEngineRegistry:
         for eng in self._instances.values():
             try:
                 import asyncio
+
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
                     asyncio.ensure_future(eng.unload())

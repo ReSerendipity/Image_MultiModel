@@ -189,9 +189,7 @@ def resolve_reference_image(req: GenerateRequest, cfg: Any) -> str | None:
         # M-03: 体积 + 解压炸弹（像素）上限校验，超过即 413
         from ..security.upload_limits import enforce_upload_limits
 
-        enforce_upload_limits(
-            img_data, cfg.output.uploads.max_size_mb, cfg.output.uploads.max_pixels
-        )
+        enforce_upload_limits(img_data, cfg.output.uploads.max_size_mb, cfg.output.uploads.max_pixels)
 
         # SECURITY: 魔数校验（对齐 preprocess_routes），阻断伪装/非图片数据
         from ..security.magic_check import validate_image_magic
@@ -393,9 +391,7 @@ class GenerationService:
             guard = PathGuard(cfg.security.allowed_base_dirs, cfg.project_root)
             try:
                 path = guard.resolve(req.prompt_file)
-                prompts = [
-                    line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
-                ]
+                prompts = [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
             except Exception as e:
                 raise HTTPException(400, detail=f"Cannot read prompt file: {e}")
 
@@ -458,9 +454,7 @@ class GenerationService:
                     mode="batch",
                     prompt=prompt,
                     generation_config=payload,
-                    workflow_version=compute_workflow_version(
-                        cfg.models.engines[engine_name], cfg.project_root
-                    ),
+                    workflow_version=compute_workflow_version(cfg.models.engines[engine_name], cfg.project_root),
                     lora_checksums=compute_lora_checksums(
                         GenerationConfig.from_dict(payload).effective_lora_stack(), cfg
                     ),

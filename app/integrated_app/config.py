@@ -112,6 +112,7 @@ def _expand_env_value(value: Any) -> Any:
         return [_expand_env_value(v) for v in value]
     return value
 
+
 # ── P0-2: 配置加载回退机制（来源：Seedvr2） ──────────────────
 
 
@@ -197,10 +198,7 @@ def load_config(config_path: str | None = None) -> AppConfig:
                 _config = _build_partial_config(raw, project_root)
 
             _apply_environment(_config)
-            logger.warning(
-                "配置降级加载完成，部分字段可能使用默认值。"
-                "建议检查并重新保存 config.yaml。"
-            )
+            logger.warning("配置降级加载完成，部分字段可能使用默认值。" "建议检查并重新保存 config.yaml。")
             return _config
         except Exception as e2:
             logger.error(f"配置降级加载也失败，使用默认配置启动：{e2}")

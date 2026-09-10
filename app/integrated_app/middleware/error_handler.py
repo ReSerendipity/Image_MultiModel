@@ -95,9 +95,7 @@ def _parse_validation_errors(exc: RequestValidationError) -> list[dict[str, Any]
                 )
             except (KeyError, TypeError, ValueError) as e:
                 logger.debug("单条 validation error 解析失败: %s", e)
-                result.append(
-                    {"field": "__raw__", "message": str(error), "type": "parse_fallback"}
-                )
+                result.append({"field": "__raw__", "message": str(error), "type": "parse_fallback"})
     except (TypeError, AttributeError) as e:
         logger.warning("validation errors() 整体结构异常: %s", e)
         result = [{"field": "__all__", "message": str(raw_errors), "type": "structure_fallback"}]

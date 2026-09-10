@@ -72,10 +72,13 @@ class ModelManager:
         self._notify(engine_name, ModelState.LOADING)
 
         try:
-            await engine.load(on_progress=lambda pct, phase, extra: self._notify(
-                engine_name, ModelState.LOADING,
-                {"progress": pct, "phase": phase, **(extra or {})},
-            ))
+            await engine.load(
+                on_progress=lambda pct, phase, extra: self._notify(
+                    engine_name,
+                    ModelState.LOADING,
+                    {"progress": pct, "phase": phase, **(extra or {})},
+                )
+            )
             self._states[engine_name] = ModelState.LOADED
             self._notify(engine_name, ModelState.LOADED)
         except Exception as e:
@@ -111,10 +114,7 @@ class ModelManager:
 
     def get_all_states(self) -> dict[str, dict[str, Any]]:
         """获取所有引擎状态摘要"""
-        return {
-            name: {"state": state.value}
-            for name, state in self._states.items()
-        }
+        return {name: {"state": state.value} for name, state in self._states.items()}
 
 
 # ── 全局单例 ──────────────────────────────────────────────────
