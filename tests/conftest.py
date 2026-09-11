@@ -187,7 +187,8 @@ def _protect_config_yaml_file():
             pass
 
 
-# ── 反模式 #4 防护：隔离 HistoryDB，消除 xdist 跨 worker 共享 DB 的锁竞争 ──@pytest.fixture(autouse=True, scope="session")
+# ── 反模式 #4 防护：隔离 HistoryDB，消除 xdist 跨 worker 共享 DB 的锁竞争 ──
+@pytest.fixture(autouse=True, scope="session")
 def _isolate_history_db_for_tests():
     """测试/CI 环境：将应用 HistoryDB 重定向到每进程（每 xdist worker）临时目录。
 
@@ -250,6 +251,44 @@ def _isolate_history_db_for_tests():
         cfg.output.uploads.cache_dir = str(worker_tmp / "uploads")
         cfg.output.history.cleanup_cron = ""
 
+    def _redirect(cfg):
+        """对任一 AppConfig 施加测试期重定向（幂等）。"""
+        cfg.output.history.db_path = str(worker_tmp / "history.db")
+        cfg.output.uploads.cache_dir = str(worker_tmp / "uploads")
+        cfg.output.history.cleanup_cron = ""
+        return cfg
+
+    # ── 第二道防线：拦截「配置单例被整体替换」这条打穿路径 ──────────────
+    # 上面只改了**当前**单例对象的字段。但 ``load_config()`` /
+    # ``load_validated_config()`` / ``reload_config()`` 都会 ``global _config``
+    # **整体替换**单例（见 app/integrated_app/config.py:151/156/323），
+    # 替换后的新对象 db_path 回到默认 ``data/history.db``，本次重定向全部失效；
+    # 之后同 worker 的 ``create_app()`` 就落回真实 data/history.db，
+    # xdist 多 worker 并发初始化时 ``PRAGMA journal_mode=WAL`` 报
+    # ``database is locked``（2026-09-11 CI 34562117669 复发）。
+    # 2026-09-05 的修法只覆盖了「双导入身份」，没覆盖「单例被替换」这条路径，
+    # 故此处换机制：包一层配置构造入口，对**每次**新产出的 AppConfig 重新施加
+    # 同一份重定向，与单例是否被替换无关（幂等，不改变生产行为——生产不加载本
+    # conftest）。
+    patched: list[tuple[object, str, object]] = []
+    for _mod_name in ("integrated_app.config", "app.integrated_app.config"):
+        _mod = sys.modules.get(_mod_name)
+        if _mod is None:
+            continue
+        for _fname in ("load_config", "load_validated_config"):
+            _orig = getattr(_mod, _fname, None)
+            if _orig is None:
+                continue
+            patched.append((_mod, _fname, _orig))
+
+            def _make_wrapper(_orig_fn):
+                def _wrapper(*args, **kwargs):
+                    return _redirect(_orig_fn(*args, **kwargs))
+
+                return _wrapper
+
+            setattr(_mod, _fname, _make_wrapper(_orig))
+
     def _cleanup():
         shutil.rmtree(worker_tmp, ignore_errors=True)
 
@@ -257,6 +296,8 @@ def _isolate_history_db_for_tests():
     try:
         yield
     finally:
+        for _mod, _fname, _orig in patched:
+            setattr(_mod, _fname, _orig)
         for cfg, db_path, uploads_dir, cleanup_cron in originals:
             cfg.output.history.db_path = db_path
             cfg.output.uploads.cache_dir = uploads_dir

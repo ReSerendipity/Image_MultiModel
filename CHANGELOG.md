@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **更新签名**：独立生成 Tauri 更新签名密钥对（私钥 `desktop/src-tauri/tauri.key` gitignore + 离线备份，公钥入库并写入 `tauri.conf.json` pubkey）。
 ### Fixed
 
+- **修复会话级 HistoryDB 隔离 fixture 因装饰器被注释吞掉而从未生效**：`tests/conftest.py` 里 `# ── 反模式 #4 防护 … ──@pytest.fixture(autouse=True, scope="session")` 把装饰器写进了注释行，`_isolate_history_db_for_tests` 退化为普通函数、pytest 不收集 → 各 xdist worker 直连真实 `data/history.db`，并发 `PRAGMA journal_mode=WAL` 报 `sqlite3.OperationalError: database is locked`（CI 34562117669 复发）。现装饰器独占一行；并对 `load_config`/`load_validated_config` 加包装，使配置单例被整体替换后重定向依然生效；新增 `tests/test_history_db_isolation.py` 锁定契约（FIX_LOG #2）
+
 - **修复 xdist 跨 worker 的 `database is locked` 竞态**：conftest 会话级 HistoryDB 隔离此前只重定向顶层 `integrated_app.config` 单例，而 `create_app()` 经 `app.integrated_app.*` 相对导入使用**另一份配置单例**（两身份为独立模块对象），重定向失效导致多 worker 并发初始化真实 `data/history.db` 时加锁失败；现同时重定向两份单例（CI 33957856101 复现，FIX_LOG #1）
 
 - **修复** **`config.yaml`** **中失效的** **`bin/`** **路径残留**：`security.integrity_selfcheck.manifest_file` 与 `i18n.locale_dir` 由不存在的 `bin/integrated_app/...` 改为 `app/integrated_app/...`（bin→app 重命名后未同步，会导致完整性自检清单与语言词表无法定位）
