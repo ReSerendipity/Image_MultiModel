@@ -159,8 +159,35 @@ def _reset_rate_limiters():
     _reset_all()
 
 
-# ── 反模式 #4 防护：隔离 HistoryDB，消除 xdist 跨 worker 共享 DB 的锁竞争 ──
+# ── 反模式 #4 防护：config.yaml 文件快照恢复（防测试写回污染真实配置）──
 @pytest.fixture(autouse=True, scope="session")
+def _protect_config_yaml_file():
+    """测试/CI 环境：保护项目根 config.yaml 不被测试写回污染（根治收尾时
+    ``git checkout -- config.yaml`` 的被迫操作）。
+
+    根因：``_isolate_history_db_for_tests`` 把内存配置单例的 ``db_path`` /
+    ``cache_dir`` 重定向到临时目录（``imm-hist-<pid>-``），但
+    ``config_routes.save_config(cfg)``（配置保存 API，config_path=None 时写
+    ``_config_path`` = 真实 config.yaml）会在测试调用该端点时把临时路径落盘；
+    生产不受影响（不加载本 conftest），但测试会话结束后真实配置被污染。
+
+    修复：会话开始时对 config.yaml 做字节快照，结束时与当前内容比对，不一致
+    即恢复快照。任何测试对真实配置文件的写入都被回滚——测试修改真实配置属于
+    反模式，回滚即期望行为。快照在 fixture 实例化时采集（早于任何测试代码），
+    恢复在最后一个测试之后（session 级 finally）。
+    """
+    cfg_file = PROJECT_ROOT / "config.yaml"
+    snapshot = cfg_file.read_bytes() if cfg_file.exists() else None
+    yield
+    if snapshot is not None:
+        try:
+            if cfg_file.read_bytes() != snapshot:
+                cfg_file.write_bytes(snapshot)
+        except OSError:  # noqa: S110 - 只读/占用等极端情况不阻断会话收尾
+            pass
+
+
+# ── 反模式 #4 防护：隔离 HistoryDB，消除 xdist 跨 worker 共享 DB 的锁竞争 ──@pytest.fixture(autouse=True, scope="session")
 def _isolate_history_db_for_tests():
     """测试/CI 环境：将应用 HistoryDB 重定向到每进程（每 xdist worker）临时目录。
 
