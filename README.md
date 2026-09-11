@@ -295,4 +295,4 @@ python -m pytest tests/e2e -m e2e
 - **增量更新**：应用代码打包 `scripts/package_app.py` → `app-v{ver}.zip` + SHA256；壳内更新器拉取 GitHub Release `shell-update.json`，验 SHA256 后原子换载 `app/`（保留 `runtime/model/data/logs` 与 `config.yaml`、`.watermark_key`）。
 - **分卷发布**：`scripts/split_release_volumes.py` 按 ≤900MB 切片 + `SHA256SUMS.txt` 全覆校验。
 - **质量门禁**：`scripts/release_gate.py`（构建→静态→测试→清单签名→发布物）与 `scripts/diag_portable_verify.py`（安装环境验签/完整性诊断）。
-- **分层与安全文档**：`docs/桌面分发分层定案-20260910.md`、`docs/闭源编译评估-Cython-pyd-20260910.md`。
+- **分层与安全文档**：`docs/桌面分发分层定案-20260910.md`、`docs/闭源编译评估-Cython-pyd-20260910.md`（本地文档，未随仓库发布）。
