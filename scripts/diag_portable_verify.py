@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import glob
 import os
 import sys
 
@@ -94,6 +95,33 @@ def main() -> int:
     except Exception as e:  # noqa: BLE001
         print(f"[diag] CONFIG_READ_EXC: {type(e).__name__}: {e!r}")
         return 5
+
+    # 增量包 Ed25519 签名（收口项：发布门禁外的便携诊断第二道）
+    pkgs_dir = os.path.join(app_dir, "release", "packages")
+    zips = sorted(glob.glob(os.path.join(pkgs_dir, "app-v*.zip")))
+    if not zips:
+        print(f"[diag] PACKAGE_SIG: 无增量包（{pkgs_dir}），跳过")
+    else:
+        bad = 0
+        for z in zips:
+            s = z + ".sig.ed25519"
+            name = os.path.basename(z)
+            if not os.path.exists(s):
+                print(f"[diag] PACKAGE_SIG: {name} FAIL（缺少 .sig.ed25519）")
+                bad += 1
+                continue
+            try:
+                ok = verify_manifest_signature_ed25519(z)
+            except Exception as e:  # noqa: BLE001
+                print(f"[diag] PACKAGE_SIG: {name} 验签异常 {type(e).__name__}: {e!r}")
+                bad += 1
+                continue
+            print(f"[diag] PACKAGE_SIG: {name} {'PASS' if ok else 'FAIL'}")
+            if not ok:
+                bad += 1
+        if bad:
+            print("[diag] PACKAGE_SIG_FAIL")
+            return 6
 
     print("[diag] ALL_CHECKS_PASS")
     return 0
