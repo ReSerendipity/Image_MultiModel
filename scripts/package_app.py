@@ -3,7 +3,8 @@
 
 将 L2 应用代码（分层定案 docs/桌面分发分层定案-20260910.md）打包为
 `app-v{version}.zip`（zip 根即 app/ 内容，供 updater.rs 解压到 app.new/），
-同时生成 `app/version.json`（增量更新版本依据）与 `app-v{version}.zip.sha256`。
+同时生成 `app/version.json`（增量更新版本依据）、`app-v{version}.zip.sha256`
+与 Ed25519 签名 `app-v{version}.zip.sig.ed25519`（复用清单签名密钥对）。
 
 用法:
     python scripts/package_app.py                 # 默认打包到 release/packages/
@@ -22,9 +23,13 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import os
 import sys
 import zipfile
 from pathlib import Path
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from app.integrated_app.security.secret_key import sign_manifest_ed25519  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "app"
@@ -170,6 +175,11 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="增量更新应用包打包（L2 app/）")
     ap.add_argument("--out-dir", default=str(ROOT / "release" / "packages"))
     ap.add_argument("--keep-tmp", action="store_true", help="保留组装中间目录（调试）")
+    ap.add_argument(
+        "--no-sign",
+        action="store_true",
+        help="跳过 Ed25519 签名（仅调试用；发布物必须签名）",
+    )
     args = ap.parse_args()
 
     out_dir = Path(args.out_dir).resolve()
@@ -188,6 +198,17 @@ def main() -> int:
         make_zip(tmp, zip_path)
         digest = sha256_of(zip_path)
         (out_dir / f"app-v{v}.zip.sha256").write_text(f"{digest}  app-v{v}.zip\n", encoding="utf-8")
+        if args.no_sign:
+            print("[package] 跳过 Ed25519 签名（--no-sign，调试模式）")
+        else:
+            sig_path = sign_manifest_ed25519(zip_path)
+            if sig_path is None:
+                print(
+                    "[package] FAIL: Ed25519 签名未生成（私钥/依赖缺失），发布物必须签名",
+                    file=sys.stderr,
+                )
+                return 2
+            print(f"[package] Ed25519 签名: {sig_path.name}（{sig_path.stat().st_size} B）")
         n = sum(1 for _ in tmp.rglob("*") if _.is_file())
         print(f"[package] {zip_path.name}  {zip_path.stat().st_size / 1024 / 1024:.2f} MB（{n} 文件）")
         print(f"[package] SHA256: {digest}")

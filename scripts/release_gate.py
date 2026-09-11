@@ -28,6 +28,8 @@ ROOT = Path(__file__).resolve().parents[1]
 PY = ROOT / ".venv" / "Scripts" / "python.exe"
 if not PY.exists():
     PY = Path(sys.executable)
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))  # 供增量包验签导入 app.integrated_app.*
 
 
 def run(cmd: list[str], cwd: Path = ROOT) -> int:
@@ -97,6 +99,17 @@ def step_artifacts() -> int:
         ok = want == got
         print(f"[gate-5] {z.name} SHA256 {'PASS' if ok else 'FAIL'}")
         if not ok:
+            return 1
+        # 增量包 Ed25519 签名（后续建议收口：app-v{ver}.zip 纳入签名链）
+        sig_file = z.with_suffix(".zip.sig.ed25519")
+        if not sig_file.exists():
+            print(f"[gate-5] FAIL: 缺少 {sig_file.name}（增量包必须 Ed25519 签名）")
+            return 1
+        from app.integrated_app.security.secret_key import verify_manifest_signature_ed25519  # noqa: E402
+
+        sig_ok = verify_manifest_signature_ed25519(z)
+        print(f"[gate-5] {z.name} Ed25519 {'PASS' if sig_ok else 'FAIL'}")
+        if not sig_ok:
             return 1
     if run([str(PY), "scripts/diag_portable_verify.py"]) != 0:
         return 1
