@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **增量包 Ed25519 签名链（2026-09-11 收口）**：`scripts/package_app.py` 打包即对 `app-v{ver}.zip` 签 Ed25519（`.sig.ed25519`，复用完整性清单密钥对，零新依赖；`--no-sign` 调试逃生门）；`scripts/release_gate.py` gate-5 对每个增量包回验签。
+- **CI 桌面增量包自动构建（2026-09-11 收口）**：`release.yml` 新增 `desktop-package` job（windows-latest）——清单门禁 → 私钥注入（Secret）→ 打包签名 → 验签 → 便携诊断 → 壳 `cargo check --locked` → 上传增量包三件套到 GitHub Release；壳完整 build 仍由本机发布流程执行。
 - **桌面化分发（P1-3）**：Tauri v2 壳（`desktop/src-tauri`：单实例/托盘/崩溃自启/窗口状态记忆/隐藏控制台/增量更新器）；NSIS 安装器（`desktop/installer/setup.nsi`：分卷解压/运行中进程自动终止/卸载清理）；分层定案（`docs/桌面分发分层定案-20260910.md`）；增量应用包打包（`scripts/package_app.py`）；Release 分卷切片（`scripts/split_release_volumes.py`，900MB/卷 + SHA256SUMS 全覆）；版本单一来源闸门（`scripts/check_config_refs.py` 扩展，config.yaml 权威位一致性校验）。
 - **发布质量（P2）**：安装环境诊断（`scripts/diag_portable_verify.py`：cryptography→清单→验签→自检→enforce 五环节）；发布门禁五步（`scripts/release_gate.py`：构建→静态→测试→签名→发布物）；闭源编译评估（`docs/闭源编译评估-Cython-pyd-20260910.md`，含公开声明）。
 - **服务端支撑**：`app_server.run()` 支持 `--host/--port`（桌面壳传入空闲端口）。
@@ -28,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **补齐配置引用门禁脚本** `scripts/check_config_refs.py`：AST 解析 `config_models.py` 提取配置模型字段，扫描 `app/` 代码引用，对账 `config.yaml` security 段「声明即消费」，修复 `tests/test_config_refs_gate.py` 三例因缺脚本而恒失败的问题
 
 - **修复版本漂移测试**：`tests/test_config.py::test_app_config_builds` 断言由过期的 `2.0.0` 改为 `1.2.2`（对齐 `config.yaml`）
+
+- **根治 config.yaml 测试污染（2026-09-11 收口）**：conftest 新增会话级字节快照保护——此前配置保存 API（`config_routes.save_config(cfg)` 无路径参数）会把测试期内存重定向的临时路径（`imm-hist-<pid>`）写回真实 `config.yaml`；现任何测试对真实配置文件的写入均在会话结束被回滚（全量 pytest 后 config.yaml SHA256 不变）
+
+- **修复 mypy scripts 2 个预存类型错误（2026-09-11 收口）**：`fix_encoding_diag.py` 的 `line` 未初始化 None 索引；`post_deploy_smoke.py` 的 `get_json` 返回类型未收窄（`mypy scripts` → Success 35 文件）
 
 ### Changed
 

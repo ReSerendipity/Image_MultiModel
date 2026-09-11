@@ -50,10 +50,14 @@ npx tauri signer generate -w src-tauri/tauri.key -f -p "<强密码>"
 ## 4. 发布操作序（五步门禁）
 ```powershell
 .venv\Scripts\python.exe scripts\release_gate.py            # 构建→静态→测试→签名→发布物
-.venv\Scripts\python.exe scripts\package_app.py             # 增量包 app-v{ver}.zip + sha256
+.venv\Scripts\python.exe scripts\package_app.py             # 增量包 app-v{ver}.zip + sha256 + Ed25519 签名（.sig.ed25519，复用清单密钥对）
 .venv\Scripts\python.exe scripts\split_release_volumes.py --input ImageMultiModel-Data.7z   # 分卷 + SHA256SUMS
 makensis /DVERSION=<ver> desktop\installer\setup.nsi        # 安装器（需壳 exe 与 version.json 就位）
 ```
+增量包签名链（2026-09-11 收口）：`package_app.py` 打包即对 zip 签 Ed25519
+（私钥 `data/.manifest_signing_key`，与完整性清单同密钥对；缺失时非零退出，
+调试可加 `--no-sign`）；`release_gate.py` gate-5 对每个增量包回验签。
+壳内更新链路校验 zip SHA256（不新增依赖，签名供发布审计/门禁使用）。
 
 ## 5. 安全须知
 - 私钥绝不进 git；备份目录权限收敛为当前用户。
