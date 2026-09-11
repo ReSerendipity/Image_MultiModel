@@ -19,6 +19,9 @@ jobs:
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -115,6 +118,79 @@ jobs:
           files: |
             release/sbom.json
             release/build_metadata.json
+
+  # ── 桌面增量包（Windows）：打包 + Ed25519 签名 + 验签 + 壳静态检查 ──
+  # 落地执行总结 §5-4：release.yml 扩展「构建壳 → 打包 app → 签名 → 分卷 → 上传」。
+  # 本期自动化为增量包全链（纯 Python，CI 可稳定验证）；Tauri 壳在本 job 做
+  # cargo check（静态门禁），完整 build 仍由本机发布流程执行（决策留痕）。
+  # 真实模型分卷（split_release_volumes.py）依赖发布侧模型资产，CI 无模型，跳过。
+  desktop-package:
+    name: Build & sign desktop incremental package
+    runs-on: windows-latest
+    needs: release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python deps
+        run: pip install pyyaml cryptography
+
+      - name: Verify integrity manifest (freshness gate)
+        run: python scripts/check_integrity_manifest.py
+
+      - name: Inject manifest signing key
+        shell: bash
+        env:
+          KEY_B64: ${{ secrets.MANIFEST_SIGNING_KEY_B64 }}
+        run: |
+          if [ -z "$KEY_B64" ]; then
+            echo "::warning::MANIFEST_SIGNING_KEY_B64 未配置，增量包将以 --no-sign 构建（调试产物）"
+            exit 0
+          fi
+          mkdir -p data
+          echo "$KEY_B64" | base64 -d > data/.manifest_signing_key
+
+      - name: Build & sign app package
+        shell: bash
+        run: |
+          if [ -f data/.manifest_signing_key ]; then
+            python scripts/package_app.py
+          else
+            python scripts/package_app.py --no-sign
+          fi
+
+      - name: Verify package Ed25519 signature
+        shell: bash
+        run: |
+          if [ -f data/.manifest_signing_key ]; then
+            python -c "from app.integrated_app.security.secret_key import verify_manifest_signature_ed25519; import glob; z=glob.glob('release/packages/app-v*.zip')[0]; assert verify_manifest_signature_ed25519(z), '增量包 Ed25519 验签失败'"
+          else
+            echo "::warning::跳过验签（无私钥）"
+          fi
+
+      - name: Run portable diagnostics
+        run: python scripts/diag_portable_verify.py
+
+      - name: Rust toolchain (desktop shell static check)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cargo check (desktop shell)
+        working-directory: desktop/src-tauri
+        run: cargo check --locked
+
+      - name: Upload desktop release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.release.outputs.tag }}
+          files: |
+            release/packages/*
 
   # ── 发布后通知 ─────────────────────────────────────────
   notify:
