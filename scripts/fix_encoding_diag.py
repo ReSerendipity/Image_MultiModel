@@ -10,7 +10,7 @@ raw = f.read_bytes()
 text_utf8 = raw.decode("utf-8", errors="replace")
 
 # 找代表性乱码行
-line = None
+line = ""
 for ln in text_utf8.splitlines():
     if "setOpen" in ln:
         line = ln

@@ -103,7 +103,10 @@ class SmokeClient:
 
 def get_json(client: SmokeClient, path: str) -> tuple[int, dict | list | None]:
     """GET 路径；返回 (status, parsed_json_or_None)。"""
-    return _do_get(client, path, parse_json=True)
+    status, payload = _do_get(client, path, parse_json=True)
+    if isinstance(payload, str):  # 收窄：parse_json=True 分支不应出现 str，防御性兜底
+        return status, None
+    return status, payload
 
 
 def get_text(client: SmokeClient, path: str) -> tuple[int, str]:
