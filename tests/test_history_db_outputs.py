@@ -113,12 +113,35 @@ class TestOutputsCRUD:
         task = db.get_task("task-cascade")
         assert len(task["outputs"]) == 1
 
-        # 删除任务
-        db.delete_tasks(["task-cascade"])
+        # 删除任务（硬删，验证 ON DELETE CASCADE 级联删除 outputs）
+        db.delete_tasks(["task-cascade"], soft=False)
 
         # outputs 表中的记录应被级联删除
         outputs, total = db.list_outputs()
         assert total == 0
+
+    def test_soft_delete_keeps_outputs_in_recycle(self, db):
+        """软删除应进入回收站：任务标记 deleted_at，outputs 仍在（可恢复）。"""
+        db.create_task(task_id="task-recycle", engine="test")
+        db.add_output(task_id="task-recycle", path="outputs/recycle.png")
+
+        # 软删除（默认）
+        n = db.delete_tasks(["task-recycle"])
+        assert n == 1
+
+        # 正常列表/图库不再出现
+        assert db.get_task("task-recycle")["deleted_at"] is not None
+        outs, total = db.list_outputs()
+        assert total == 0  # 图库隔离已删任务
+
+        # 回收站可见
+        items, rtotal = db.list_deleted_tasks()
+        assert rtotal == 1
+
+        # 恢复后图库重新出现
+        db.restore_tasks(["task-recycle"])
+        outs, total = db.list_outputs()
+        assert total == 1
 
     def test_list_outputs_empty(self, db):
         """空数据库查询"""

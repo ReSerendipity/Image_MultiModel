@@ -143,7 +143,8 @@ def test_delete_tasks_with_files_removes_outputs_and_thumbs() -> None:
     db.add_output(task_id="del1", path="del1_out.png", format="png", file_size=7)
     thumb = root / "data" / "cache" / "thumbs" / "del1_0000_0_thumb.png"
     thumb.write_bytes(b"THUMB")
-    deleted = db.delete_tasks_with_files(["del1"])
+    # 物理删除（回收站默认软删，此处验证硬删文件语义）
+    deleted = db.delete_tasks_with_files(["del1"], soft=False)
     assert deleted == 1
     assert not out_file.exists(), "主输出图应被删除"
     assert not thumb.exists(), "缩略图应被删除"
@@ -156,8 +157,8 @@ def test_delete_tasks_with_files_idempotent_on_missing_files() -> None:
     root = _real_layout_root()
     db = HistoryDB(root / "data" / "history.db")
     db.create_task(task_id="del2", engine="z_image_turbo_native")
-    # 不写任何磁盘文件
-    deleted = db.delete_tasks_with_files(["del2"])
+    # 不写任何磁盘文件（硬删语义，回收站默认软删）
+    deleted = db.delete_tasks_with_files(["del2"], soft=False)
     assert deleted == 1
     assert db.conn.execute("SELECT COUNT(*) FROM tasks WHERE task_id=?", ["del2"]).fetchone()[0] == 0
     db.close()

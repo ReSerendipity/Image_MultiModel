@@ -42,8 +42,7 @@ def db(tmp_path):
 def test_failed_task_records_processing_time(db):
     """失败状态同样可存储非零 processing_time_s（FinOps 失败入账的数据通路）"""
     db.create_task(task_id="fail-001", engine="test")
-    db.update_task_status("fail-001", "failed", error="boom", error_code="inference_error",
-                          processing_time_s=12.5)
+    db.update_task_status("fail-001", "failed", error="boom", error_code="inference_error", processing_time_s=12.5)
     task = db.get_task("fail-001")
     assert task["status"] == "failed"
     assert task["processing_time_s"] == pytest.approx(12.5)
@@ -65,7 +64,7 @@ def test_cleanup_max_gb_uses_outputs_dir_size(db, tmp_path, monkeypatch):
     for i in range(10):
         db.conn.execute(
             "UPDATE tasks SET created_at=datetime('now', ?) WHERE task_id=?",
-            (f'-{100 - i} days', f"vol-task-{i:02d}-aaaaaaaaaaaa"),
+            (f"-{100 - i} days", f"vol-task-{i:02d}-aaaaaaaaaaaa"),
         )
     db.conn.commit()
 
@@ -258,8 +257,9 @@ def test_build_capacity_snapshot_picks_up_yesterday_peak():
         def sum_processing_since(self, cutoff: float) -> float:
             return 7200.0
 
-    snap = build_capacity_snapshot(_FakeDB(), _FakeStore(), ".", now=time.mktime(
-        time.strptime("2026-09-04", "%Y-%m-%d")))
+    snap = build_capacity_snapshot(
+        _FakeDB(), _FakeStore(), ".", now=time.mktime(time.strptime("2026-09-04", "%Y-%m-%d"))
+    )
     assert snap["snapshot_date"] == "2026-09-03"
     assert snap["peak_used_gb"] == pytest.approx(13.7)
     assert snap["gpu_hours_24h"] == pytest.approx(2.0)
@@ -280,7 +280,8 @@ def test_delete_tasks_with_files_removes_linked_thumbnails(db, tmp_path):
     linked.write_bytes(b"png")
     other.write_bytes(b"png")
 
-    deleted = db.delete_tasks_with_files([tid])
+    # 物理删除（回收站默认软删，此处验证硬删文件语义）
+    deleted = db.delete_tasks_with_files([tid], soft=False)
     assert deleted == 1
     assert not linked.exists()
     assert other.exists()  # 无关任务缩略图不受影响
