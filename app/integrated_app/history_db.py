@@ -181,7 +181,9 @@ class HistoryDB:
         -- 作为基线列直接建表，保证全新库自带；旧库由 _apply_migrations 补齐。
         workflow_version TEXT DEFAULT '',
         lora_checksums   TEXT DEFAULT '[]',
-        error_code       TEXT DEFAULT ''
+        error_code       TEXT DEFAULT '',
+        -- 软删除 / 回收站（防误删）：NULL=未删，非空=删除时间戳，可恢复
+        deleted_at       TEXT DEFAULT NULL
     );
 
     -- 输出表（一对多）
@@ -274,7 +276,7 @@ class HistoryDB:
     # 数据库 schema 单调版本号（数据治理报告 P2-4）。
     # 1 = 基线 schema；2 = tasks 血缘增强列；3 = outputs.sha256 输出指纹。
     # 迁移步骤见 _migrations()；改基线 schema 或加列时必须同步 +1 并注册迁移。
-    SCHEMA_VERSION = 3
+    SCHEMA_VERSION = 4
 
     def __init__(self, db_path: str | Path) -> None:
         self.db_path = Path(db_path)
@@ -313,7 +315,14 @@ class HistoryDB:
         return (
             (2, self._migrate_v2_lineage_columns),
             (3, self._migrate_v3_outputs_sha256),
+            (4, self._migrate_v4_soft_delete),
         )
+
+    def _migrate_v4_soft_delete(self, conn: sqlite3.Connection) -> None:
+        """v4：tasks 表补齐软删除列（回收站 / 防误删）。"""
+        existing = {r[1] for r in conn.execute("PRAGMA table_info(tasks)").fetchall()}
+        if "deleted_at" not in existing:
+            conn.execute("ALTER TABLE tasks ADD COLUMN deleted_at TEXT DEFAULT NULL")
 
     def _migrate_v2_lineage_columns(self, conn: sqlite3.Connection) -> None:
         """v2：旧库补齐血缘增强列（向前兼容）。
@@ -569,6 +578,8 @@ class HistoryDB:
         where = []
         params: list = []
 
+        # 回收站隔离：正常列表永远排除已软删除的任务
+        where.append("deleted_at IS NULL")
         if status:
             where.append("status=?")
             params.append(status)
@@ -610,13 +621,28 @@ class HistoryDB:
             tasks.append(t)
         return tasks, total
 
-    def delete_tasks(self, task_ids: list[str]) -> int:
-        """批量删除任务"""
+    def delete_tasks(self, task_ids: list[str], soft: bool = True) -> int:
+        """批量删除任务。
+
+        默认软删除（回收站）：仅标记 deleted_at，记录与磁盘文件均保留，可恢复。
+        ``soft=False`` 时物理删除（含级联 outputs 行）。
+
+        Returns:
+            受影响行数
+        """
         if not task_ids:
             return 0
         conn = self.conn
         placeholders = ",".join("?" * len(task_ids))
-        cur = conn.execute(f"DELETE FROM tasks WHERE task_id IN ({placeholders})", task_ids)
+        if soft:
+            # 防误删：标记删除时间戳，而非物理 DELETE
+            ts = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+            cur = conn.execute(
+                f"UPDATE tasks SET deleted_at=?, updated_at=datetime('now') WHERE task_id IN ({placeholders}) AND deleted_at IS NULL",
+                [ts, *task_ids],
+            )
+        else:
+            cur = conn.execute(f"DELETE FROM tasks WHERE task_id IN ({placeholders})", task_ids)
         conn.commit()
         return cur.rowcount
 
@@ -685,6 +711,8 @@ class HistoryDB:
             params.append(output_type)
         if favorite:
             where.append("t.favorite=1")
+        # 回收站隔离：图库不展示已软删除任务的输出
+        where.append("t.deleted_at IS NULL")
 
         where_clause = " AND ".join(where) if where else "1=1"
         total = conn.execute(
@@ -868,7 +896,8 @@ class HistoryDB:
 
         if not candidate_ids:
             return 0
-        deleted = self.delete_tasks_with_files(candidate_ids)
+        # 清理策略需真正释放磁盘空间 → 硬删除（文件 + DB 行）
+        deleted = self.delete_tasks_with_files(list(dict.fromkeys(candidate_ids)), soft=False)
         if deleted > 0:
             logger.info(f"Cleanup: deleted {deleted} old tasks (keep_days={keep_days}, max_gb={max_gb})")
         return deleted
@@ -920,19 +949,70 @@ class HistoryDB:
                     except Exception as e:  # noqa: BLE001
                         logger.debug("Failed to unlink referenced thumbnail %s: %s", fp, e)
 
-    def delete_tasks_with_files(self, task_ids: list[str]) -> int:
+    def delete_tasks_with_files(self, task_ids: list[str], soft: bool = True) -> int:
         """公开入口：删除任务及其磁盘文件（主图 + 缩略图）。
+
+        默认软删除（回收站）：仅标记 deleted_at，**保留磁盘文件**，记录可恢复。
+        ``soft=False`` 时物理删除文件 + DB 行（供清理策略 / 彻底清空使用）。
 
         供 DELETE /api/tasks 路由调用，消灭「只删 DB 不删文件」导致磁盘孤儿
         （数据治理报告 P0-2 / P1-1）。收藏任务不删文件。
         """
         if not task_ids:
             return 0
+        if soft:
+            # 回收站：保留文件，仅标记删除
+            return self.delete_tasks(task_ids, soft=True)
+        # 硬删除：先删磁盘文件，再删 DB（ON DELETE CASCADE 清理 outputs 行）
         outputs_dir = Path(self.db_path).parent.parent / "outputs"
         self._delete_task_files(task_ids, outputs_dir)
-        # 删除任务（ON DELETE CASCADE 清理 outputs 行）
         placeholders = ",".join("?" * len(task_ids))
         cur = self.conn.execute(f"DELETE FROM tasks WHERE task_id IN ({placeholders})", task_ids)
+        self.conn.commit()
+        return cur.rowcount
+
+    def restore_tasks(self, task_ids: list[str]) -> int:
+        """从回收站恢复任务（清除 deleted_at 标记）。"""
+        if not task_ids:
+            return 0
+        placeholders = ",".join("?" * len(task_ids))
+        cur = self.conn.execute(
+            f"UPDATE tasks SET deleted_at=NULL, updated_at=datetime('now') WHERE task_id IN ({placeholders})",
+            task_ids,
+        )
+        self.conn.commit()
+        return cur.rowcount
+
+    def list_deleted_tasks(self, page: int = 1, page_size: int = 50) -> tuple[list[dict[str, Any]], int]:
+        """列出回收站中的任务（已软删除）。"""
+        conn = self.conn
+        total = conn.execute("SELECT COUNT(*) FROM tasks WHERE deleted_at IS NOT NULL").fetchone()[0]
+        offset = (page - 1) * page_size
+        rows = conn.execute(
+            "SELECT * FROM tasks WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT ? OFFSET ?",
+            [page_size, offset],
+        ).fetchall()
+        return [dict(r) for r in rows], total
+
+    def purge_deleted_tasks(self, keep_days: int = 30) -> int:
+        """彻底清理回收站中超过 keep_days 天的任务（删除 DB 行 + 磁盘文件）。
+
+        保留期内的软删除记录可经 ``restore_tasks`` 恢复；超过保留期才物理删除，
+        既防误删又避免回收站无限膨胀。
+        """
+        cutoff = time.time() - keep_days * 86400
+        cutoff_str = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(cutoff))
+        rows = self.conn.execute(
+            "SELECT task_id FROM tasks WHERE deleted_at IS NOT NULL AND deleted_at < ?",
+            (cutoff_str,),
+        ).fetchall()
+        ids = [r[0] for r in rows]
+        if not ids:
+            return 0
+        outputs_dir = Path(self.db_path).parent.parent / "outputs"
+        self._delete_task_files(ids, outputs_dir)
+        placeholders = ",".join("?" * len(ids))
+        cur = self.conn.execute(f"DELETE FROM tasks WHERE task_id IN ({placeholders})", ids)
         self.conn.commit()
         return cur.rowcount
 
