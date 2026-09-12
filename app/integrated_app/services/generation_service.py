@@ -545,7 +545,8 @@ class GenerationService:
         回滚失败仅告警，不掩盖原始的入队失败语义。
         """
         try:
-            self._history_db.delete_tasks([task_id])
+            # 补偿清理（孤儿任务）应物理删除，不走回收站
+            self._history_db.delete_tasks([task_id], soft=False)
         except Exception as e:  # noqa: BLE001 - 补偿失败不掩盖主错误
             logger.warning("Rollback history task %s failed: %s", task_id, e)
 

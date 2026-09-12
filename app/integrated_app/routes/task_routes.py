@@ -208,15 +208,55 @@ async def redraw_task(task_id: str, request: Request) -> dict[str, Any]:
 async def delete_tasks(
     request: Request,
     task_ids: list[str] = Query(default=[]),
+    hard: bool = Query(False, description="True=物理删除(不可恢复)；默认 False=移入回收站(可恢复)"),
 ) -> dict[str, Any]:
-    """DELETE /api/tasks — 批量删除"""
+    """DELETE /api/tasks — 批量删除（默认软删除进入回收站，防误删）"""
     history_db: HistoryDB = request.app.state.history_db
     if not task_ids:
         raise HTTPException(400, detail="No task_ids provided")
-    # 数据治理报告 P0-2 / P1-1：同步删除磁盘主图 + 缩略图，避免产生孤儿文件
-    # P1-1：该调用含 DB 写 + 磁盘删除，放入线程池避免阻塞事件循环
-    count = await asyncio.to_thread(history_db.delete_tasks_with_files, task_ids)
-    return {"deleted": count}
+    if hard:
+        # 物理删除 + 磁盘文件清理（数据治理报告 P0-2 / P1-1）
+        count = await asyncio.to_thread(history_db.delete_tasks_with_files, task_ids, False)
+        return {"deleted": count, "mode": "hard"}
+    # 默认：软删除进入回收站，保留磁盘文件，可经 /api/tasks/recycle 恢复
+    count = await asyncio.to_thread(history_db.delete_tasks_with_files, task_ids, True)
+    return {"deleted": count, "mode": "recycled"}
+
+
+@router.get("/recycle")
+async def list_recycle(
+    request: Request,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+) -> dict[str, Any]:
+    """GET /api/tasks/recycle — 列出回收站（已软删除的任务）"""
+    history_db: HistoryDB = request.app.state.history_db
+    items, total = await asyncio.to_thread(history_db.list_deleted_tasks, page, page_size)
+    return {"items": items, "total": total, "page": page, "page_size": page_size}
+
+
+@router.post("/recycle/restore")
+async def restore_recycle(
+    request: Request,
+    task_ids: list[str] = Query(default=[]),
+) -> dict[str, Any]:
+    """POST /api/tasks/recycle/restore — 从回收站恢复任务"""
+    history_db: HistoryDB = request.app.state.history_db
+    if not task_ids:
+        raise HTTPException(400, detail="No task_ids provided")
+    count = await asyncio.to_thread(history_db.restore_tasks, task_ids)
+    return {"restored": count}
+
+
+@router.delete("/recycle/purge")
+async def purge_recycle(
+    request: Request,
+    keep_days: int = Query(30, ge=0, description="彻底清理超过该天数的回收站任务"),
+) -> dict[str, Any]:
+    """DELETE /api/tasks/recycle/purge — 彻底清理回收站中超期任务（DB + 磁盘文件）"""
+    history_db: HistoryDB = request.app.state.history_db
+    count = await asyncio.to_thread(history_db.purge_deleted_tasks, keep_days)
+    return {"purged": count}
 
 
 @router.post("/tags")
