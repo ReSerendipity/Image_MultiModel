@@ -18,7 +18,7 @@ cryptography==50.0.0
 einops==0.8.2
 execnet==2.1.2
 factory_boy==3.3.3
-Faker==40.36.0
+Faker==40.38.0
 fastapi==0.141.1
 filelock==3.32.2
 frozenlist==1.8.0
