@@ -26,8 +26,12 @@ class _FakeHistory:
     def create_task(self, **kwargs):
         self.created.append(kwargs["task_id"])
 
-    def delete_tasks(self, ids):
+    def delete_tasks(self, ids, soft: bool = True) -> int:
+        # 对齐 HistoryDB.delete_tasks(task_ids, soft=True) 真实签名：
+        # _rollback_task 以 delete_tasks([task_id], soft=False) 调用（P2-8 物理删除），
+        # 旧夹具不收 soft 关键字会 TypeError 并被补偿 try/except 吞掉，测试假红。
         self.deleted.extend(ids)
+        return len(ids)
 
 
 class _FakeQueue:
