@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-10T23:54:12.180623",
+  "generated_at": "2026-09-14T09:27:05.125828",
   "generator": "scripts/generate_integrity_manifest.py",
   "description": "核心安全模块 SHA256 完整性清单，用于启动时自检",
   "files": {
@@ -10,7 +10,7 @@
     "model_manager.py": "11f0318cec8eccc932ef3993387a6fe08d157099d5c55d8d7103718ca5359267",
     "model_registry.py": "d70eb6e1ac2a36e51a4af314a79e83fbed011730e4f762f86cf6989b2c005bff",
     "task_queue.py": "59f95a80f4643748ca3270bc8be23f21272819aa54fa2c41939b3e48ee7deb70",
-    "history_db.py": "53a1219c0b12460a9026ff8496e8ec02e2380865feaeb3bab522e30a4690e78b",
+    "history_db.py": "cab180dab43c2562e778ff2ba9cea09772b0202c6ebd732389355a4f6c56a52b",
     "lineage.py": "4fa8334929fbaab30310e9fccec7a468922f229803d2ada473fa41f914b1633e",
     "i18n.py": "bc5bf24956a36a8332285b681f454a46d932d424550f88359987649df919a914",
     "gpu_utils.py": "4bd76f5843948cf534f627243a137804c3eeb5ace1a80ebf095c049d564e01f6",
@@ -31,7 +31,7 @@
     "routes/config_routes.py": "080c87a2b633cba68dd9f16d071b6a0479b8094cdae7c84bd92903fc42ca0feb",
     "routes/system_routes.py": "7387870602350b1ae43ee5a80963c1802ee53264f6a5b279f1b8822b3cbdffb7",
     "routes/generate_routes.py": "87a886228cc32855be4f9a54a6c15042209c12f5422e905ee61f61320b95da4c",
-    "routes/task_routes.py": "70bd06dd73cd4803d16b409673c6c6c7a17cf85be0e65e9ae891001f0269a992",
+    "routes/task_routes.py": "8ece3126f5f5c8c967cac594f5171607532d3a52eacf1d4b2a4f829ea5ce7ff6",
     "routes/output_routes.py": "ae0b3313c34fa26fd3bb6d8fa5f750a82aaf3beaee3e48f844e24107a6e4074f",
     "routes/preset_routes.py": "a41180e45962175b40fcfcfb80504129f8ddf830f4b872b02c8b8ce009ee593f",
     "routes/engine_routes.py": "faf3a29bf9337e4f6aeb89ae818787bec3abf10b05cd4cfc1af5ea495ff412e5",
