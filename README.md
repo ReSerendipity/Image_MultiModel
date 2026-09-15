@@ -151,7 +151,7 @@ Image_MultiModel/
 │       ├── history_db.py        # SQLite 历史记录
 │       └── task_queue.py        # 异步任务队列（SSE 推送）
 ├── workflows/                   # 工作流 JSON
-├── comfy_kernel           # 复用的 ComfyUI 源码（推理底层）
+├── comfy_kernel           # 复用的 ComfyUI 源码（推理底层；本地保留、不随仓库分发，克隆后需按 docs/GPL_COMPLIANCE.md 履行 GPL-3.0 义务自行获取）
 ├── pretrained_models/           # 模型检查点存放（portable 模式）
 ├── data/                        # 运行时数据（预设 / 上传 / 缓存）
 ├── outputs/                     # 生成结果输出
