@@ -2,6 +2,8 @@
 
 All notable changes to Image MultiModel will be documented in this file.
 
+> **版本史说明（2026-09-15）**：2026-08-10 曾以 v2.0.0 发布，随后版本号重启为 1.x（1.1.0 → 1.2.2 现行基线，权威位 config.yaml）；远端 v1.5.0 / v1.5.1 tag 为 release-please 时代产物，经 2026-09-05 裁决不再作为版本基线、亦未收录于本 CHANGELOG。详见 docs/release-governance.md。
+
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
