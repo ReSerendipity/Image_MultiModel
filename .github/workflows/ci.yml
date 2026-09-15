@@ -41,7 +41,7 @@ jobs:
   # 错误即红。口径差异：原 job 还装了全量 requirements.txt 并显式传
   # --python-version 3.12；前者实测对结果无影响（两口径同为 0），后者由
   # pyproject [tool.mypy].python_version 提供，模板运行时会读取同一配置。
-  #（原内联实现见 git 历史；迁移记录 docs/reports/家族模板迁移_mypy_ratchet_20260903.md）
+  #（原内联实现见 git 历史；迁移记录 docs/reports/mypy-ratchet-组织级门禁迁移_20260903.md）
   typecheck:
     name: Typecheck (mypy ratchet)
     # 原 mypy job 带 if: always()（lint/test 失败也出类型状态），迁移保留该语义
