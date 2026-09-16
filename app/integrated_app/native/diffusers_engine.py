@@ -533,7 +533,9 @@ class ZImageDiffusersEngine:
         metadata = output_pipeline.build_generation_metadata(task_id, config, self._name)
         for idx, img in enumerate(images):
             # 命名：{taskid}_{seed}_{idx}.png
-            fname = f"{task_id[:16]}_{seed}_{idx}.png"
+            # P1-2 显式 AI 生成标识：与 native 引擎同款后缀（config.output 可关闭）
+            _lbl = cfg.output.explicit_ai_label_suffix if cfg.output.explicit_ai_label else ""
+            fname = f"{task_id[:16]}_{seed}_{idx}{_lbl}.png"
             path = engine_dir / fname
             output_pipeline.finalize_output(
                 path,

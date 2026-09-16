@@ -111,6 +111,22 @@ def _collect(root: Path, exclude_dirs: set[str]) -> list[Path]:
     return files
 
 
+def _assert_no_weights_in(root: Path) -> None:
+    """P2-6 权重隔离断言：分发包内严禁出现模型权重（USER_AGREEMENT §6 前提）。
+
+    仓库本就排除 model/ pretrained_models/（EXCLUDE_DIRS）；此断言把
+    "分发包默认不含任何模型权重"的承诺固化为发布门禁，防目录布局漂移。
+    """
+    banned = {".safetensors", ".ckpt", ".pt", ".pth", ".gguf", ".onnx"}
+    hits = [str(p.relative_to(root)) for p in root.rglob("*") if p.is_file() and p.suffix.lower() in banned]
+    if hits:
+        raise SystemExit(
+            "P2-6 权重隔离断言失败：待打包文件中包含模型权重：\n  "
+            + "\n  ".join(hits[:10])
+            + "\n分发包默认不含任何模型权重（USER_AGREEMENT §6）。请清理后重试。"
+        )
+
+
 def build_payload(tmp: Path) -> None:
     """把 L2 内容组装到 tmp/（zip 根目录）。"""
     # 1. app/ 下的 Python 包（integrated_app 内含 static/templates 前端）
@@ -118,6 +134,7 @@ def build_payload(tmp: Path) -> None:
     if not src.exists():
         raise SystemExit(f"缺少必需目录: {src}")
     _copy_tree(src, tmp / "integrated_app")
+    _assert_no_weights_in(tmp)  # P2-6：分发包权重隔离断言（USER_AGREEMENT §6 前提）
 
     # 2. bin/（clean_launch.py 启动器）
     if (ROOT / "bin").exists():

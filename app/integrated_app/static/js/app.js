@@ -1254,3 +1254,17 @@ loadConfig().then(function(cfg){
 });
 // 标记用户手动改过的参数（引擎切换时不再覆盖分辨率）
 ['width','height','steps','cfg','seed','batchSize'].forEach(function(id){var el=document.getElementById(id);if(el)el.addEventListener('input',function(){el.dataset.touched='1';});});
+
+
+/* ── P1-1 首次使用协议确认（合规整改 2026-09-15）────────────── */
+(function(){
+  var KEY='image_mm:agreement:v1', VER='2026-09-15';
+  try{
+    if(localStorage.getItem(KEY)===VER) return;
+    var box=document.getElementById('immAgreement'); if(!box) return;
+    box.style.display='flex';
+    var chk=document.getElementById('immAgreeChk'), btn=document.getElementById('immAgreeBtn');
+    if(chk&&btn){ chk.addEventListener('change',function(){btn.disabled=!chk.checked;btn.style.opacity=chk.checked?'1':'.5';});
+      btn.addEventListener('click',function(){ if(!chk.checked) return; try{localStorage.setItem(KEY,VER);}catch(e){} box.style.display='none'; }); }
+  }catch(e){}
+})();
