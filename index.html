@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Image MultiModel · AI 图像生成 — 演示页</title>
+<style>
+  :root{
+    --bg:#14161a; --card:#1b1e24; --card2:#21252c; --ink:#e8eaee; --ink2:#9aa1ab;
+    --line:#2c313a; --acc:#6f8fd8; --acc-soft:rgba(111,143,216,.14);
+    --ok:#7fb18a;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:"Segoe UI","Microsoft YaHei","PingFang SC",Arial,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+  .wrap{max-width:1200px;margin:0 auto;padding:0 24px 40px}
+  header{display:flex;align-items:center;gap:14px;height:58px;border-bottom:1px solid var(--line)}
+  .logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#6f8fd8,#8f6fd8);display:flex;align-items:center;justify-content:center}
+  .logo svg{width:18px;height:18px}
+  header h1{font-size:16px;font-weight:700;letter-spacing:.4px}
+  header .sub{font-size:12px;color:var(--ink2)}
+  header .right{margin-left:auto;font-size:12px;color:var(--ink2)}
+  main{display:grid;grid-template-columns:380px 1fr;gap:20px;margin-top:20px}
+  @media(max-width:960px){main{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px}
+  .lbl{font-size:12px;color:var(--ink2);margin:15px 0 7px;display:flex;justify-content:space-between}
+  textarea{width:100%;height:92px;resize:vertical;background:#171a1f;border:1px solid var(--line);border-radius:12px;color:var(--ink);padding:12px;font-size:13px;line-height:1.65;font-family:inherit}
+  textarea:focus{outline:none;border-color:var(--acc)}
+  input[type=text]{width:100%;background:#171a1f;border:1px solid var(--line);border-radius:10px;color:var(--ink2);padding:10px 12px;font-size:12.5px}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
+  .chip{font-size:11.5px;padding:6px 11px;border-radius:99px;border:1px solid var(--line);color:var(--ink2);cursor:pointer;transition:all .15s}
+  .chip.on{background:var(--acc-soft);border-color:var(--acc);color:#cdd9f5}
+  .row{display:flex;gap:10px}
+  select,.num{background:#171a1f;border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:9px 11px;font-size:12.5px;flex:1;min-width:0}
+  .go{margin-top:18px;width:100%;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,#6f8fd8,#8f6fd8);color:#fff;font-size:14px;font-weight:600;cursor:pointer;letter-spacing:1px;transition:filter .15s,transform .15s}
+  .go:hover{filter:brightness(1.1)}
+  .go:active{transform:scale(.985)}
+  /* 生成区 */
+  .canvas-zone{display:flex;flex-direction:column}
+  .stage{flex:1;min-height:420px;background:var(--card2);border:1px solid var(--line);border-radius:14px;position:relative;overflow:hidden}
+  .prog{position:absolute;top:0;left:0;right:0;height:3px;background:transparent;z-index:5}
+  .prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,#6f8fd8,#8f6fd8);transition:width .2s}
+  .grid{position:absolute;inset:0;display:grid;gap:10px;padding:16px;align-content:start}
+  .tile{border-radius:10px;overflow:hidden;position:relative;background:#23272e;animation:pop .4s ease}
+  .tile canvas{width:100%;height:100%;display:block}
+  .tile .tinfo{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent,rgba(0,0,0,.72));color:#fff;font-size:10.5px;padding:14px 9px 7px}
+  @keyframes pop{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+  .placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--ink2);font-size:13px}
+  .placeholder svg{width:56px;height:56px;opacity:.35}
+  .stathint{margin-top:14px;font-size:12px;color:var(--ink2);display:flex;justify-content:space-between}
+  .foot{margin-top:26px;text-align:center;font-size:12px;color:var(--ink2)}
+  .foot code{background:rgba(255,255,255,.07);padding:2px 8px;border-radius:6px;font-size:11.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="9" cy="9" r="2.2"/><path d="M4 18l5-4 3 2.5L17 11l4 4"/></svg></div>
+    <h1>Image MultiModel</h1><span class="sub">AI 图像生成平台 · 演示页</span>
+    <span class="right">Z-Image Turbo · 进程内原生引擎 · 中 / EN / 日 / 한국어</span>
+  </header>
+
+  <main>
+    <section class="card">
+      <div class="lbl"><span>提示词（Prompt）</span><span style="color:var(--acc)">支持中文 / 英文</span></div>
+      <textarea id="prompt">一只橘猫坐在窗台上，午后阳光洒落，旁边有一杯咖啡，柔和的暖色调，电影感光影，细节丰富</textarea>
+      <div class="lbl">负面提示（Negative）</div>
+      <input type="text" id="neg" value="模糊，低质量，水印，多余肢体">
+
+      <div class="lbl">LoRA 叠加</div>
+      <div class="chips" id="loras">
+        <span class="chip on" data-on="1">胶片质感</span>
+        <span class="chip" data-on="0">赛博朋克</span>
+        <span class="chip" data-on="0">国风水墨</span>
+        <span class="chip" data-on="0">无</span>
+      </div>
+
+      <div class="lbl">生成参数</div>
+      <div class="row">
+        <select id="size"><option>1024 × 1024</option><option>1280 × 720</option><option>720 × 1280</option><option>1536 × 1024</option></select>
+        <select id="count"><option value="1">1 张</option><option value="2">2 张</option><option value="4">4 张</option></select>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <label class="chk" style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink2)"><input type="checkbox" id="sr" checked style="accent-color:var(--acc)"> SeedVR2 超分增强</label>
+        <label class="chk" style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink2)"><input type="checkbox" id="wm" checked style="accent-color:var(--acc)"> DCT 水印溯源</label>
+      </div>
+      <button class="go" id="go">生成图像</button>
+    </section>
+
+    <section class="card canvas-zone">
+      <div class="stage" id="stage">
+        <div class="prog" id="prog"><i id="progBar"></i></div>
+        <div class="placeholder" id="ph">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 8v8M8 12h8"/></svg>
+          <span>输入提示词后点击「生成图像」<br>演示页用本地画布模拟生成，真实推理由进程内 Z-Image Turbo 引擎完成</span>
+        </div>
+        <div class="grid" id="grid" style="display:none"></div>
+      </div>
+      <div class="stathint"><span id="st">等待任务</span><span id="st2">引擎：Z-Image Turbo · FP8</span></div>
+    </section>
+  </main>
+
+  <p class="foot">Image MultiModel 演示页（前端模拟）· 仓库：<code>github.com/ReSerendipity/Image_MultiModel</code> · 批量生成 · SSE 进度 · DCT 水印 · 便携运行</p>
+</div>
+
+<script>
+  document.querySelectorAll(".chip").forEach(c=>c.onclick=()=>{
+    const on = c.dataset.on==="1";
+    if(c.textContent==="无"){ document.querySelectorAll(".chip").forEach(x=>{x.classList.remove("on");x.dataset.on="0"}); c.classList.add("on"); c.dataset.on="1"; return; }
+    c.dataset.on = on?"0":"1"; c.classList.toggle("on",!on);
+  });
+  const stage=document.getElementById("stage"),grid=document.getElementById("grid"),ph=document.getElementById("ph");
+  const progBar=document.getElementById("progBar"),st=document.getElementById("st"),st2=document.getElementById("st2");
+  function drawTile(cv){
+    const ctx=cv.getContext("2d"); const w=cv.width,h=cv.height;
+    const hue=(Math.random()*60+10)|0;
+    const g=ctx.createLinearGradient(0,0,w,h);
+    g.addColorStop(0,"hsl("+hue+",55%,62%)"); g.addColorStop(.5,"hsl("+((hue+40)%360)+",48%,48%)"); g.addColorStop(1,"hsl("+((hue+80)%360)+",60%,30%)");
+    ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+    for(let i=0;i<60;i++){ ctx.beginPath(); ctx.arc(Math.random()*w,Math.random()*h,Math.random()*28+4,0,7); ctx.fillStyle="rgba(255,255,255,"+(Math.random()*.16)+")"; ctx.fill(); }
+    for(let i=0;i<26;i++){ ctx.beginPath(); ctx.arc(Math.random()*w,Math.random()*h,Math.random()*40+10,0,7); ctx.fillStyle="rgba(20,16,40,"+(Math.random()*.25)+")"; ctx.fill(); }
+    ctx.fillStyle="rgba(255,255,255,.9)";
+    const sun=[w*.68,h*.3]; const r=Math.min(w,h)*.12;
+    ctx.beginPath(); ctx.arc(sun[0],sun[1],r,0,7); ctx.fill();
+    ctx.fillStyle="hsla("+hue+",70%,30%,.8)";
+    ctx.beginPath(); ctx.moveTo(0,h); ctx.lineTo(w*.25,h*.6); ctx.lineTo(w*.5,h*.82); ctx.lineTo(w*.75,h*.52); ctx.lineTo(w,h*.78); ctx.lineTo(w,h); ctx.closePath(); ctx.fill();
+  }
+  async function generate(){
+    const p=document.getElementById("prompt").value.trim();
+    if(!p){ st.textContent="请输入提示词"; return; }
+    ph.style.display="none"; grid.style.display="grid";
+    grid.style.gridTemplateColumns="repeat("+(document.getElementById("count").value==="1"?1:2)+",1fr)";
+    grid.innerHTML="";
+    const n=+document.getElementById("count").value;
+    const sr=document.getElementById("sr").checked;
+    const t0=Date.now();
+    let prog=0;
+    const iv=setInterval(()=>{ prog+=3+Math.random()*7; if(prog>=100)prog=100; progBar.style.width=prog+"%"; st.textContent="生成中 "+prog.toFixed(0)+"% · SSE 进度模拟"; },120);
+    for(let i=0;i<n;i++){
+      await new Promise(r=>setTimeout(r,500+Math.random()*500));
+      const tile=document.createElement("div"); tile.className="tile";
+      tile.style.aspectRatio="1/1";
+      const cv=document.createElement("canvas"); cv.width=512; cv.height=512; drawTile(cv);
+      const info=document.createElement("div"); info.className="tinfo"; info.textContent="seed "+((Math.random()*99999)|0)+(sr?" · SR":"")+" · DCT";
+      tile.appendChild(cv); tile.appendChild(info); grid.appendChild(tile);
+    }
+    clearInterval(iv); progBar.style.width="100%";
+    setTimeout(()=>{ progBar.style.width="0"; const s=(Date.now()-t0)/1000; st.textContent="完成 · "+n+" 张 · 用时 "+s.toFixed(1)+"s（模拟）"; st2.textContent="SeedVR2 超分："+(sr?"开":"关")+" · DCT 水印：开"; }, 300);
+  }
+  document.getElementById("go").onclick=generate;
+</script>
+</body>
+</html>
