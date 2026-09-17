@@ -225,10 +225,19 @@ class OutputConfig(BaseModel):
     history: HistoryOutputConfig = HistoryOutputConfig()
     uploads: UploadsConfig = UploadsConfig()
 
+    # ──────────────────────────────────────────────────────────────
+    #  6. 预设 / 水印
+    # ──────────────────────────────────────────────────────────────
+    explicit_ai_label: bool = Field(
+        default=True,
+        description="P1-2 显式 AI 生成标识：输出文件名追加后缀（可关闭）；与 DCT 隐式水印相互独立",
+    )
+    explicit_ai_label_suffix: str = Field(
+        default="_AI",
+        description="P1-2：显式标识后缀内容",
+    )
 
-# ──────────────────────────────────────────────────────────────
-#  6. 预设 / 水印
-# ──────────────────────────────────────────────────────────────
+
 class PresetsConfig(BaseModel):
     dir: str = "data/presets"
     allow_engine_mix_presets: bool = True

@@ -58,7 +58,7 @@
 3. 双击运行 **`install.bat`**（会自动检测系统 Python，安装 PyTorch CUDA 版 + 全部依赖）
 4. **（可选）配置环境变量**
    - **新手**：跳过此步，默认便携模式即可使用
-   - **高级用户**：复制 `.env.example` 为 `.env`，按需修改（配置说明文档 `docs/PATH-CONFIGURATION.md` 为本地保留、未随仓库发布）
+   - **高级用户**：复制 `.env.example` 为 `.env`，按需修改（`.env` 不入库，注意保管）
 5. 确认模型文件已就位（存放于 `pretrained_models/`，portable 模式，完全自包含）
 6. 双击运行：
    ```bat
@@ -99,7 +99,7 @@
 
 ```bash
 docker build -t image-multimodel .
-docker run --gpus all -p 8080:8080 \
+docker run --gpus all -p 8288:8288 \
   -v ./pretrained_models:/app/pretrained_models \
   -v ./outputs:/app/outputs \
   image-multimodel
@@ -123,7 +123,7 @@ docker run --gpus all -p 8080:8080 \
 - **`sys.path` 注入**：通过 `native/source.ensure_loaded()` 把该目录注入 `sys.path[0]`，在同一进程内调用 `comfy.sd` / `comfy.samplers` 完成推理。
 - **统一引擎 key**：`config.yaml → models.engines.z_image_turbo_native`（`backend: native`）。
 
-> ℹ️ 详情见本地文档 `docs/COMFYUI-INDEPENDENCE-PLAN.md`（本地保留、未随仓库发布）。
+> ℹ️ 引擎与 comfy_kernel 的架构分工详见 `docs/agents/ARCH_MAP.md`（本地保留、未随仓库发布）。
 
 ---
 
@@ -131,38 +131,30 @@ docker run --gpus all -p 8080:8080 \
 
 ```
 Image_MultiModel/
-├── bin/                          # 应用入口与主程序
-│   ├── clean_launch.py          # 启动清理 + 环境检测脚本
-│   ├── install.bat              # 依赖安装脚本
-│   ├── start.bat                # Windows 启动脚本
+├── app/                          # 应用入口与主程序
+│   ├── clean_launch.py          # 启动清理 + 环境检测 + 启动 uvicorn
 │   └── integrated_app/          # 主应用核心
-│       ├── app_server.py        # FastAPI 应用 + 生命周期管理
-│       ├── native/              # 原生进程内引擎（唯一引擎）
-│       │   ├── source.py        # 复用 comfy_kernel 源码（sys.path 注入）
-│       │   ├── executor.py      # 复用 comfy.sd / comfy.samplers 推理流程
-│       │   ├── engine.py        # NativeEngine（ImageEngine 实现）
-│       │   ├── lora.py / seedvr.py / compares.py / vram.py / preview.py
-│       ├── routes/              # API 路由（生成 / 任务 / 预设 / 系统 / 配置）
-│       ├── middleware/          # CSRF、限流、Request ID 中间件
-│       ├── security/            # PathGuard 路径防护 + integrity 完整性
-│       ├── locales/             # i18n 多语言（zh / zh-tw / en / ja / ko）
+│       ├── app_server.py        # FastAPI 应用 + 路由自动发现
+│       ├── native/              # 进程内原生引擎（source/executor/engine/diffusers_engine/seedvr/lora/compares/vram/preview）
+│       ├── routes/              # API 路由（config/engine/generate/governance/metrics/output/preprocess/preset/prompt/safety/system/task）
+│       ├── security/            # PathGuard 路径防护 + 完整性校验（integrity_manifest.json）
+│       ├── middleware/          # CSRF、限流、Request ID、安全头
+│       ├── locales/             # i18n 五语言 JSON（zh/zh-tw/en/ja/ko）
 │       ├── watermark.py         # DCT 频域不可感知数字水印
-│       ├── gpu_utils.py         # GPU VRAM 预检 + 精度 / chunk 推荐
-│       ├── history_db.py        # SQLite 历史记录
-│       └── task_queue.py        # 异步任务队列（SSE 推送）
-├── workflows/                   # 工作流 JSON
-├── comfy_kernel           # 复用的 ComfyUI 源码（推理底层；本地保留、不随仓库分发，克隆后需按 docs/GPL_COMPLIANCE.md 履行 GPL-3.0 义务自行获取）
-├── pretrained_models/           # 模型检查点存放（portable 模式）
-├── data/                        # 运行时数据（预设 / 上传 / 缓存）
-├── outputs/                     # 生成结果输出
-├── logs/                        # 运行日志
-├── scripts/                     # 工具脚本
-├── tests/                       # pytest + Hypothesis 测试套件
-├── start.bat / install.bat      # Windows 启动 / 安装脚本
+│       └── history_db.py / task_queue.py / gpu_utils.py
+├── comfy_kernel/                 # vendored ComfyUI 内核（gitignored：本地保留、不随仓库分发，克隆后按 docs/GPL_COMPLIANCE.md 履行 GPL-3.0 义务自行获取）
+├── workflows/                    # 工作流参考目录（gitignored 空目录，clean_launch 自动重建；引擎由代码构建工作流）
+├── pretrained_models/            # 模型检查点存放（portable 模式，gitignored）
+├── desktop/                      # 桌面分发：src-tauri（Tauri v2 壳）+ installer/setup.nsi（NSIS）
+├── release/                      # 发布元数据（build_metadata.json、sbom.json）
+├── scripts/                      # 打包/分卷/发布门禁/验签/水印等工具脚本
+├── tests/                        # pytest + Hypothesis（含 e2e/integration/observability/release/smoke/frontend）
+├── demo/                         # GitHub Pages 在线演示
+├── config.yaml                   # 应用配置（版本权威位）
+├── pyproject.toml                # 工具配置（pytest / ruff / coverage）
 ├── requirements.txt / requirements-lock.txt
-├── config.yaml                  # 应用配置
-├── pyproject.toml               # 工具配置（pytest / ruff / coverage）
-└── Dockerfile                   # Docker 构建
+├── start.bat / install.bat / start.sh / install.sh
+└── README.md / CHANGELOG.md / THIRD_PARTY_NOTICES.md
 ```
 
 ---

@@ -282,7 +282,9 @@ class NativeEngine:
         metadata = output_pipeline.build_generation_metadata(task_id, config, self._name)
         for idx, img_tensor in enumerate(images):
             width, height = img_tensor.shape[1], img_tensor.shape[0]
-            fname = f"{task_id[:16]}_{idx}.{out_ext}"
+            # P1-2 显式 AI 生成标识：文件名默认追加 _AI 后缀（config.output 可关闭）
+            _lbl = cfg.output.explicit_ai_label_suffix if cfg.output.explicit_ai_label else ""
+            fname = f"{task_id[:16]}_{idx}{_lbl}.{out_ext}"
             path = engine_dir / fname
             output_pipeline.finalize_output(
                 path,
