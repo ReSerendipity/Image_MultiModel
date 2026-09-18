@@ -21,8 +21,15 @@ BrandingText "Image MultiModel"
 !define APP_VERSION "${VERSION}"
 !define DATA_PREFIX "ImageMultiModel-Data.7z"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\ImageMultiModel"
-!define APP_ICON "C:\Users\Doro\Image_MultiModel\desktop\src-tauri\icons\icon.ico"
-!define SRC_7ZA "C:\Users\Doro\tools\7z-extra\x64\7za.exe"
+; 图标路径相对 setup.nsi 所在目录（desktop/installer/），克隆后无需改路径即可编译；
+; 也可用 makensis -DAPP_ICON=... 覆盖
+!ifndef APP_ICON
+  !define APP_ICON "..\src-tauri\icons\icon.ico"
+!endif
+; 7za 默认从 PATH 查找，或用 makensis -DSRC_7ZA=... 指定（勿写死本机绝对路径）
+!ifndef SRC_7ZA
+  !define SRC_7ZA "7za.exe"
+!endif
 
 Var StartMenuFolder
 Var TOOLSDIR
