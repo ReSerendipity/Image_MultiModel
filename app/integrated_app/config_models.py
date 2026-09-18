@@ -575,7 +575,7 @@ def resolve_model_path(
 
     shared 模式:
         {comfy_models_dir}/{mount_map[sub_dir]}/{sub_path}
-        例如: C:/Users/Doro/APP/ComfyUI/models/text_encoders/Z_image(turbo)/qwen_3_4b_fp8_mixed.safetensors
+        例如: {comfy_root}/models/text_encoders/Z_image(turbo)/qwen_3_4b_fp8_mixed.safetensors（comfy_root 由外部配置决定）
 
     portable 模式:
         {project_root}/{internal_models_dir}/{sub_dirs[sub_dir]}/{sub_path}
