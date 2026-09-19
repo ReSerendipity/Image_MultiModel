@@ -61,3 +61,10 @@
 - 现象：`from app.integrated_app...` 可导入但 `app/__init__.py` 不存在。
 - 根因：Python 3 命名空间包机制。
 - 解法：diag 脚本按 `app.integrated_app` 导入；壳 resolve 以 `integrated_app/` 目录存在为判定（不依赖 __init__.py）。
+
+## 治理与勘误速查（2026-09-18）
+
+- **日志（勘误用）**：`logs/app.log`（应用主日志，含启动/推理/路由）。
+- **precheck.ps1（入库文件）**：python 解析回退（.venv → PATH）+ 依赖缺失 `[WARN]` 告警跳过；**完整门禁由 CI 承担**（Lint & Compile / Test+Coverage / mypy ratchet）——本地预检是「尽力而为」层。
+- **钩子**：`.githooks/pre-commit` 分发器四级回退（.venv → PATH python → 控制台 pre-commit → pre-commit-lite）。
+- **Python 安全注释**：bandit 豁免用纯 `# nosec`（`# nosec B603,B607` 只压 B607 不压 B603）。
