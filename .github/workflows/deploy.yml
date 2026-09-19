@@ -7,9 +7,12 @@ name: Deploy
 # 环境要求（self-hosted runner 上执行，需要能访问目标 GPU 机器）：
 #   - docker + docker compose v2
 #   - 目标机可通过 SSH 访问（secrets：STAGING_HOST / STAGING_USER / STAGING_SSH_KEY；
-#     生产同理使用 PROD_* secrets）。未配置 secrets 时本 workflow 在 GitHub 托管
-#     runner 上会退化为「本地 docker compose 起服 → 跑 smoke → 拆除」的演练模式，
-#     同样能验证晋级门禁逻辑。
+#     生产同理使用 PROD_* secrets）。
+#   - 未配置 secrets 时走「演练模式」：在托管 runner 上 build 真实镜像 +
+#     IMM_FAKE_ENGINE=1 起服 → 容器内跑同一份 smoke → 拆服。演练只验证门禁管道，
+#     不校验产物实体（见 staging job 注释），因此 production job 会硬拒绝演练结果。
+#     注意：演练不能用 docker compose —— docker-compose.yml 无条件预留 nvidia 设备，
+#     无 GPU 驱动的 runner 上容器根本起不来（CI 34612430147 即败于此）。
 
 on:
   workflow_dispatch:
@@ -85,32 +88,50 @@ jobs:
       - name: Deploy (local drill, no staging secrets)
         if: vars.HAS_STAGING_SECRETS != 'true'
         run: |
-          # 演练模式：本机 docker compose 起 fake-engine 服务（无 GPU，IMM_FAKE_ENGINE=1）
-          echo "IMAGE_TAG=${{ steps.tag.outputs.tag }}" >> .env
-          docker compose up -d
-          # 等待 health check 通过（最长 120s）
-          for i in $(seq 1 60); do
-            if curl -fsS http://127.0.0.1:8288/api/health >/dev/null 2>&1; then
-              echo "[OK] service healthy after ${i}s"; break
+          # 演练模式：build 真实镜像 + docker run 注入 IMM_FAKE_ENGINE=1，与 ci.yml 的
+          # P0-1 容器门禁同一手法。不走 docker compose：其 nvidia 设备预留在无 GPU 的
+          # 托管 runner 上必然报 could not select device driver "nvidia"。
+          # 也不发布端口：config.yaml server.host=127.0.0.1，容器内只监听回环，
+          # 主机经 -p 打不进去，故探活与 smoke 一律在容器内执行。
+          IMAGE="image-multimodel:${{ steps.tag.outputs.tag }}"
+          docker build -t "$IMAGE" .
+          docker run -d --name imm_drill -e IMM_FAKE_ENGINE=1 "$IMAGE"
+          # 等待健康（最长 90s）
+          for i in $(seq 1 90); do
+            if docker exec imm_drill python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8288/api/health', timeout=3)" 2>/dev/null; then
+              echo "[OK] service healthy after ${i} probes"
+              exit 0
             fi
-            if [ "$i" = "60" ]; then
-              echo "[FAIL] service not healthy within 120s"; docker compose logs --tail=200
-              docker compose down; exit 1
-            fi
-            sleep 2
+            sleep 1
           done
+          echo "[FAIL] service not healthy within 90s"
+          docker logs imm_drill 2>&1 | tail -200
+          exit 1
 
       - name: Run post-deploy smoke (P2-11 gate)
         # ⚠️ 不设 continue-on-error：smoke 失败即 job 失败 → 晋级被阻断
         env:
           BASE_URL: ${{ vars.STAGING_BASE_URL || 'http://127.0.0.1:8288' }}
         run: |
-          python scripts/post_deploy_smoke.py \
-            --base-url "$BASE_URL" \
-            --timeout 15 \
-            --generation-timeout 120 \
-            --require-real-output \
-            --output smoke_report.json
+          # --require-real-output 属真实部署专属：fake engine 的产物路径前缀为
+          # imm_fake，脚本对其直接判失败（docs/ops/staging_smoke.md §2 Gotcha #47）。
+          # 演练模式因此只跑前 6 项 + 不加产物校验，验证的是门禁管道本身而非产物真实性。
+          if [ "${{ vars.HAS_STAGING_SECRETS }}" = "true" ]; then
+            python scripts/post_deploy_smoke.py \
+              --base-url "$BASE_URL" \
+              --timeout 15 \
+              --generation-timeout 120 \
+              --require-real-output \
+              --output smoke_report.json
+          else
+            docker exec imm_drill python scripts/post_deploy_smoke.py \
+              --base-url http://127.0.0.1:8288 \
+              --timeout 15 \
+              --generation-timeout 120 \
+              --output /app/smoke_report.json
+            docker cp imm_drill:/app/smoke_report.json ./smoke_report.json
+            echo "::notice::演练模式：产物实体校验不参与，本次仅验证晋级门禁管道"
+          fi
         id: smoke
 
       - name: Upload smoke report
@@ -132,7 +153,7 @@ jobs:
 
       - name: Stop local drill service
         if: vars.HAS_STAGING_SECRETS != 'true'
-        run: docker compose down || true
+        run: docker rm -f imm_drill || true
 
       - name: Block promotion on smoke failure
         if: steps.smoke.outcome == 'failure'
@@ -151,6 +172,18 @@ jobs:
     environment: production   # 需要人工批准（GitHub environment protection rule）
     steps:
       - uses: actions/checkout@v4
+      - name: Refuse promotion from drill-verified staging
+        env:
+          HAS_STAGING: ${{ vars.HAS_STAGING_SECRETS }}
+        run: |
+          # 演练模式的 staging 用 IMM_FAKE_ENGINE=1 起服且不校验产物实体，只能证明
+          # 门禁管道没坏，不具备晋级资格。缺真实 staging 时在此硬失败，不静默跳过。
+          if [ "$HAS_STAGING" != "true" ]; then
+            echo "[FAIL] 拒绝晋级：vars.HAS_STAGING_SECRETS != 'true'，staging 为演练实例。"
+            echo "       处置：配置 secrets STAGING_HOST / STAGING_USER / STAGING_SSH_KEY，"
+            echo "       并设仓库变量 HAS_STAGING_SECRETS=true 后重跑。"
+            exit 1
+          fi
       - name: Promote (delegate to blue-green script with automatic rollback)
         env:
           IMAGE_TAG: ${{ inputs.image_tag }}
