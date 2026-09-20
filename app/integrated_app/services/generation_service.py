@@ -399,7 +399,9 @@ class GenerationService:
                 path = guard.resolve(req.prompt_file)
                 prompts = [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
             except Exception as e:
-                raise HTTPException(400, detail=f"Cannot read prompt file: {e}")
+                # 同 preset_routes：异常文本不外泄，细节入日志
+                logger.warning("批量 prompt_file 读取失败 file=%r: %s", req.prompt_file, e, exc_info=True)
+                raise HTTPException(400, detail="Cannot read prompt file") from e
 
         grid = req.grid_dimensions
         grid_keys = list(grid.keys())

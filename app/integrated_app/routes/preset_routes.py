@@ -148,7 +148,11 @@ async def import_presets(req: list[dict[str, Any]], request: Request) -> dict[st
             )
             imported += 1
         except Exception as e:
-            errors.append(str(e))
+            # 只回传可定位的最小信息（异常类名 + 预设名）。异常文本本身可能含绝对路径、
+            # SQL 片段等内部细节，不随 API 响应外泄（CodeQL py/stack-trace-exposure #19）；
+            # 完整原因带栈写入服务端日志。
+            logger.warning("预设导入失败 name=%r: %s", p.get("name", ""), e, exc_info=True)
+            errors.append(f"preset_import_failed[{p.get('name', '')}]: {type(e).__name__}")
     return {"imported": imported, "errors": errors}
 
 
