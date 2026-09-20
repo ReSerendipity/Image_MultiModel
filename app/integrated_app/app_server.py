@@ -216,7 +216,7 @@ async def lifespan(app: FastAPI):
     # P1-1: 核心模块完整性自检（来源：Seedvr2）
     # P0（任务书 2026-09-10）：enforce 接线——验签/哈希失败拒绝启动（fail-closed）。
     # enforce 开启的前提是签名密钥分发定案（CI Secret 注入 + 公钥入库），
-    # 详见 docs/agents/SOPS.md SOP-19 与本仓 security/secret_key.py。
+    # 详见本地保留的 AI 开发规范 SOP-19（未随仓库发布）与本仓 security/secret_key.py。
     from .security.integrity_selfcheck import run_startup_selfcheck
 
     selfcheck_result = run_startup_selfcheck(enforce=config.security.integrity_selfcheck.enforce)
@@ -255,6 +255,11 @@ async def lifespan(app: FastAPI):
         retry_max_delay_s=config.runtime.batch.retry_max_delay_s,
     )
     app.state.task_queue = task_queue
+    # 注册进程级单例：供 RequestIDLogFilter 在 worker 线程回退读取在飞任务
+    # 元数据（跨线程不共享 ContextVar，日志 req= 关联键兜底）。
+    from .task_queue import set_task_queue
+
+    set_task_queue(task_queue)
 
     # 注册 SSE 进度/状态回调
     sse_bus = get_sse_bus()

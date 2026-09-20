@@ -1,7 +1,7 @@
 """
 tests/test_shutdown_close_race.py — 关闭期 SQLite use-after-close 回归测试
 
-背景（2026-09-03 首次发现，见 docs/agents/GOTCHAS.md）：
+背景（2026-09-03 首次发现，详见本地 AI 规范坑点集，未随仓库发布）：
 CI 的 ``Test + Coverage`` 偶发直接 ``Fatal Python error: Segmentation fault``，
 pytest 只报 ``worker 'gw0' crashed``，没有任何 Python 栈。根因是关闭顺序竞态：
 
@@ -157,6 +157,7 @@ class TestTaskQueueStopDrainsWorker:
 
     def test_worker_exception_still_finalizes_task(self):
         """worker 抛异常时任务置 FAILED，且 stop() 正常返回"""
+
         def boom(task: Task) -> None:
             raise RuntimeError("boom")
 

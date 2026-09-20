@@ -57,7 +57,7 @@ class _GuardedConnection:
         if conn is None:
             raise HistoryDBClosedError(
                 "HistoryDB 连接已关闭，无法继续访问数据库"
-                "（典型原因：关闭流程先于工作线程写库，见 docs/agents/GOTCHAS.md）"
+                "（典型原因：关闭流程先于工作线程写库，属 use-after-close 竞态）"
             )
         return conn
 
@@ -183,7 +183,9 @@ class HistoryDB:
         lora_checksums   TEXT DEFAULT '[]',
         error_code       TEXT DEFAULT '',
         -- 软删除 / 回收站（防误删）：NULL=未删，非空=删除时间戳，可恢复
-        deleted_at       TEXT DEFAULT NULL
+        deleted_at       TEXT DEFAULT NULL,
+        -- 提交→worker 边界最小关联键：提交侧 HTTP request_id（日志 req= 同源）
+        request_id       TEXT DEFAULT ''
     );
 
     -- 输出表（一对多）
@@ -274,9 +276,10 @@ class HistoryDB:
     """
 
     # 数据库 schema 单调版本号（数据治理报告 P2-4）。
-    # 1 = 基线 schema；2 = tasks 血缘增强列；3 = outputs.sha256 输出指纹。
+    # 1 = 基线 schema；2 = tasks 血缘增强列；3 = outputs.sha256 输出指纹；
+    # 4 = tasks.deleted_at 软删除；5 = tasks.request_id 提交→worker 关联键。
     # 迁移步骤见 _migrations()；改基线 schema 或加列时必须同步 +1 并注册迁移。
-    SCHEMA_VERSION = 4
+    SCHEMA_VERSION = 5
 
     def __init__(self, db_path: str | Path) -> None:
         self.db_path = Path(db_path)
@@ -316,7 +319,14 @@ class HistoryDB:
             (2, self._migrate_v2_lineage_columns),
             (3, self._migrate_v3_outputs_sha256),
             (4, self._migrate_v4_soft_delete),
+            (5, self._migrate_v5_request_id),
         )
+
+    def _migrate_v5_request_id(self, conn: sqlite3.Connection) -> None:
+        """v5：tasks 表补齐 request_id 列（提交→worker 边界最小关联键）。"""
+        existing = {r[1] for r in conn.execute("PRAGMA table_info(tasks)").fetchall()}
+        if "request_id" not in existing:
+            conn.execute("ALTER TABLE tasks ADD COLUMN request_id TEXT DEFAULT ''")
 
     def _migrate_v4_soft_delete(self, conn: sqlite3.Connection) -> None:
         """v4：tasks 表补齐软删除列（回收站 / 防误删）。"""
@@ -503,13 +513,14 @@ class HistoryDB:
         tags: list[str] | None = None,
         workflow_version: str = "",
         lora_checksums: list[dict] | None = None,
+        request_id: str = "",
     ) -> None:
         """创建新任务"""
         conn = self.conn
         conn.execute(
             "INSERT INTO tasks (task_id, engine, mode, prompt, negative_prompt, "
-            "generation_config, tags, workflow_version, lora_checksums, status) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')",
+            "generation_config, tags, workflow_version, lora_checksums, request_id, status) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')",
             (
                 task_id,
                 engine,
@@ -520,6 +531,7 @@ class HistoryDB:
                 json.dumps(tags or [], ensure_ascii=False),
                 workflow_version,
                 json.dumps(lora_checksums or [], ensure_ascii=False),
+                request_id or "",
             ),
         )
         conn.commit()

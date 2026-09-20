@@ -36,6 +36,7 @@ from ..engine_interface import GenerationConfig
 from ..gpu_utils import preflight_vram
 from ..i18n import get_error_message
 from ..lineage import compute_lora_checksums, compute_workflow_version
+from ..middleware.request_id import get_request_id
 from ..model_compat import is_lora_compatible
 from ..observability.generation_metrics import (
     record_generation_accepted,
@@ -322,12 +323,16 @@ class GenerationService:
         # P1-8 分级过载策略：入队前评估，避免创建孤儿 history 记录
         maybe_reject_overload(self._task_queue, cfg, req.batch_size)
         task_id = self._task_queue.generate_task_id()
+        # 提交→worker 边界最小关联键：随 Task 元组传入队列，worker 线程
+        # 执行期绑定同一 ContextVar，日志 req=<同一id> 可串联整条链路。
+        request_id = get_request_id()
 
         task = Task(
             task_id=task_id,
             engine=engine_name,
             config=gen_config.to_dict(),
             mode="txt2img",
+            request_id=request_id,
         )
 
         # 血缘落库（P3-10 之前：先落库再入队，失败则补偿删除，见 submit 结果处理）
@@ -340,6 +345,7 @@ class GenerationService:
             generation_config=gen_config.to_dict(),
             workflow_version=compute_workflow_version(engine_cfg, cfg.project_root),
             lora_checksums=compute_lora_checksums(gen_config.effective_lora_stack(), cfg),
+            request_id=request_id,
         )
 
         record_generation_submitted(engine_name)
@@ -423,6 +429,8 @@ class GenerationService:
         maybe_reject_overload(self._task_queue, cfg, total)
         batch_id = self._task_queue.generate_task_id()
         task_ids: list[str] = []
+        # 提交→worker 边界最小关联键（与单图路径同源，批量共享同一 request_id）
+        request_id = get_request_id()
 
         for prompt in prompts:
             for combo in grid_combos:
@@ -447,6 +455,7 @@ class GenerationService:
                     config=payload,
                     mode="batch",
                     batch_id=batch_id,
+                    request_id=request_id,
                 )
                 self._history_db.create_task(
                     task_id=task_id,
@@ -458,6 +467,7 @@ class GenerationService:
                     lora_checksums=compute_lora_checksums(
                         GenerationConfig.from_dict(payload).effective_lora_stack(), cfg
                     ),
+                    request_id=request_id,
                 )
                 record_generation_submitted(engine_name)
                 if await self._task_queue.submit(task):
