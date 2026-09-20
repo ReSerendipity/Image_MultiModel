@@ -14,7 +14,7 @@
 
 *浅色主题 — 生图工作台主页 / 高级参数 / 预设管理 / 历史记录 / 图片展示 / 批量模式*
 
-> 界面截图：主页、高级参数、预设管理、历史记录、图片展示、批量模式共六张，存放于本地 `docs/screenshots/current/light/`（C0：`docs/` 为本地保留、未随仓库发布，故此处不内嵌图片链接）。
+> 界面截图：主页、高级参数、预设管理、历史记录、图片展示、批量模式共六张，属本地保留素材、未随仓库发布，故此处不内嵌图片链接；在线可点 [生图工作台演示页](https://reserendipity.github.io/Image_MultiModel/)。
 
 ---
 
@@ -123,7 +123,7 @@ docker run --gpus all -p 8288:8288 \
 - **`sys.path` 注入**：通过 `native/source.ensure_loaded()` 把该目录注入 `sys.path[0]`，在同一进程内调用 `comfy.sd` / `comfy.samplers` 完成推理。
 - **统一引擎 key**：`config.yaml → models.engines.z_image_turbo_native`（`backend: native`）。
 
-> ℹ️ 引擎与 comfy_kernel 的架构分工详见 `docs/agents/ARCH_MAP.md`（本地保留、未随仓库发布）。
+> ℹ️ 引擎与 comfy_kernel 的架构分工详见本地保留的 AI 协作规范（未随仓库发布）；本文件的公开硬约束子集见 [docs/AGENT_CONSTRAINTS.md](docs/AGENT_CONSTRAINTS.md)。
 
 ---
 
@@ -245,10 +245,10 @@ python scripts/verify_watermark.py outputs/z_image_turbo_native/20260814/xxx_ori
 python -m pytest -q
 
 # 代码检查
-python -m ruff check bin tests
+python -m ruff check app tests
 
 # 覆盖率
-python -m pytest --cov=bin/integrated_app --cov-report=term-missing
+python -m pytest --cov=app/integrated_app --cov-report=term-missing
 
 # E2E 测试（需先安装 Playwright）
 pip install playwright pytest-playwright

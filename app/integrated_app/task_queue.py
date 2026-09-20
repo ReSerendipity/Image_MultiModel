@@ -48,6 +48,25 @@ class Task:
     cancel_requested: bool = False
     batch_id: str | None = None  # 批量任务的批次 ID
     attempts: int = 0  # 已重试次数（P2-6 自动重试）
+    # 提交侧 HTTP 请求的 request_id（middleware/request_id.py）：
+    # 跨线程边界的最小关联键，worker 执行期绑定到日志上下文（req=<同一id>）
+    request_id: str = ""
+
+
+# 进程级 TaskQueue 单例注册：供日志 filter 在 worker 线程回退读取在飞任务
+# 元数据（跨线程不共享 ContextVar）；由 app_server 装配处写入。
+_instance: TaskQueue | None = None
+
+
+def set_task_queue(tq: TaskQueue | None) -> None:
+    """注册进程级 TaskQueue 单例（供 :func:`get_task_queue` 回退读取）。"""
+    global _instance
+    _instance = tq
+
+
+def get_task_queue() -> TaskQueue | None:
+    """获取进程级 TaskQueue 单例；未注册时返回 None。"""
+    return _instance
 
 
 class TaskQueue:
@@ -128,7 +147,7 @@ class TaskQueue:
             self._tasks[task.task_id] = task
             self._queue.put_nowait(task)
             self._notify_status(task.task_id, TaskStatus.PENDING)
-            logger.info(f"Task submitted: {task.task_id} ({task.engine})")
+            logger.info(f"Task submitted: {task.task_id} ({task.engine}) req={task.request_id or '-'}")
             return True
         except asyncio.QueueFull:
             logger.warning(f"Queue full, task rejected: {task.task_id}")
@@ -201,7 +220,7 @@ class TaskQueue:
                 logger.info("TaskQueue: 在飞行 worker 线程已结束")
             except TimeoutError:  # asyncio.TimeoutError 自 3.11 起即内置 TimeoutError
                 logger.warning(
-                    "TaskQueue: 等待在飞行 worker 线程超时（%.1fs），" "关闭流程继续，但数据库可能仍被写入",
+                    "TaskQueue: 等待在飞行 worker 线程超时（%.1fs），关闭流程继续，但数据库可能仍被写入",
                     timeout,
                 )
             except Exception as e:  # noqa: BLE001

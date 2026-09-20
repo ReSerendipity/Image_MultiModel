@@ -31,7 +31,7 @@ services:
       - COMFYUI_DISABLE_UPDATE_CHECK=1
 
     # 端口映射
-    # 云原生评估反模式 #3：仅绑回环，禁止 host 全接口暴露（对齐 AGENTS.md「禁 0.0.0.0」）；
+    # 云原生评估反模式 #3：仅绑回环，禁止 host 全接口暴露（对齐 docs/AGENT_CONSTRAINTS.md C-1「禁 0.0.0.0」）；
     # 远程访问经反向代理（deploy.yml 远端模式走 STAGING_BASE_URL，不受影响）
     ports:
       - "127.0.0.1:8288:8288"

@@ -88,6 +88,21 @@ def make_worker_func(
     """
 
     def worker_func(task):
+        # 提交→worker 边界的最小关联键：HTTP 提交侧的 request_id 随 Task 元组
+        # 传入，在此绑定到当前（线程池）上下文，使本线程全部日志携带同一
+        # ``req=<同一id>``，与提交行 ``Task submitted:`` 可用同一 id 过滤串联。
+        from ..middleware.request_id import reset_request_id, set_request_id
+
+        req_token = None
+        if getattr(task, "request_id", ""):
+            req_token = set_request_id(task.request_id)
+        try:
+            _process_task(task)
+        finally:
+            if req_token is not None:
+                reset_request_id(req_token)
+
+    def _process_task(task):
         logger.info(f"Worker processing task: {task.task_id} ({task.engine})")
         started = time.time()
         # P2 标记活跃，避免推理进行中误触发空闲卸载
@@ -173,13 +188,6 @@ def make_worker_func(
             if hasattr(engine, "_thumbnail_path") and engine._thumbnail_path:
                 thumb = engine._thumbnail_path
 
-            history_db.update_task_status(
-                task.task_id,
-                "completed",
-                processing_time_s=time.time() - started,
-                output_count=len(outputs or []),
-                thumbnail=thumb,
-            )
             # P2-3：先清空本任务已有的 outputs 记录，使重试（P2-6）落库幂等，
             # 避免同一 task_id 累积重复行导致图库出现重复项。
             history_db.clear_task_outputs(task.task_id)
@@ -205,6 +213,17 @@ def make_worker_func(
                     output_type=out_types[i] if i < len(out_types) else "original",
                     sha256=out_sha256,
                 )
+
+            # 状态更新放在 outputs 落库之后：此前先写 completed 再逐条 add_output，
+            # 存在竞态——按状态轮询的调用方（集成测试/前端/冒烟脚本）命中
+            # completed 时图库查询可能还是空（状态已终态、产物未就位）。
+            history_db.update_task_status(
+                task.task_id,
+                "completed",
+                processing_time_s=time.time() - started,
+                output_count=len(outputs or []),
+                thumbnail=thumb,
+            )
 
             # 批量任务断点续跑：完成时清理 checkpoint
             if task.batch_id:

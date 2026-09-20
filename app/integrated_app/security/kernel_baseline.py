@@ -5,7 +5,7 @@ security/kernel_baseline.py — vendored ComfyUI 内核完整性基线（M-04）
 - integrity_selfcheck 守护「自研核心模块」不被篡改；
 - 本模块守护「vendor 进来的 comfy_kernel 源码」基线不被静默改动。
 
-设计取舍（对齐 AGENTS.md §禁区目录：comfy_kernel 为 vendored 上游）：
+设计取舍（对齐 docs/AGENT_CONSTRAINTS.md 约束 C-3「禁区目录」：comfy_kernel 为 vendored 上游）：
 - **fail-open**：comfy_kernel 允许随上游更新（保留 patch 文件、记录 ADR），
   因此基线不一致时仅告警、不阻断加载；基线文件缺失时直接跳过（零开销）。
 - 基线文件由 scripts/generate_comfy_kernel_baseline.py 在构建/发版阶段生成，

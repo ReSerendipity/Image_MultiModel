@@ -179,13 +179,17 @@ async def redraw_task(task_id: str, request: Request) -> dict[str, Any]:
     cfg = get_config()
 
     new_task_id = task_queue.generate_task_id()
+    # 提交→worker 边界最小关联键：重绘请求自己的 request_id 随 Task 传入队列
+    from ..middleware.request_id import get_request_id
     from ..task_queue import Task
 
+    request_id = get_request_id()
     task = Task(
         task_id=new_task_id,
         engine=original["engine"],
         config=gen_config.to_dict(),
         mode=original.get("mode", "txt2img"),
+        request_id=request_id,
     )
 
     await asyncio.to_thread(
@@ -198,6 +202,7 @@ async def redraw_task(task_id: str, request: Request) -> dict[str, Any]:
         generation_config=gen_config.to_dict(),
         workflow_version=compute_workflow_version(cfg.models.engines[original["engine"]], cfg.project_root),
         lora_checksums=compute_lora_checksums(gen_config.effective_lora_stack(), cfg),
+        request_id=request_id,
     )
 
     await task_queue.submit(task)

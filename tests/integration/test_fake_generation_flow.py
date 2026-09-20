@@ -13,12 +13,15 @@ GPU 推理），从而在无 GPU 的 CI 环境中也能跑通：
 
 from __future__ import annotations
 
+import logging
 import time
+from collections.abc import Callable
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.integrated_app.app_server import create_app  # noqa: E402
+from app.integrated_app.middleware.request_id import RequestIDLogFilter  # noqa: E402
 
 pytestmark = pytest.mark.integration
 
@@ -55,8 +58,12 @@ def test_prompt_to_output_journey(fake_client: TestClient) -> None:
     payload = {
         "positive_prompt": "一只橘猫坐在窗台上，午后阳光",
         "negative_prompt": "",
-        "cfg": 1.0, "steps": 8, "width": 512, "height": 512,
-        "seed": 42, "batch_size": 2,
+        "cfg": 1.0,
+        "steps": 8,
+        "width": 512,
+        "height": 512,
+        "seed": 42,
+        "batch_size": 2,
         "engine_name": "z_image_turbo_native",
     }
     r = fake_client.post("/api/generate", json=payload)
@@ -80,8 +87,12 @@ def test_generation_marks_history_entry(fake_client: TestClient) -> None:
     """生成完成后历史任务存在且状态一致。"""
     payload = {
         "positive_prompt": "test history entry",
-        "cfg": 1.0, "steps": 4, "width": 256, "height": 256,
-        "seed": 7, "batch_size": 1,
+        "cfg": 1.0,
+        "steps": 4,
+        "width": 256,
+        "height": 256,
+        "seed": 7,
+        "batch_size": 1,
         "engine_name": "z_image_turbo_native",
     }
     r = fake_client.post("/api/generate", json=payload)
@@ -99,8 +110,12 @@ def test_cancel_endpoint_accepts(fake_client: TestClient) -> None:
     """取消接口可达且返回 2xx/404（真实取消链路在 slow 冒烟中验证）。"""
     payload = {
         "positive_prompt": "test cancel",
-        "cfg": 1.0, "steps": 4, "width": 256, "height": 256,
-        "seed": 1, "batch_size": 1,
+        "cfg": 1.0,
+        "steps": 4,
+        "width": 256,
+        "height": 256,
+        "seed": 1,
+        "batch_size": 1,
         "engine_name": "z_image_turbo_native",
     }
     r = fake_client.post("/api/generate", json=payload)
@@ -110,3 +125,96 @@ def test_cancel_endpoint_accepts(fake_client: TestClient) -> None:
     assert cr.status_code in (200, 404, 409), f"cancel -> {cr.status_code}"
     d = _wait_terminal(fake_client, tid, timeout_s=5)
     assert d.get("status") in ("completed", "cancelled", "failed")
+
+
+def _capture_req_lines(rid: str) -> tuple[list[str], Callable[[], None]]:
+    """挂一个带 RequestIDLogFilter + 统一 req= 格式的 DEBUG handler，
+    只回捞携带指定 request_id 的日志行（与 setup_logging 同格式，
+    验证 ContextVar / 任务元数据回退真的能按同一 id 过滤）。
+
+    Returns:
+        ``(lines, stop)``：lines 为实时追加的命中行列表，stop 卸载 handler。
+    """
+    fmt = logging.Formatter("[req=%(request_id)s] %(name)s %(message)s")
+
+    class _OnlyRid(logging.Filter):
+        def filter(self, record: logging.LogRecord) -> bool:
+            return getattr(record, "request_id", "") == rid
+
+    lines: list[str] = []
+
+    class _Collector(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            lines.append(self.format(record))
+
+    h = _Collector(level=logging.DEBUG)
+    h.setFormatter(fmt)
+    h.addFilter(RequestIDLogFilter())
+    h.addFilter(_OnlyRid())
+    root = logging.getLogger()
+    root.addHandler(h)
+
+    def _stop() -> None:
+        root.removeHandler(h)
+
+    return lines, _stop
+
+
+def test_request_id_links_submit_and_worker_logs(fake_client: TestClient) -> None:
+    """提交→worker 边界最小关联键：同一个 request_id 能同时过滤到
+    HTTP 提交行（Task submitted）与 worker 执行行（Worker processing），
+    且 worker 行输出 req=<同一id> 与 task_id。"""
+    rid = f"test-req-{int(time.time() * 1000)}"
+    payload = {
+        "positive_prompt": "request_id 链路关联测试",
+        "cfg": 1.0,
+        "steps": 4,
+        "width": 256,
+        "height": 256,
+        "seed": 3,
+        "batch_size": 1,
+        "engine_name": "z_image_turbo_native",
+    }
+    lines, stop = _capture_req_lines(rid)
+    try:
+        r = fake_client.post("/api/generate", json=payload, headers={"X-Request-ID": rid})
+        assert r.status_code == 200, f"POST /api/generate -> {r.status_code}: {r.text[:200]}"
+        # 中间件应回显同一 request_id（链路入口契约）
+        assert r.headers.get("X-Request-ID") == rid
+        tid = r.json()["task_id"]
+        d = _wait_terminal(fake_client, tid)
+    finally:
+        stop()
+    assert d["status"] == "completed", d.get("error")
+
+    joined = "\n".join(lines)
+    # ① HTTP 提交线程的行
+    assert "Task submitted" in joined, f"未见提交行，按 {rid} 过滤到的日志：\n{joined}"
+    # ② worker 线程（线程池，不共享 ContextVar）的行必须携带同一 req=
+    worker_lines = [ln for ln in lines if "Worker processing task" in ln]
+    assert worker_lines, f"worker 日志未携带 req={rid}（提交/worker 行未按同一 id 串联）：\n{joined}"
+    assert f"req={rid}" in worker_lines[0]
+    assert tid in worker_lines[0], f"worker 行应同时含 task_id：{worker_lines[0]}"
+    # ③ 所有被捕获的行都只能属于本请求（过滤器本身自洽）
+    assert all(f"req={rid}" in ln for ln in lines), f"过滤泄漏：{[ln for ln in lines if f'req={rid}' not in ln]}"
+
+
+def test_task_row_persists_request_id(fake_client: TestClient) -> None:
+    """可选③：tasks 表 request_id 列落库（沿用 PRAGMA user_version 迁移纪律）。"""
+    rid = f"test-req-db-{int(time.time() * 1000)}"
+    payload = {
+        "positive_prompt": "request_id 落库测试",
+        "cfg": 1.0,
+        "steps": 4,
+        "width": 256,
+        "height": 256,
+        "seed": 5,
+        "batch_size": 1,
+        "engine_name": "z_image_turbo_native",
+    }
+    r = fake_client.post("/api/generate", json=payload, headers={"X-Request-ID": rid})
+    assert r.status_code == 200
+    tid = r.json()["task_id"]
+    d = _wait_terminal(fake_client, tid)
+    assert d["status"] == "completed"
+    assert d.get("request_id") == rid, f"tasks.request_id 未落库：{d.get('request_id')!r}"
