@@ -191,3 +191,7 @@ desktop/installer/ImageMultiModel-Setup-v*.exe
 
 # AI IDE 本地工作目录（仅本地保留，不上远程）
 .qoder/
+# 根目录健康文件由组织级仓库提供（self-purify 检查②），本地不入库
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+SUPPORT.md
