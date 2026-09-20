@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-20T09:12:03.288681",
+  "generated_at": "2026-09-20T10:25:31.874388",
   "generator": "scripts/generate_integrity_manifest.py",
   "description": "核心安全模块 SHA256 完整性清单，用于启动时自检",
   "files": {
@@ -33,7 +33,7 @@
     "routes/generate_routes.py": "87a886228cc32855be4f9a54a6c15042209c12f5422e905ee61f61320b95da4c",
     "routes/task_routes.py": "41d5b00b489b36c8e90d2aa2a454662257e55f9d5f92e81819505c05eef87a68",
     "routes/output_routes.py": "ae0b3313c34fa26fd3bb6d8fa5f750a82aaf3beaee3e48f844e24107a6e4074f",
-    "routes/preset_routes.py": "a41180e45962175b40fcfcfb80504129f8ddf830f4b872b02c8b8ce009ee593f",
+    "routes/preset_routes.py": "c48cbf1d85a6911f5016f625bbeb47d282d9f32225c449c1929d0515520b7b4a",
     "routes/engine_routes.py": "faf3a29bf9337e4f6aeb89ae818787bec3abf10b05cd4cfc1af5ea495ff412e5",
     "mcp_server.py": "9a494171a3e0ee36d23aab2e104e218cdc8e379a88df7225c7dac26643d2e898"
   }
