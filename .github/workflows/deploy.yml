@@ -129,8 +129,9 @@ jobs:
           # 演练分支不使用该值（直接打容器内回环），仅远端模式消费
           BASE_URL: ${{ steps.target.outputs.url }}
         run: |
-          # --require-real-output 属真实部署专属：fake engine 的产物路径前缀为
-          # imm_fake，脚本对其直接判失败（docs/ops/staging_smoke.md §2 Gotcha #47）。
+          # --require-real-output 属真实部署专属：IMM_FAKE_ENGINE=1 下产物路径前缀为
+          # imm_fake，post_deploy_smoke.py 对其直接判失败——该 flag 只用于真实部署晋级
+          # 门禁（另一启用点是 scripts/deploy/bluegreen.sh 的 smoke_full()）。
           # 演练模式因此只跑前 6 项 + 不加产物校验，验证的是门禁管道本身而非产物真实性。
           if [ "${{ vars.HAS_STAGING_SECRETS }}" = "true" ]; then
             python scripts/post_deploy_smoke.py \
