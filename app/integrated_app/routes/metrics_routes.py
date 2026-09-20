@@ -6,7 +6,7 @@ MLOps P0-2 / P0-4（运维稳定性评估）：
 - /api/alerts：基于当前指标快照评估告警规则，返回 firing/pending 告警 + Runbook 链接。
 
 路由只做「指标读取 + 渲染 + 告警评估」，不含任何 torch/numpy/推理逻辑，
-符合 AGENTS.md §3 硬约束 #1（路由不写业务逻辑/推理代码）。
+符合约束 C-2「路由层不写业务/推理逻辑」（见 docs/AGENT_CONSTRAINTS.md）。
 """
 
 from __future__ import annotations

@@ -80,7 +80,7 @@ def main(argv: list[str] | None = None) -> int:
     print("修复: 确保同一提交的全部代码改动完成后，最后一步运行")
     print("      python scripts/generate_integrity_manifest.py")
     print("      再 git add app/integrated_app/security/integrity_manifest.json 并提交。")
-    print("根因记录: docs/agents/GOTCHAS.md #15")
+    print("根因记录: 本地 AI 规范坑点集 GOTCHAS #15（未随仓库发布）")
     return 1
 
 

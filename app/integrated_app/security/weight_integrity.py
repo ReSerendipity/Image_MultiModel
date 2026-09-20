@@ -7,7 +7,7 @@ security/weight_integrity.py — LoRA/checkpoint 权重加载前完整性校验
 3. **危险载荷探测**: 探测 pickle/可疑二进制头部（CWE-502 反序列化防护）
 4. **可选 SHA256 比对**: 与权重清单（manifest）或 config 中登记的期望值比对
 
-设计原则（与 AGENTS.md 硬约束 #2「路由层不写推理逻辑」不冲突，本模块只做
+设计原则（与 docs/AGENT_CONSTRAINTS.md 约束 C-2「路由层不写推理逻辑」不冲突，本模块只做
 文件级校验，不触碰 torch.* / 推理；native 层在加载前调用）:
 - 校验**仅对实际存在的文件生效**；文件缺失由调用方既有逻辑处理（告警并跳过）。
 - 默认 ``fail_closed=False``: 校验失败时记录告警并跳过该层，不阻断主推理
