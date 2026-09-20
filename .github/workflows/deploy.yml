@@ -108,10 +108,26 @@ jobs:
           docker logs imm_drill 2>&1 | tail -200
           exit 1
 
+      - name: Resolve smoke target
+        id: target
+        run: |
+          # 远端模式的 post-deploy smoke 必须打到 staging 主机。原写法是
+          # vars.STAGING_BASE_URL || 'http://127.0.0.1:8288'，而远端模式下的
+          # 127.0.0.1 指的是 runner 本机——那里什么都没部署，门禁会对着空气跑完
+          # 6 项检查并给出无意义的结论。配置不足即硬失败，不做静默回退。
+          if [ "${{ vars.HAS_STAGING_SECRETS }}" = "true" ] && [ -z "${{ vars.STAGING_BASE_URL }}" ]; then
+            echo "[FAIL] HAS_STAGING_SECRETS=true 但未设置仓库变量 STAGING_BASE_URL。"
+            echo "       处置：gh variable set STAGING_BASE_URL --body 'http://<staging-host>:8288'"
+            echo "       （或经反向代理的、本 job 可访问的地址）"
+            exit 1
+          fi
+          echo "url=${{ vars.STAGING_BASE_URL }}" >> $GITHUB_OUTPUT
+
       - name: Run post-deploy smoke (P2-11 gate)
         # ⚠️ 不设 continue-on-error：smoke 失败即 job 失败 → 晋级被阻断
         env:
-          BASE_URL: ${{ vars.STAGING_BASE_URL || 'http://127.0.0.1:8288' }}
+          # 演练分支不使用该值（直接打容器内回环），仅远端模式消费
+          BASE_URL: ${{ steps.target.outputs.url }}
         run: |
           # --require-real-output 属真实部署专属：fake engine 的产物路径前缀为
           # imm_fake，脚本对其直接判失败（docs/ops/staging_smoke.md §2 Gotcha #47）。
