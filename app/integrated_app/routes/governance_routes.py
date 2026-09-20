@@ -53,7 +53,10 @@ def _storage_usage(project_root: Path, base_dir: str) -> dict[str, Any]:
             "exists": True,
         }
     except Exception as e:  # noqa: BLE001
-        return {"path": str(d), "used_gb": 0.0, "error": str(e), "exists": True}
+        # 异常文本可能含绝对路径与内部实现细节，不外泄给 API 调用方；
+        # 完整原因留在服务端日志（CodeQL py/stack-trace-exposure #34）。
+        logger.warning("存储用量统计失败 dir=%s: %s", d, e, exc_info=True)
+        return {"path": str(d), "used_gb": 0.0, "error": "usage_unavailable", "exists": True}
 
 
 @router.get("/metrics")
