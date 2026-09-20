@@ -1,5 +1,5 @@
 {
-  "_comment": "分支保护单一来源。改这里 → 跑 scripts/apply_branch_protection.py --apply。",
+  "_comment": "分支保护单一来源。改这里 → 跑 python docs/ci/apply_branch_protection.py --apply。contexts 须与 .github/workflows/ci.yml 的 job name 逐字一致；e2e/performance 两个 job 因波动暂不作必需检查，其余 ci.yml job 全部阻断。",
   "owner": "ReSerendipity",
   "repo": "Image_MultiModel",
   "branch": "main",
@@ -23,7 +23,17 @@
   "contexts": [
     "Lint & Compile Check",
     "Test + Coverage (Python 3.12)",
-    "Typecheck (mypy ratchet) / Typecheck (mypy ratchet)"
+    "Test + Coverage (Python 3.13)",
+    "Typecheck (mypy ratchet) / Typecheck (mypy ratchet)",
+    "SAST - pip-audit",
+    "Smoke Tests",
+    "Frontend Smoke Tests (jsdom)",
+    "Config Field Refs Integrity (P0-1)",
+    "Startup Smoke (P0-1, fake engine)",
+    "Post-Deploy Smoke Drill (P2-11)",
+    "Docker Build & Start Smoke (P0-1)",
+    "Immutable Release Artifacts (P1-10)",
+    "security-assertions"
   ],
   "required_conversation_resolution": false
 }

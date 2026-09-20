@@ -32,7 +32,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-lint-
       - run: pip install ruff
-      - run: ruff check app/ tests/
+      - run: ruff check app/ tests/ scripts/
 
   # 类型门禁（家族底线；2026-09-03 接入组织级 reusable workflow）
   # 门禁逻辑统一维护在 ReSerendipity/.github 的 python-quality-baseline.yml。

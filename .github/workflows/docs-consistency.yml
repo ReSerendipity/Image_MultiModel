@@ -14,5 +14,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Audit spec references
+      - name: Verify in-repo doc path references (self-check; + family audit if present)
+        # 仓内自检为权威门禁（不再因缺少外部 .spec_audit 而 skip-即-绿）；家族审计为可选增强层。
         run: python scripts/check_spec_refs.py

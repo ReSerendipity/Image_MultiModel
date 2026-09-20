@@ -245,10 +245,10 @@ python scripts/verify_watermark.py outputs/z_image_turbo_native/20260814/xxx_ori
 python -m pytest -q
 
 # 代码检查
-python -m ruff check bin tests
+python -m ruff check app tests
 
 # 覆盖率
-python -m pytest --cov=bin/integrated_app --cov-report=term-missing
+python -m pytest --cov=app/integrated_app --cov-report=term-missing
 
 # E2E 测试（需先安装 Playwright）
 pip install playwright pytest-playwright
