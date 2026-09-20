@@ -88,6 +88,7 @@ root_allowlist:
   - precheck.ps1
   - pyproject.toml
   - release
+  - release-signing-public-key.asc
   - requirements-lock.txt
   - requirements.txt
   - scripts
