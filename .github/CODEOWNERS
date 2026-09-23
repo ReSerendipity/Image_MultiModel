@@ -1,0 +1,33 @@
+# ============================================================
+# CODEOWNERS — 分区变更负责人
+# 安全相关改动需经安全复核，确保任何改动都被看见。
+# 格式：<路径> <负责人>（GitHub 用户名或团队）
+#
+# 本文件所有路径均已按 origin/main 的实际文件树逐条核对（2026-09-23）。
+# 当前仓库仅一名协作者，因此每条规则实际都解析到 @ReSerendipity，
+# 分区目前不改变路由结果；保留的价值在于：新增协作者或接入机器人时
+# 可以按区收窄授权，而不必重新摸索哪些路径敏感。
+# ============================================================
+
+# 全局默认 —— 所有 PR 默认指派
+* @ReSerendipity
+
+# 安全核心模块（含清单签名、鉴权、CSRF、完整性自检）
+app/integrated_app/security/ @ReSerendipity
+app/integrated_app/middleware/auth.py @ReSerendipity
+app/integrated_app/middleware/csrf.py @ReSerendipity
+
+# 密钥与签名工具链
+.env* @ReSerendipity
+config.yaml @ReSerendipity
+scripts/sign_integrity_manifest.py @ReSerendipity
+scripts/generate_manifest_signing_key.py @ReSerendipity
+
+# 安全策略与门禁声明
+.github/SECURITY.md @ReSerendipity
+SECURITY_MATRIX.md @ReSerendipity
+.github/workflows/ @ReSerendipity
+.github/CODEOWNERS @ReSerendipity
+
+# 构建与发布脚本
+scripts/build* @ReSerendipity
