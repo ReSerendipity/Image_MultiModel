@@ -11,13 +11,19 @@
 security.integrity_selfcheck.enforce=true）会拒绝启动——两者必须同口径。
 
 实现说明：直接复用 integrity_selfcheck.run_startup_selfcheck()（单一事实源，
-避免第二套哈希实现漂移）；该模块仅依赖 stdlib，故本门禁在裸 CI 环境可运行。
-用 importlib 按文件路径加载，绕开 app 包 __init__ 的导入副作用。
+避免第二套哈希实现漂移）。用 importlib 按文件路径加载，绕开 app 包 __init__ 的导入副作用。
 
 用法:
     python scripts/check_integrity_manifest.py
 
-退出码: 0 = 清单与检出代码一致；1 = 失配 / 模块缺失 / 清单不可读 / 自检异常。
+退出码: 0 = 清单与检出代码一致且签名有效；1 = 失配 / 未签名或验签器不可用 /
+模块缺失 / 清单不可读 / 自检异常。
+
+依赖边界（2026-09-24 更正）：哈希对账只需 stdlib，但清单**验签**走
+security/secret_key.py 的 Ed25519 分支，那里是函数内 import cryptography。
+本文件原先写着“仅依赖 stdlib，故裸 CI 可运行”，正是这句让调用方 job 只装了
+pyyaml，使门禁在 CI 恒红并报成“清单缺少有效签名”，把排查引向错误方向。
+缺依赖与未签名是两件事，下面分开报。
 修复指引见文末输出。
 """
 
@@ -83,9 +89,17 @@ def main(argv: list[str] | None = None) -> int:
     if failed == 0 and (skipped or total == 0):
         print("  - 清单覆盖面异常（无失败但未全覆盖），运行 generate 脚本核对 _CORE_MODULES")
     if not signed:
-        print("  - 清单缺少有效 Ed25519 签名。自检在 enforce=false 时只告警不计入 failed，")
-        print("    而运行时 config.yaml security.integrity_selfcheck.enforce=true 会据此拒绝启动；")
-        print("    CI 与 release 门禁不得放行未签名或签名已过期的清单。")
+        import importlib.util
+
+        if importlib.util.find_spec("cryptography") is None:
+            print("  - 无法判定签名：本环境未安装 cryptography，Ed25519 验签分支不可用；")
+            print("    而 HMAC 回退需要本机 data/.imm_secret（CI 里没有），故 verify_manifest_signature()")
+            print("    返回 False。这是门禁运行环境缺依赖，不是清单问题——给该 job 补 pip install cryptography。")
+        else:
+            print("  - 清单缺少有效 Ed25519 签名。自检在 enforce=false 时只告警不计入 failed，")
+            print("    而运行时 config.yaml security.integrity_selfcheck.enforce=true 会据此拒绝启动；")
+            print("    CI 与 release 门禁不得放行未签名或签名已过期的清单。")
+
     print()
     print("修复: 确保同一提交的全部代码改动完成后，最后一步依次运行")
     print("      python scripts/generate_integrity_manifest.py")

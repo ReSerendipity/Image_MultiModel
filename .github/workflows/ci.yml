@@ -307,8 +307,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install PyYAML
-        run: pip install pyyaml
+      - name: Install gate dependencies (PyYAML + cryptography)
+        # cryptography 不是可选的：本 job 末尾要跑清单验签，而
+        # security/secret_key.py 里的 Ed25519 分支是函数内 import cryptography。
+        # 缺它时 verify_manifest_signature() 会先吞掉 ImportError、再回退 HMAC
+        # （需要本机 data/.imm_secret，CI 没有），最终返回 False —— 于是门禁在
+        # 裸 CI 环境恒红，且报成"清单缺少有效签名"，指向完全错误的方向。
+        run: pip install pyyaml cryptography
       - name: Check config field references
         run: python scripts/check_config_refs.py
       - name: Check integrity manifest freshness (GOTCHAS #15)
