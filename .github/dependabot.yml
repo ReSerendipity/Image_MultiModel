@@ -14,6 +14,21 @@ updates:
       # lock instead: let pip resolve the pair together.
       - dependency-name: "pydantic-core"
       - dependency-name: "pydantic_core"
+      # Ignoring only the core half is what let 6e9de9c (the minor-and-patch
+      # group) split the pair again: it moved pydantic 2.13.4 -> 2.13.5, which
+      # requires pydantic-core==2.46.5, while the ignored core stayed pinned at
+      # 2.46.4 -> ResolutionImpossible on the whole lock. Ignore both ends so
+      # the pair can only move together, via an explicit lock regeneration.
+      - dependency-name: "pydantic"
+      # omegaconf 2.3.1 pins antlr4-python3-runtime exactly (requires_dist:
+      # "antlr4-python3-runtime==4.9.*"). Dependabot's minor-and-patch group
+      # raised antlr4 to 4.13.2 in this hand-maintained lock while omegaconf
+      # stayed 2.3.1, producing an uninstallable pair: pip reports
+      # ResolutionImpossible, which breaks `pip install -r
+      # requirements-lock.txt` -- the path app/clean_launch.py uses at startup.
+      # Same failure class as the pydantic-core pair above: keep the two in
+      # lockstep by moving omegaconf, then refresh antlr4 with the lock.
+      - dependency-name: "antlr4-python3-runtime"
     groups:
       minor-and-patch:
         applies-to: version-updates
