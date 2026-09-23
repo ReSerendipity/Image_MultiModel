@@ -28,6 +28,13 @@ updates:
       # requirements-lock.txt` -- the path app/clean_launch.py uses at startup.
       # Same failure class as the pydantic-core pair above: keep the two in
       # lockstep by moving omegaconf, then refresh antlr4 with the lock.
+      # sympy caps its own math dependency: sympy 1.14.0 (latest stable release
+      # on PyPI as of 2026-09-24) requires mpmath<1.4,>=1.1.0, while 6e9de9c-style
+      # group bumps keep raising mpmath to 1.4.1 -> ResolutionImpossible on the
+      # whole lock. There is no newer sympy that accepts mpmath>=1.4, so this pair
+      # cannot move upward together; keep mpmath pinned below sympy's ceiling and
+      # refresh both together once upstream sympy lifts the cap.
+      - dependency-name: "mpmath"
       - dependency-name: "antlr4-python3-runtime"
     groups:
       minor-and-patch:
