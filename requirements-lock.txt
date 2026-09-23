@@ -34,7 +34,7 @@ iniconfig==2.3.0
 Jinja2==3.1.6
 lxml==6.1.3
 MarkupSafe==3.0.3
-mpmath==1.4.1
+mpmath==1.3.0
 multidict==6.9.0
 networkx==3.6.1
 numpy==2.5.3
