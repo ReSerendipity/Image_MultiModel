@@ -6,7 +6,13 @@ tests/e2e/test_visual_regression.py — 视觉回归基线比对
 - 无基线时写入基线快照到 tests/e2e/__snapshots__/ 并 skip（PR 允许这一次）；
   push 到 main 时设了 E2E_REQUIRE_BASELINE=true，缺基线直接失败而非 skip；
 - 有基线则与本次截图做像素比对，差异超阈值（默认 2%）则失败；
-- 基线可以随仓库提交供 review，也可以由 actions/cache 按渲染输入哈希复用。
+- 基线**按平台分桶入库**（win32 与 linux 各一份，两者实测差 5.05% 像素，
+  不可互换）。actions/cache 只是加速与「同 key 优先用当次产物」，不能当唯一来源：
+  本仓 pip 缓存体积顶穿 Actions 10GB 配额后，条目会在相邻两次运行之间就被回收。
+- ⚠️ UI 真变了要让 linux 基线跟着更新：本地 `--update-snapshots` 只能生成自己
+  平台那份（Windows 出不了 linux 基线），做法是从红掉的 CI 里下载
+  `e2e-snapshots` 产物（该 job 失败时上传当次截图），取
+  `homepage.linux-chromium.png` 覆盖入库后重跑。
 
 本测试仅截首页（无需 GPU），标记 @pytest.mark.e2e，纳入默认 E2E CI。
 手动更新基线：pytest tests/e2e/test_visual_regression.py --update-snapshots
@@ -28,6 +34,7 @@ import pytest
 pytestmark = pytest.mark.e2e
 
 SNAPSHOT_DIR = Path(__file__).parent / "__snapshots__"
+REPO_ROOT = Path(__file__).resolve().parents[2]
 # 允许 2% 像素差异（抗字体渲染 / 抗锯齿微差）
 MAX_DIFF_RATIO = 0.02
 # 单像素 RGB 通道差超过该阈值才计为"差异像素"
@@ -103,8 +110,8 @@ def test_homepage_visual_regression(page, base_url, screenshot, request) -> None
         if os.environ.get("E2E_REQUIRE_BASELINE", "").lower() == "true":
             pytest.fail(
                 f"缺少可比对的基线：{baseline.name}（push 事件要求真比对，不允许现生成）。"
-                "修复：让改动首页渲染的 PR 先跑一次 e2e 把基线写进缓存，"
-                "或本地 `pytest tests/e2e/test_visual_regression.py --update-snapshots` 后提交基线"
+                f"基线本应随仓库提交在 {SNAPSHOT_DIR.relative_to(REPO_ROOT)}/ 下；"
+                "补齐办法见本文件 docstring（从失败 CI 的 e2e-snapshots 产物取当次截图入库）"
             )
         pytest.skip(
             f"基线快照已写入：{baseline.name}（首次在本平台/浏览器运行，仅生成基线不做比对；再次运行即进入像素比对）"
