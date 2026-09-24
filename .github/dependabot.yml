@@ -37,10 +37,48 @@ updates:
       - dependency-name: "mpmath"
       - dependency-name: "antlr4-python3-runtime"
     groups:
-      minor-and-patch:
+      # 显式分族，取代 patterns: ["*"]。blanket 分组会把互有强约束的针卷进同一次
+      # "全选"升级并各走各的：6e9de9c 与 b709767 两次都因此把锁变成不可解
+      # （antlr4/pydantic/mpmath 三对，见上面 ignore 的三条注释）。族内成员由
+      # dependabot 合进同一个 PR 一起移动，族与族之间互不牵连。
+      # 未列进任何组的依赖不会被忽略，只是不再有分组 PR —— dependabot 会为其开
+      # 单独 PR；注意 open-pull-requests-limit: 5 会限流，必要时按月分批放行。
+      torch-family:
         applies-to: version-updates
         update-types: [minor, patch]
-        patterns: ["*"]
+        patterns: ["torch", "torchvision", "torchaudio"]
+      web-stack:
+        applies-to: version-updates
+        update-types: [minor, patch]
+        patterns: ["fastapi", "starlette", "uvicorn", "python-multipart", "jinja2"]
+      imaging-science:
+        applies-to: version-updates
+        update-types: [minor, patch]
+        patterns: ["numpy", "scipy", "Pillow", "opencv-python-headless", "PyWavelets"]
+      http-client:
+        applies-to: version-updates
+        update-types: [minor, patch]
+        patterns: ["aiohttp", "httpx", "websockets"]
+      model-tooling:
+        applies-to: version-updates
+        update-types: [minor, patch]
+        patterns: ["transformers", "accelerate", "safetensors", "sentencepiece",
+                   "einops", "omegaconf", "controlnet-aux", "clip-anytorch"]
+      test-tooling:
+        applies-to: version-updates
+        update-types: [minor, patch]
+        patterns: ["pytest", "pytest-asyncio", "pytest-cov", "pytest-timeout",
+                   "pytest-xdist", "pytest-playwright", "playwright", "hypothesis",
+                   "factory-boy", "beautifulsoup4", "coverage"]
+      security-crypto:
+        applies-to: version-updates
+        update-types: [minor, patch]
+        patterns: ["cryptography", "pynvml"]
+      runtime-utils:
+        applies-to: version-updates
+        update-types: [minor, patch]
+        patterns: ["PyYAML", "python-dotenv", "aiofiles", "aiosqlite", "psutil",
+                   "tqdm", "rich"]
   - package-ecosystem: npm
     directory: "/tests"
     schedule: { interval: monthly }
