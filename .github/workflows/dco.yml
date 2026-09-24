@@ -7,10 +7,15 @@ on:
 permissions:
   contents: read
 
-# 同一 PR 的连续 push 只保留最新一次运行（组名口径同 ci.yml）。
-# 实测：DCO 近 100 次 PR 运行里 35% 是同一分支的后续 push 覆盖跑。
+# 同一 PR 的连续 push 只保留最新一次运行。
+# group 必须带 github.event_name：cancel-in-progress 是在【新来的那次运行】的上下文里
+# 求值的，只按 github.ref 分组时，一次 merge 到 main 的 push 会把同期在跑的周度定时
+# 扫描直接取消掉（表达式写在旧运行身上也救不了——被判断的是新运行）。把事件放进
+# group 后定时运行自成一组，push/PR 碰不到它。
+# 实测：DCO 近 100 次 PR 运行里 35% 是同一分支的后续 push 覆盖跑（本仓无 schedule 触发，
+# 加了 event_name 只是与另三个口径一致）。
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
