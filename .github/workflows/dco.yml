@@ -10,8 +10,9 @@ permissions:
 jobs:
   dco:
     name: DCO Check
-    # DCO 的 Signed-off-by 是对人类贡献者的来源认证，Dependabot 生成的 commit 无法携带签名。
-    if: github.actor != 'dependabot[bot]'
+    # 不做 job 级 if 跳过：整条 job 被跳过时该 required 检查根本不产出，
+    # 「未验证」会被读成「未出现」而非「已豁免」。豁免下沉到逐条 commit，
+    # 按 author 邮箱判定（见脚本内 bot 名单）。
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -29,11 +30,39 @@ jobs:
             echo "::error::Could not determine PR base/head SHA"
             exit 1
           fi
-          fails=0
+          # DCO 的 Signed-off-by 是对人类贡献者的来源认证，机器人 commit 无法携带
+          # 有意义的签名，故按 author 邮箱豁免这两类 bot（含 <userid>+bot@users.noreply
+          # 形式）。判定只看每条 commit 的作者，不看 github.actor：否则 dependabot
+          # 触发的 PR 里人工补的 commit 也会跟着一起免检。
+          bot_email_pats=("dependabot[bot]@users.noreply.github.com" "support@dependabot.com" "github-actions[bot]@users.noreply.github.com" "github-actions@github.com")
+          is_bot_author() {
+            local e="${1,,}" p
+            for p in "${bot_email_pats[@]}"; do
+              [[ "$e" == *"$p"* ]] && return 0
+            done
+            return 1
+          }
+          fails=0 human=0 bot=0
           while IFS= read -r commit; do
-            if ! git log -1 --format='%B' "$commit" | grep -q 'Signed-off-by:'; then
-              echo "::error::Commit $commit is missing 'Signed-off-by:' trailer (run: git commit -s)"
+            author_email="$(git log -1 --format='%ae' "$commit")"
+            if is_bot_author "$author_email"; then
+              echo "SKIP  $commit bot author <$author_email>"
+              bot=$((bot + 1))
+              continue
+            fi
+            human=$((human + 1))
+            if git log -1 --format='%B' "$commit" | grep -q 'Signed-off-by:'; then
+              echo "OK    $commit"
+            else
+              echo "::error::Commit $commit (author <$author_email>) is missing 'Signed-off-by:' trailer (run: git commit -s)"
               fails=1
             fi
           done < <(git rev-list "$base_sha..$head_sha")
+          # 区间为空说明 base/head 取错了（PR 不可能零 commit）——静默 exit 0 会
+          # 把「一条都没查」报成绿色，这里按失败处理。
+          if (( human + bot == 0 )); then
+            echo "::error::No commits in $base_sha..$head_sha - nothing was checked"
+            exit 1
+          fi
+          echo "DCO: $human human commit(s) checked, $bot bot commit(s) exempt, $fails failure(s)"
           exit $fails

@@ -181,8 +181,11 @@ jobs:
         with:
           node-version: "20"
       - name: Install Python dependencies
+        # 去掉 `|| true`：实测本步骤当前在 runner 上成功（2026-09-24 CI run
+        # 35950085383 全量 requirements.txt 装入无 ERROR），容错只会把
+        # 「依赖装坏」压成一条警告，后面的 jsdom 断言照样报绿。
         run: |
-          pip install -r requirements.txt || true
+          pip install -r requirements.txt
           pip install jinja2
       - name: Install Node dependencies
         run: |
@@ -221,8 +224,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-e2e-
       - name: Install Python dependencies
+        # 不加 `|| true`：依赖装不上时 e2e 会以「playwright 未装 → 整目录 skip」
+        # 的形式报绿，属假绿。实测本步骤当前在 runner 上成功（torch 2.14.0 等
+        # 全量装入，85s），去掉容错不会误红。
         run: |
-          pip install -r requirements.txt || true
+          pip install -r requirements.txt
           pip install pytest pytest-asyncio pytest-playwright
       - name: Install Playwright browsers
         run: |
@@ -231,25 +237,54 @@ jobs:
       # CI 每次是全新 checkout，若不缓存基线，快照会每次重新生成并 skip，
       # 比对就沦为空转；缓存后同一 OS+browser 的连续运行才会真正做像素比对。
       - name: Cache visual regression baselines
+        id: vrbaseline
         uses: actions/cache@v4
         with:
           path: tests/e2e/__snapshots__
-          key: ${{ runner.os }}-e2e-snapshots-${{ hashFiles('app/integrated_app/templates/index.html') }}
+          # 键必须覆盖「首页最终渲染出来的全部输入」。此前只 hash 模板，改
+          # static 下的 js/css、demo 首页或 locales 翻译时键不变，CI 会继续拿
+          # 旧基线去比对已经变样的页面（要么长期假阳性，要么悄悄比错版本）。
+          key: ${{ runner.os }}-e2e-snapshots-${{ hashFiles('app/integrated_app/templates/index.html', 'app/integrated_app/static/**', 'demo/index.html', 'app/integrated_app/locales/*.json') }}
           restore-keys: |
             ${{ runner.os }}-e2e-snapshots-
+      - name: Report baseline provenance
+        run: |
+          echo "cache-hit=${{ steps.vrbaseline.outputs.cache-hit }}"
+          echo "primary-key=${{ steps.vrbaseline.outputs.cache-primary-key }}"
+          ls -l tests/e2e/__snapshots__ || echo "(工作区无基线目录)"
+      # P0-1 的 90×1s 有界轮询口径：sleep 固定值 + 单次 curl 有两类病 ——
+      # 冷启动慢于 5s 就误红，启动崩溃但端口被残留进程应答就误绿。
       - name: Start application in background (fake engine, no GPU)
         env:
           IMM_FAKE_ENGINE: "1"
         run: |
-          python app/clean_launch.py &
-          sleep 5
-          # Verify app is online
-          curl -s http://127.0.0.1:8288/api/health | grep -q "ok" || exit 1
+          python app/clean_launch.py > launch.log 2>&1 &
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:8288/api/health 2>/dev/null | grep -q "ok"; then
+              echo "[OK] app online after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "[FAIL] app not online within 90s"
+          tail -100 launch.log
+          exit 1
       - name: Run E2E (exclude slow GPU generation)
-        run: |
-          python -m pytest tests/e2e -m "e2e and not slow" -v --timeout=120
         env:
           E2E_BASE_URL: http://127.0.0.1:8288
+          # main push 上「生成基线」不是可接受的结局：必须拿基线真比对，
+          # 否则这条 job 永远是绿色的空转（视觉回归在 CI 里从未比过一个像素）。
+          # PR 仍允许生成一次，把基线写进缓存供 main 复用。
+          E2E_REQUIRE_BASELINE: ${{ github.event_name == 'push' }}
+        run: |
+          python -m pytest tests/e2e -m "e2e and not slow" -v --timeout=120 \
+            --junitxml=e2e-junit.xml
+      - name: Junit gate (E2E must actually run)
+        if: always()
+        run: |
+          python scripts/check_junit_results.py \
+            --junit e2e-junit.xml \
+            --min-executed 20 \
+            --allow-skip "基线快照已写入=1"
       - name: Upload snapshots (visual regression baseline, on fail)
         if: failure()
         uses: actions/upload-artifact@v4
@@ -279,10 +314,19 @@ jobs:
       - name: Start application in background (fake engine, no GPU)
         env:
           IMM_FAKE_ENGINE: "1"
+        # 同 e2e：有界轮询替代 sleep 5 + 单次 curl（基准测试对着半起的服务
+        # 取样子会把 P95 测成好看的数字，比失败更糟）。
         run: |
-          python app/clean_launch.py &
-          sleep 5
-          curl -s http://127.0.0.1:8288/api/health | grep -q "ok" || exit 1
+          python app/clean_launch.py > launch.log 2>&1 &
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:8288/api/health 2>/dev/null | grep -q "ok"; then
+              echo "[OK] app online after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "[FAIL] app not online within 90s"
+          tail -100 launch.log
+          exit 1
       - name: Run API latency benchmarks (CPU profile)
         env:
           IMM_FAKE_ENGINE: "1"

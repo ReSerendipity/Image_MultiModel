@@ -3,9 +3,10 @@ tests/e2e/test_visual_regression.py — 视觉回归基线比对
 
 对应测试体系评估 P1-4（反模式 #6：视觉回归截图存临时目录即弃、无基线比对）。
 
-- 首次运行（无基线）自动写入基线快照到 tests/e2e/__snapshots__/，测试通过；
-- 后续运行与基线做像素比对，差异超阈值（默认 2%）则失败；
-- 所有快照基线需随仓库提交，可被 review。
+- 无基线时写入基线快照到 tests/e2e/__snapshots__/ 并 skip（PR 允许这一次）；
+  push 到 main 时设了 E2E_REQUIRE_BASELINE=true，缺基线直接失败而非 skip；
+- 有基线则与本次截图做像素比对，差异超阈值（默认 2%）则失败；
+- 基线可以随仓库提交供 review，也可以由 actions/cache 按渲染输入哈希复用。
 
 本测试仅截首页（无需 GPU），标记 @pytest.mark.e2e，纳入默认 E2E CI。
 手动更新基线：pytest tests/e2e/test_visual_regression.py --update-snapshots
@@ -18,6 +19,7 @@ AttributeError。现改为 page.screenshot() 落盘 + PIL/numpy 像素 diff 自�
 
 from __future__ import annotations
 
+import os
 import shutil
 from pathlib import Path
 
@@ -94,6 +96,16 @@ def test_homepage_visual_regression(page, base_url, screenshot, request) -> None
     if update or not baseline.is_file():
         SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(current, baseline)
+        # main push 上"生成基线"不是一种结局，而是比对这个维度根本没跑：
+        # 仓库里只提交过 win32 基线，linux 基线只能来自 actions/cache，
+        # 缓存一miss 就 skip，于是 CI 常年绿色却从未比过一个像素。
+        # CI 用 E2E_REQUIRE_BASELINE=${{ github.event_name == 'push' }} 关掉这条退路。
+        if os.environ.get("E2E_REQUIRE_BASELINE", "").lower() == "true":
+            pytest.fail(
+                f"缺少可比对的基线：{baseline.name}（push 事件要求真比对，不允许现生成）。"
+                "修复：让改动首页渲染的 PR 先跑一次 e2e 把基线写进缓存，"
+                "或本地 `pytest tests/e2e/test_visual_regression.py --update-snapshots` 后提交基线"
+            )
         pytest.skip(
             f"基线快照已写入：{baseline.name}（首次在本平台/浏览器运行，仅生成基线不做比对；再次运行即进入像素比对）"
         )

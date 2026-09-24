@@ -7,8 +7,8 @@ tests/e2e/test_core_user_flows.py — 核心用户流 E2E 测试
 3. 导出功能：选择记录 → 导出 ZIP
 4. 预设管理：创建预设 → 使用预设 → 删除预设
 
-注意：这些测试需要应用正在运行且能够实际生成图片。
-如果服务不可用，测试会自动跳过。
+注意：这些测试需要应用正在运行。CI 以 IMM_FAKE_ENGINE=1 起服务，无需 GPU；
+应用连不上按失败处理（不再自动跳过），见 setup fixture。
 
 P0-1 修复：选择器对齐实际前端 ID（#posPrompt / #width / #height / #outGrid / #openBatch）
 P2-2 改进：巨型 test_txt2img_complete_flow 拆分为独立小步骤
@@ -60,9 +60,17 @@ class TestCoreUserFlows:
 
     @pytest.fixture(autouse=True)
     def setup(self, base_url):
-        """每个测试前检查应用状态"""
+        """每个测试前检查应用状态。
+
+        起不来按失败处理而非 skip：CI 以 IMM_FAKE_ENGINE=1 起服务，本目录
+        所有用例都不碰 GPU，连不上就是真缺陷（端口/启动崩/健康检查回归）。
+        写成 skip 会让整类故障被计成绿色，e2e 维度就此静默失效。
+        """
         if not check_app_online(base_url):
-            pytest.skip(f"Application not online at {base_url}")
+            pytest.fail(
+                f"Application not online at {base_url} —— fake engine 下起不来属真缺陷；"
+                f"排查：CI 步骤日志里的 launch.log（tail 100）"
+            )
 
     # ════════════════════════════════════════════════════════
     # Flow 1a: 页面加载与表单验证（从巨型测试拆分）
