@@ -13,11 +13,15 @@ on:
 permissions:
   contents: read
 
-# 只取消「同分支被更新的运行覆盖」这一种情况：每周日 01:00 的全量历史扫描
-# （fetch-depth: 0）不参与取消，否则一次 main push 就能把定时深扫掐掉丢周期。
+# 同一 PR 的连续 push 只保留最新一次运行。
+# group 必须带 github.event_name：cancel-in-progress 是在【新来的那次运行】的上下文里
+# 求值的，只按 github.ref 分组时，一次 merge 到 main 的 push 会把同期在跑的周度定时
+# 扫描直接取消掉（表达式写在旧运行身上也救不了——被判断的是新运行）。把事件放进
+# group 后定时运行自成一组，push/PR 碰不到它。
+# 本仓 schedule = 每周日 01:00 全量历史扫描（fetch-depth: 0），一旦被撞掉就丢一整周。
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name != 'schedule' }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   # gitleaks 版本升级维护：只改这一处（与本地 gitleaks --version 保持一致）
