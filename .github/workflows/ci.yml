@@ -318,19 +318,24 @@ jobs:
         run: |
           python -m playwright install chromium --with-deps
       # 视觉回归基线按「平台-浏览器」分桶（字体渲染跨 OS 差异大，共用基线必假阳性）。
-      # CI 每次是全新 checkout，若不缓存基线，快照会每次重新生成并 skip，
-      # 比对就沦为空转；缓存后同一 OS+browser 的连续运行才会真正做像素比对。
+      # 现在 homepage.linux-chromium.png 已随仓库提交，缓存只剩一个身份：加速 +
+      # 让「本次 UI 与 key 一致」的比对优先用当次生成的基线。
+      # ⚠️ 故意【不配 restore-keys】。两理由：
+      #   (1) 前缀匹配会把「渲染输入已经变了」的旧基线盖到检出里那份新基线上，
+      #       比对口径被静默换成过期版本；
+      #   (2) 指望缓存长期可恢复是不成立的——实测 2026-09-24 main 上两次 push
+      #       （28787ce → 5b81335）间隔 15 分钟，前一次刚存下的
+      #       Linux-e2e-snapshots-3da33d12… 与 3.2GB 的 Linux-pip-e2e-… 后一次
+      #       全部 "Cache not found"：本仓 pip 缓存体积早已顶穿 Actions 10GB 配额，
+      #       条目在运行之间就被回收。基线入库才是确定性的来源。
       - name: Cache visual regression baselines
         id: vrbaseline
         uses: actions/cache@v4
         with:
           path: tests/e2e/__snapshots__
           # 键必须覆盖「首页最终渲染出来的全部输入」。此前只 hash 模板，改
-          # static 下的 js/css、demo 首页或 locales 翻译时键不变，CI 会继续拿
-          # 旧基线去比对已经变样的页面（要么长期假阳性，要么悄悄比错版本）。
+          # js/css/翻译时缓存键不动，CI 会继续拿旧基线去比对已经变样的页面。
           key: ${{ runner.os }}-e2e-snapshots-${{ hashFiles('app/integrated_app/templates/index.html', 'app/integrated_app/static/**', 'demo/index.html', 'app/integrated_app/locales/*.json') }}
-          restore-keys: |
-            ${{ runner.os }}-e2e-snapshots-
       - name: Report baseline provenance
         run: |
           echo "cache-hit=${{ steps.vrbaseline.outputs.cache-hit }}"
