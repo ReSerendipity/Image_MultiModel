@@ -23,6 +23,12 @@ on:
 permissions:
   contents: read
 
+# 只取消「同一分支上被更新的 push/PR 覆盖」的运行；schedule 那份是每周一
+# 06:00 的定时深扫，若正好有 main push 就把它掐掉，等于安全扫描随机丢周期。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'schedule' }}
+
 jobs:
   # ── 依赖安全扫描 (pip-audit) ──────────────────────────
   pip-audit:

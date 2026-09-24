@@ -7,6 +7,12 @@ on:
 permissions:
   contents: read
 
+# 同一 PR 的连续 push 只保留最新一次运行（组名口径同 ci.yml）。
+# 实测：DCO 近 100 次 PR 运行里 35% 是同一分支的后续 push 覆盖跑。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   dco:
     name: DCO Check

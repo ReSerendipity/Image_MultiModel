@@ -13,6 +13,12 @@ on:
 permissions:
   contents: read
 
+# 只取消「同分支被更新的运行覆盖」这一种情况：每周日 01:00 的全量历史扫描
+# （fetch-depth: 0）不参与取消，否则一次 main push 就能把定时深扫掐掉丢周期。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'schedule' }}
+
 env:
   # gitleaks 版本升级维护：只改这一处（与本地 gitleaks --version 保持一致）
   GITLEAKS_VERSION: '8.30.1'
