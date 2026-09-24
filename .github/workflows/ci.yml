@@ -1,16 +1,23 @@
 name: CI
 
 on:
-  # ⚠️ 这里刻意【不加】paths / paths-ignore：main 的 required status checks 是
-  #   Lint & Compile Check、Test + Coverage (Python 3.12)、
-  #   Typecheck (mypy ratchet) / Typecheck (mypy ratchet)、
-  #   Lock Solvability (pip resolver dry-run) 四个，全部产自本文件。
-  #   一旦按文件路径过滤，改文档/改 demo 的 PR 就不会产生这些 context，
-  #   分支保护会把它们算成 "Expected — waiting" 并永久卡死（本仓 2026-09 踩过）。
-  #   收益侧也测过了：其余 14 个 workflow 里最贵的 security.yml 才 5.8 job-min/PR
-  #   且已带 paths，codeql 1.3、gitleaks/structure-guard/dco/self-purify 各 ~0.1，
-  #   全部加起来 < 0.5 job-min/PR，占本文件 23.5 job-min/PR 的 2% —— 不值得为此
-  #   在任何地方开 paths 白名单。要加过滤请先确认它不在这四个 context 的产路上。
+  # ⚠️ 这里刻意【不加】paths / paths-ignore。main 的 required status checks 现共 5 个
+  #   （唯一权威来源：GET /repos/<repo>/branches/main/protection/required_status_checks
+  #    —— 这个集合会变，2026-09 内就从 4 个变成 5 个，别拿本注释当准，去查线上）：
+  #     1. Lint & Compile Check                          ← 本文件 jobs.lint
+  #     2. Test + Coverage (Python 3.12)                 ← 本文件 jobs.test（matrix 渲染）
+  #     3. Typecheck (mypy ratchet) / Typecheck (mypy ratchet)
+  #                                                    ← 本文件 jobs.typecheck 调用组织复用流
+  #     4. Lock Solvability (pip resolver dry-run)       ← 本文件 jobs.lock-solvability
+  #     5. DCO Check                                     ← 【dco.yml】jobs.dco，只在
+  #          pull_request 产出（push/schedule 不产出，因 strict=false 不阻塞 main）。
+  #          别因为它不在本文件就给它加 paths：它在所有 PR 上都必须跑。
+  #   一旦按文件路径过滤，改文档/改 demo 的 PR 就不会产生这些 context，分支保护会把它们
+  #   算成 "Expected — waiting" 并永久卡死（本仓 2026-09 踩过）。
+  #   收益侧也测过了：其余 14 个 workflow 里最贵的 security.yml 才 5.8 job-min/PR 且已带
+  #   paths，codeql 1.3、gitleaks/structure-guard/dco/self-purify 各 ~0.1，全部加起来
+  #   < 0.5 job-min/PR，占本文件 23.5 job-min/PR 的 2% —— 不值得为此在任何地方开 paths
+  #   白名单。要加过滤，先确认它不在这 5 个 context 的产路上（含 dco.yml 那条）。
   push:
     branches: [main]
   pull_request:
@@ -19,8 +26,11 @@ on:
     # 每日 UTC 02:00（北京时间 10:00）运行全量测试
     - cron: "0 2 * * *"
 
+# 组名带 event_name：schedule（每日 02:00 夜间全量，且是 3.13 唯一稳定覆盖）与
+# push-to-main 的 ref 同为 refs/heads/main，只按 ref 分组时一次 merge 就会取消在跑的
+# 夜间 run —— 表现不是红，而是当晚覆盖静默消失、CI 依旧绿。口径同 #100。
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 permissions:
   contents: read
@@ -28,7 +38,7 @@ permissions:
 jobs:
   lint:
     name: Lint & Compile Check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # P0-1 第一步：required context 所在 job 钉死镜像，见 on: 注释
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -70,7 +80,7 @@ jobs:
     # 3.12 = 每个 PR 的必需门禁（context 名 "Test + Coverage (Python 3.12)" 精确
     # 挂在 branch protection 的 required 列表上，改一个字就会永远 "Expected"）。
     # 仍走 matrix 只是为了让 job 名保持这个历史形状，事件口径一字未动。
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # P0-1 第一步：required context 所在 job 钉死镜像，见 on: 注释
     timeout-minutes: 60
     strategy:
       matrix:
@@ -276,10 +286,15 @@ jobs:
           cd tests
           npm install
       - name: Render Jinja2 templates
+        # 渲染失败必须红：smoke.js 第 85 行直接 fs.readFileSync(_rendered/index.html)，
+        # 没有 _rendered/ 就抛异常退出 —— 所以旧文案 "creating minimal HTML" 从来不是真的
+        # （没有任何人创建兜底 HTML），把它留在 `|| echo` 里只会把排障方向带偏。
+        # 同时删掉紧随其后的 `cp app/integrated_app/static/index.html … || true`：该文件
+        # 不在库里（static 下只有 css/js/icons/favicon），这行永远失败并被吞掉；而一旦将来
+        # 真出现该文件，它会把刚渲染好的 _rendered/index.html 覆盖成未渲染版。
         run: |
-          python scripts/render_pages.py || echo "render_pages.py not found or failed, creating minimal HTML"
+          python scripts/render_pages.py
           mkdir -p tests/frontend/_rendered
-          cp app/integrated_app/static/index.html tests/frontend/_rendered/ 2>/dev/null || true
       - name: Run frontend smoke tests (jsdom)
         run: |
           node tests/frontend/smoke.js
@@ -337,9 +352,22 @@ jobs:
           # js/css/翻译时缓存键不动，CI 会继续拿旧基线去比对已经变样的页面。
           key: ${{ runner.os }}-e2e-snapshots-${{ hashFiles('app/integrated_app/templates/index.html', 'app/integrated_app/static/**', 'demo/index.html', 'app/integrated_app/locales/*.json') }}
       - name: Report baseline provenance
+        # 取证缺口修复：整体未命中时 actions/cache 不写 outputs，日志里两行 echo 打成
+        # 空串（实测 run 35971537640 与 35972536401 都是 `cache-hit=` / `primary-key=`
+        # 后面什么都没有），于是"没有输出"和"输出是 false"在日志里长得一样。
+        # ⚠️ 这里刻意【不用】 `${{ outputs.x || '默认' }}`：表达式里 false 也是假值，
+        #    restore-key 命中那次 cache-hit 明明是 false，却会被换成"未命中"文案，
+        #    等于把取证做成了造假。改在 shell 层用 ${var:-…} 兜底：只有真的渲染成空串
+        #    才显示 <unset>。
+        # primary-key 在 actions/cache@v4 下实测从不产出（属正常空），故并读 match-key，
+        # 让"到底命中了哪个键"这一事实至少有一个可信来源。
         run: |
-          echo "cache-hit=${{ steps.vrbaseline.outputs.cache-hit }}"
-          echo "primary-key=${{ steps.vrbaseline.outputs.cache-primary-key }}"
+          hit='${{ steps.vrbaseline.outputs.cache-hit }}'
+          pk='${{ steps.vrbaseline.outputs.cache-primary-key }}'
+          mk='${{ steps.vrbaseline.outputs.cache-match-key }}'
+          echo "cache-hit=${hit:-<unset: 该步骤未写 outputs＝整体未命中>}"
+          echo "primary-key=${pk:-<unset>}"
+          echo "match-key=${mk:-<unset: 连 restore-key 也没命中>}"
           ls -l tests/e2e/__snapshots__ || echo "(工作区无基线目录)"
       # P0-1 的 90×1s 有界轮询口径：sleep 固定值 + 单次 curl 有两类病 ——
       # 冷启动慢于 5s 就误红，启动崩溃但端口被残留进程应答就误绿。
@@ -629,7 +657,7 @@ jobs:
   # 后果不止 CI：app/clean_launch.py 启动时就是按这份锁 pip install 的。
   lock-solvability:
     name: Lock Solvability (pip resolver dry-run)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # P0-1 第一步：required context 所在 job 钉死镜像，见 on: 注释
     timeout-minutes: 15
     env:
       # 锁里的 torch/torchvision 用 +cpu 本地变体，仅发布在 PyTorch CPU 源，

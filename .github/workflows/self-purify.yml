@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: self-purify-${{ github.ref }}
+  group: self-purify-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
