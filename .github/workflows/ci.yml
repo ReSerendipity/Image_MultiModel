@@ -359,15 +359,17 @@ jobs:
         #    restore-key 命中那次 cache-hit 明明是 false，却会被换成"未命中"文案，
         #    等于把取证做成了造假。改在 shell 层用 ${var:-…} 兜底：只有真的渲染成空串
         #    才显示 <unset>。
-        # primary-key 在 actions/cache@v4 下实测从不产出（属正常空），故并读 match-key，
-        # 让"到底命中了哪个键"这一事实至少有一个可信来源。
+        # primary-key / match-key 在 actions/cache@v4 下实测【从不产出】——注意
+        # run 36003155514 是 cache-hit=true 的精确命中，那两行照样是 <unset>。所以
+        # 命中与否一律以 cache-hit 为准；这两行保留的价值是把"该版本根本不写这两个
+        # output"变成日志里可读的事实，而不是留一行空串让下个人以为是没命中。
         run: |
           hit='${{ steps.vrbaseline.outputs.cache-hit }}'
           pk='${{ steps.vrbaseline.outputs.cache-primary-key }}'
           mk='${{ steps.vrbaseline.outputs.cache-match-key }}'
           echo "cache-hit=${hit:-<unset: 该步骤未写 outputs＝整体未命中>}"
-          echo "primary-key=${pk:-<unset>}"
-          echo "match-key=${mk:-<unset: 连 restore-key 也没命中>}"
+          echo "primary-key=${pk:-<unset: @v4 实测不产出该 output>}"
+          echo "match-key=${mk:-<unset: @v4 实测不产出该 output>}"
           ls -l tests/e2e/__snapshots__ || echo "(工作区无基线目录)"
       # P0-1 的 90×1s 有界轮询口径：sleep 固定值 + 单次 curl 有两类病 ——
       # 冷启动慢于 5s 就误红，启动崩溃但端口被残留进程应答就误绿。
