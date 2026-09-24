@@ -1,6 +1,16 @@
 name: CI
 
 on:
+  # ⚠️ 这里刻意【不加】paths / paths-ignore：main 的 required status checks 是
+  #   Lint & Compile Check、Test + Coverage (Python 3.12)、
+  #   Typecheck (mypy ratchet) / Typecheck (mypy ratchet)、
+  #   Lock Solvability (pip resolver dry-run) 四个，全部产自本文件。
+  #   一旦按文件路径过滤，改文档/改 demo 的 PR 就不会产生这些 context，
+  #   分支保护会把它们算成 "Expected — waiting" 并永久卡死（本仓 2026-09 踩过）。
+  #   收益侧也测过了：其余 14 个 workflow 里最贵的 security.yml 才 5.8 job-min/PR
+  #   且已带 paths，codeql 1.3、gitleaks/structure-guard/dco/self-purify 各 ~0.1，
+  #   全部加起来 < 0.5 job-min/PR，占本文件 23.5 job-min/PR 的 2% —— 不值得为此
+  #   在任何地方开 paths 白名单。要加过滤请先确认它不在这四个 context 的产路上。
   push:
     branches: [main]
   pull_request:
@@ -57,11 +67,24 @@ jobs:
 
   test:
     name: Test + Coverage (Python ${{ matrix.python-version }})
+    # 3.12 是每个 PR 的必需门禁：context 名 "Test + Coverage (Python 3.12)"
+    # 已挂在 branch protection 的 required 列表里，改名或漏触发都会把 PR 卡成
+    # "expected but never run"。3.13 不在 required 列表，从 PR 挪到
+    # 「非 PR 事件」（每日 UTC 02:00 schedule + merge 到 main 的 push）：
+    # 兼容性仍每天验、合入即验，只是不再占用 PR 的 runner。
+    # 实测口径：3.13 这一份 = 2.8 job-min/PR（含全量 requirements.txt 安装），
+    # 近 30 天 75 次 PR 运行 ≈ 3.5 job-小时/月，且其中 29% 是被后续 push
+    # 淘汰的重复跑。
+    if: ${{ matrix.runs_on_pr || github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
       matrix:
-        python-version: ["3.12", "3.13"]
+        include:
+          - python-version: "3.12"
+            runs_on_pr: true
+          - python-version: "3.13"
+            runs_on_pr: false
       fail-fast: false
     steps:
       - uses: actions/checkout@v4
