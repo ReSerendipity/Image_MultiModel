@@ -24,7 +24,7 @@ jobs:
     # 不做 job 级 if 跳过：整条 job 被跳过时该 required 检查根本不产出，
     # 「未验证」会被读成「未出现」而非「已豁免」。豁免下沉到逐条 commit，
     # 按 author 邮箱判定（见脚本内 bot 名单）。
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # P0-1 第一步：required context 所在 job 钉死镜像，见 on: 注释
     steps:
       - name: Checkout
         uses: actions/checkout@v4
