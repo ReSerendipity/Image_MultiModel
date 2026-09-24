@@ -67,36 +67,97 @@ jobs:
 
   test:
     name: Test + Coverage (Python ${{ matrix.python-version }})
-    # 3.12 是每个 PR 的必需门禁：context 名 "Test + Coverage (Python 3.12)"
-    # 已挂在 branch protection 的 required 列表里，改名或漏触发都会把 PR 卡成
-    # "expected but never run"。3.13 不在 required 列表，从 PR 挪到
-    # 「非 PR 事件」（每日 UTC 02:00 schedule + merge 到 main 的 push）：
-    # 兼容性仍每天验、合入即验，只是不再占用 PR 的 runner。
-    # 实测口径：3.13 这一份 = 2.8 job-min/PR（含全量 requirements.txt 安装），
-    # 近 30 天 75 次 PR 运行 ≈ 3.5 job-小时/月，且其中 29% 是被后续 push
-    # 淘汰的重复跑。
-    if: ${{ matrix.runs_on_pr || github.event_name != 'pull_request' }}
+    # 3.12 = 每个 PR 的必需门禁（context 名 "Test + Coverage (Python 3.12)" 精确
+    # 挂在 branch protection 的 required 列表上，改一个字就会永远 "Expected"）。
+    # 仍走 matrix 只是为了让 job 名保持这个历史形状，事件口径一字未动。
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
       matrix:
-        include:
-          - python-version: "3.12"
-            runs_on_pr: true
-          - python-version: "3.13"
-            runs_on_pr: false
-      fail-fast: false
+        python-version: ["3.12"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: 3.12
       - uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('requirements.txt') }}
+          key: ${{ runner.os }}-pip-3.12-${{ hashFiles('requirements.txt') }}
           restore-keys: |
-            ${{ runner.os }}-pip-${{ matrix.python-version }}-
+            ${{ runner.os }}-pip-3.12-
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip check
+          pip install pytest-cov pytest-asyncio pytest-timeout pytest-xdist hypothesis factory-boy
+      - name: Marker usage check (declared vs used)
+        # 测试体系评估 2026-09-04：--strict-markers 只拦"未声明就使用"，
+        # 不拦"声明却无人使用"（-m 筛选静默失效）。此哨兵拦后者。
+        run: |
+          python scripts/check_marker_usage.py
+      - name: Run tests with coverage (parallel)
+        # 测试失败必须阻断 CI（对应测试体系评估 P0-1：移除 `|| true`，使覆盖率红线真正生效）
+        run: |
+          python -m pytest \
+            --cov=app/integrated_app \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            -n auto \
+            -v
+      - name: Coverage Gate (>= 65%, target 75%)
+        if: always()
+        run: |
+          python - <<'PYEOF'
+          import os, xml.etree.ElementTree as ET
+          if not os.path.exists('coverage.xml'):
+              raise SystemExit('[FAIL] coverage.xml not found - 测试未运行或未采集覆盖率，门禁必须失败')
+          rate = float(ET.parse('coverage.xml').getroot().get('line-rate'))
+          pct = rate * 100
+          print(f'Line coverage: {pct:.1f}%')
+          # 65% = 落地红线（带安全余量）：实测约 69.4%，回落到 65% 给新增未测试
+          # 模块留出余量，避免 CI 误红；
+          # 75% 为目标值，待 CI 具备 torch/comfy 且新模块补齐测试后上调
+          #（需同步 pyproject.fail_under）。
+          if pct < 65:
+              raise SystemExit(f'[FAIL] coverage {pct:.1f}% < 65%')
+          print('[PASS] coverage meets 65% threshold (target: 75%)')
+          PYEOF
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+
+
+  test-313:
+    name: Test + Coverage (Python 3.13)
+    # 3.13 不在 required 列表（gh api branches/main/protection/required_status_checks
+    # 复核过：四个 required context 里只有 3.12 那一个），所以从 PR 摘掉不会造成
+    # "expected but never run"。改为只在「非 PR 事件」跑：每日 UTC 02:00 schedule
+    # 一次 + 每次合入 main 一次，兼容性覆盖没丢，只是不再占用 PR runner。
+    # 实测口径：这一份 = 2.8 job-min/PR，近 30 天 75 次 PR 运行 ≈ 3.5 job-小时/月。
+    #
+    # 刻意不写成「matrix + job 级 if」：jobs.<job_id>.if 的可用上下文只有
+    # github/needs/vars/inputs/secrets，不含 matrix —— 那样写整份 ci.yml 解析失败，
+    # 症状是 Actions 生成一条以文件路径命名、零 job 的红色运行，四个 required
+    # context 全部不产出（本 PR 的第一版就是这么试出来的）。
+    # 因此这里与 test 保持同构步骤体（只有版本号与事件门禁两处差异）：
+    # 改测试步骤时两处必须同改。
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.13
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-3.13-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-3.13-
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
