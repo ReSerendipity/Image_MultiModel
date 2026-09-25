@@ -47,25 +47,35 @@ def _parse_allow(raw: str) -> tuple[str, int]:
     return reason, int(quota)
 
 
-def _load_ledger(path: Path) -> tuple[dict[str, int], int, int]:
-    """读 skip 台账，返回 (原因→应有条数, skip 总数期望, executed 下限)。
+def _load_ledger(path: Path) -> tuple[dict[str, int], int, int, str]:
+    """读 skip 台账，返回 (原因→应有条数, skip 总数期望, executed 下限, 声明的解释器版本)。
 
     台账语义是**精确相等**而不是上限：条数变多 = 新增了没人登记的 skip；
     条数变少 = 登记过的 skip 悄悄消失（环境变了、用例被删、断言失效）。
     两者都是台账失真，都必须走"改台账"的 PR，不许就地放宽成 warning。
+
+    fail-closed 三条：文件缺失、JSON 损坏、台账自相矛盾，一律非零退出——
+    "没台账"绝不能当成"没有约束"放行，否则挂门禁的那一格会退化成装饰。
+    台账里的 ``python_version`` 与当前解释器不符时也拒跑：3.12/3.13 两份台账
+    只差一个文件名，接错的后果是"永远精确相等"，必须当场炸出来。
     """
-    data = json.loads(path.read_text(encoding="utf-8"))
+    if not path.is_file():
+        raise SystemExit(f"::error::台账 {path} 不存在 —— 缺台账按失败处理，不按无约束放行")
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise SystemExit(f"::error::台账 {path} 读不出来：{exc!r}")
     reasons: dict[str, int] = {}
     for item in data.get("reasons", []):
         key, count = item["key"], int(item["count"])
         if key in reasons:
-            raise SystemExit(f"台账 {path} 原因键重复：{key!r}")
+            raise SystemExit(f"::error::台账 {path} 原因键重复：{key!r}")
         reasons[key] = count
     per_key = sum(reasons.values())
     total = int(data.get("total_skips_expected", per_key))
     if total != per_key:
-        raise SystemExit(f"台账自相矛盾：total_skips_expected={total} 但逐条之和={per_key}（{path}）")
-    return reasons, total, int(data.get("min_executed", 1))
+        raise SystemExit(f"::error::台账自相矛盾：total_skips_expected={total} 但逐条之和={per_key}（{path}）")
+    return reasons, total, int(data.get("min_executed", 1)), str(data.get("python_version", ""))
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -105,10 +115,17 @@ def main(argv: list[str] | None = None) -> int:
     executed = total - len(skipped)
 
     if args.ledger is not None:
-        quotas, expected_skips, min_executed = _load_ledger(args.ledger)
+        quotas, expected_skips, min_executed, want_py = _load_ledger(args.ledger)
+        now_py = f"{sys.version_info[0]}.{sys.version_info[1]}"
+        if want_py and want_py != now_py:
+            print(
+                f"::error::台账 {args.ledger} 声明 python_version={want_py}，"
+                f"但当前解释器是 {now_py} —— 接错台账会让精确相等变成永远成立"
+            )
+            return 1
         exact = True
         print(
-            f"台账 {args.ledger}：{len(quotas)} 条登记原因，"
+            f"台账 {args.ledger}：python {now_py}，{len(quotas)} 条登记原因，"
             f"期望 skip 总数 {expected_skips}，executed 下限 {min_executed}"
         )
     else:

@@ -127,15 +127,14 @@ jobs:
             -v
       - name: Junit skip-quota gate
         if: always()
-        # 台账见 .github/ci_skip_ledger.json：精确相等语义，双向防漂移。
-        # 刻意只挂 3.12 这一格 —— 3.13 的 totals 与 3.12 相同（09-25 夜间实测
-        # 884 passed / 170 skipped），但它的逐原因分布一次都没取到（PR 事件下
-        # 3.13 按 #98 设计直接 skipped，push/夜间产物尚未产出过），拿推测的台账
-        # 上闸就是赌博。等一次真实产物再单独接 test-313。
+        # 台账 .github/ci_skip_ledger.python-3.12.json：精确相等、双向防漂移；
+        # 台账自带 python_version，接错文件会当场拒跑（3.12/3.13 只差文件名）。
+        # 两份台账各自绑定自己的产物（3.13 见 test-313 里的同名步骤）：当前分布相同
+        # 是观测结果，不是互相背书的理由。
         run: |
           python scripts/check_junit_results.py \
             --junit test-junit.xml \
-            --ledger .github/ci_skip_ledger.json
+            --ledger .github/ci_skip_ledger.python-3.12.json
       - name: Coverage Gate (>= 65%, target 75%)
         if: always()
         run: |
@@ -219,6 +218,16 @@ jobs:
             --junitxml=test-junit.xml \
             -n auto \
             -v
+      - name: Junit skip-quota gate (3.13)
+        if: always()
+        # 台账来自 push run 36146886840 的真实产物 junit-python-3.13（id 10869728441）：
+        # 1061 用例 / 891 执行出结论 / 170 skip / 0 失败，8 个去重原因，与 3.12 逐条相同。
+        # 3.13 只在 push / 夜间真跑（PR 事件按 #98 设计直接 skipped），所以这道闸的反馈
+        # 周期是"合入即验"、不挡 PR；一旦红，说明出现了 3.12 上没有的版本相关 skip 漂移。
+        run: |
+          python scripts/check_junit_results.py \
+            --junit test-junit.xml \
+            --ledger .github/ci_skip_ledger.python-3.13.json
       - name: Coverage Gate (>= 65%, target 75%)
         if: always()
         run: |

@@ -254,3 +254,70 @@ def test_ledger_enforces_min_executed(tmp_path: Path):
     r = _run("--junit", junit, "--ledger", _ledger(tmp_path, [R_A, R_B], min_executed=50))
     assert r.returncode == 1, f"executed 不足应红: {r.stdout}"
     assert "执行出结论的用例 1 < 下限 50" in r.stdout
+
+
+# ── 台账 fail-closed 与版本自绑定（3.12/3.13 两份只差文件名）────────────
+def test_ledger_missing_file_fails_closed(tmp_path: Path):
+    """台账不存在必须红，不能当成"没有约束"放行。"""
+    junit = _junit(tmp_path, [("test_p1", "pass")])
+    r = _run("--junit", junit, "--ledger", str(tmp_path / "no_such_ledger.json"))
+    assert r.returncode != 0, f"缺台账应 fail-closed: {r.stdout}{r.stderr}"
+    assert "不存在" in (r.stdout + r.stderr)
+
+
+def test_ledger_corrupt_json_fails_closed(tmp_path: Path):
+    junit = _junit(tmp_path, [("test_p1", "pass")])
+    bad = tmp_path / "ledger.json"
+    bad.write_text("{this is not json", encoding="utf-8")
+    r = _run("--junit", junit, "--ledger", str(bad))
+    assert r.returncode != 0, "坏 JSON 也必须拒跑"
+    assert "读不出来" in (r.stdout + r.stderr)
+
+
+def test_ledger_running_interpreter_matches_own_version(tmp_path: Path):
+    """台账声明的版本 == 当前解释器时应正常判定（用例本身可移植）。"""
+    here = f"{sys.version_info[0]}.{sys.version_info[1]}"
+    led = tmp_path / "ledger.json"
+    led.write_text(
+        json.dumps(
+            {
+                "python_version": here,
+                "total_skips_expected": 1,
+                "min_executed": 1,
+                "reasons": [{"key": "原因X", "count": 1}],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    junit = _junit(tmp_path, [("test_p1", "pass"), ("test_s1", "skip:原因X（细节略）")])
+    r = _run("--junit", junit, "--ledger", str(led))
+    assert r.returncode == 0, f"版本相符应 PASS: {r.stdout}"
+    assert f"python {here}" in r.stdout
+
+
+def test_ledger_version_mismatch_is_rejected(tmp_path: Path):
+    """接错版本台账会让"精确相等"永远成立——必须当场拒。"""
+    junit = _junit(tmp_path, [("test_p1", "pass")])
+    led = tmp_path / "ledger.json"
+    led.write_text(
+        json.dumps(
+            {"python_version": "9.9", "total_skips_expected": 0, "min_executed": 1, "reasons": []}, ensure_ascii=False
+        ),
+        encoding="utf-8",
+    )
+    r = _run("--junit", junit, "--ledger", str(led))
+    assert r.returncode == 1, f"版本不符应红: {r.stdout}"
+    assert "当前解释器是" in r.stdout and "接错台账" in r.stdout
+
+
+def test_shipped_ledgers_are_self_consistent():
+    """仓里两份台账：总数=逐条之和，且各自绑定 3.12 / 3.13。"""
+    versions = {}
+    for f in (".github/ci_skip_ledger.python-3.12.json", ".github/ci_skip_ledger.python-3.13.json"):
+        data = json.loads((REPO_ROOT / f).read_text(encoding="utf-8"))
+        per_key = sum(x["count"] for x in data["reasons"])
+        assert data["total_skips_expected"] == per_key, f
+        assert data["min_executed"] >= 1, f
+        versions[data["python_version"]] = per_key
+    assert set(versions) == {"3.12", "3.13"}, versions
