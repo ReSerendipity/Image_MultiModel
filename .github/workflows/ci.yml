@@ -36,6 +36,12 @@ permissions:
   contents: read
 
 jobs:
+  # runner 镜像策略（审计 P0-1 第二步，2026-09-25）：本文件里所有随 PR / main push 跑的 job
+  # 一律钉 ubuntu-24.04，不让 2026-10-19 的 ubuntu-latest→Ubuntu 26 迁移静默改变结论。
+  # 最硬的一条是 e2e：仓库里那份 homepage.linux-chromium.png 基线是在 24.04 镜像上生成的，
+  # 换 OS 等于换字体栅格化，视觉回归会把环境差异误报成 UI 回归；performance 的 P95 阈值同理
+  # （runner 调度特征会变）。26 的实测交给仍未钉的 18 个 job 当金丝雀（security / codeql /
+  # gitleaks 等，理由见 PR 描述），到期后用一笔独立解钉探针 PR 观察，不在此顺带做。
   lint:
     name: Lint & Compile Check
     runs-on: ubuntu-24.04  # P0-1 第一步：required context 所在 job 钉死镜像，见 on: 注释
@@ -155,7 +161,7 @@ jobs:
     # 因此这里与 test 保持同构步骤体（只有版本号与事件门禁两处差异）：
     # 改测试步骤时两处必须同改。
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -213,7 +219,7 @@ jobs:
 
   sast:
     name: SAST - pip-audit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -234,7 +240,7 @@ jobs:
 
   smoke:
     name: Smoke Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -264,7 +270,7 @@ jobs:
 
   frontend-smoke:
     name: Frontend Smoke Tests (jsdom)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -309,7 +315,7 @@ jobs:
     # 对应测试体系评估 P1-4：启用 E2E + 视觉回归（此前 if:false 禁用）。
     # 以 IMM_FAKE_ENGINE=1 启动服务端，首页/结构/视觉回归无需 GPU，可 CI 复现；
     # 真实 GPU 生成用例标记 @pytest.mark.slow，默认不跑（手动冒烟）。
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -414,7 +420,7 @@ jobs:
   performance:
     name: Performance Benchmarks (CPU profile, fake engine)
     # 评估 §9-P0-5：E2E/performance 不应长期 if:false，至少用假引擎接入 CPU profile。
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -463,7 +469,7 @@ jobs:
 
   config-refs:
     name: Config Field Refs Integrity (P0-1)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -486,7 +492,7 @@ jobs:
 
   startup-smoke:
     name: Startup Smoke (P0-1, fake engine)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -506,7 +512,7 @@ jobs:
   # ── P2-11：post-deploy smoke（起真实服务 → 跑 6 项检查 → 拆除）──
   post-deploy-smoke:
     name: Post-Deploy Smoke Drill (P2-11)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -556,7 +562,7 @@ jobs:
   # 说明：config_models 强制回环绑定，宿主机 -p 端口映射不通，故探针走 docker exec。
   docker-build-smoke:
     name: Docker Build & Start Smoke (P0-1)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -583,7 +589,7 @@ jobs:
   # ── 不可变版本 artifact（P1-10）────────────────────────────
   release-artifacts:
     name: Immutable Release Artifacts (P1-10)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -630,7 +636,7 @@ jobs:
 
   # ── 安全断言（部署安全红线，2026-08-17 新增） ──────────────────
   security-assertions:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Checkout
