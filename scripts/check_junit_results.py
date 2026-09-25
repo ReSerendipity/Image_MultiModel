@@ -18,6 +18,7 @@ pytest --junitxml 的产物（纯 stdlib，不装 pytest），拦三类静默退
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import xml.etree.ElementTree as ET
 from collections import Counter
@@ -46,6 +47,27 @@ def _parse_allow(raw: str) -> tuple[str, int]:
     return reason, int(quota)
 
 
+def _load_ledger(path: Path) -> tuple[dict[str, int], int, int]:
+    """读 skip 台账，返回 (原因→应有条数, skip 总数期望, executed 下限)。
+
+    台账语义是**精确相等**而不是上限：条数变多 = 新增了没人登记的 skip；
+    条数变少 = 登记过的 skip 悄悄消失（环境变了、用例被删、断言失效）。
+    两者都是台账失真，都必须走"改台账"的 PR，不许就地放宽成 warning。
+    """
+    data = json.loads(path.read_text(encoding="utf-8"))
+    reasons: dict[str, int] = {}
+    for item in data.get("reasons", []):
+        key, count = item["key"], int(item["count"])
+        if key in reasons:
+            raise SystemExit(f"台账 {path} 原因键重复：{key!r}")
+        reasons[key] = count
+    per_key = sum(reasons.values())
+    total = int(data.get("total_skips_expected", per_key))
+    if total != per_key:
+        raise SystemExit(f"台账自相矛盾：total_skips_expected={total} 但逐条之和={per_key}（{path}）")
+    return reasons, total, int(data.get("min_executed", 1))
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="解析 pytest junit 产物并做反假绿门禁")
     ap.add_argument("--junit", required=True, type=Path, help="pytest --junitxml 产出的 XML")
@@ -63,6 +85,13 @@ def main(argv: list[str] | None = None) -> int:
         metavar="'原因关键字=配额'",
         help="允许的 skip 原因及其最大条数，可重复；未登记的 skip 原因一律失败",
     )
+    ap.add_argument(
+        "--ledger",
+        type=Path,
+        default=None,
+        help="skip 台账 JSON：逐原因条数与 skip 总数按精确相等判定（双向防漂移）；"
+        "给了它就覆盖 --allow-skip / --min-executed 的口径",
+    )
     args = ap.parse_args(argv)
 
     if not args.junit.is_file():
@@ -74,7 +103,16 @@ def main(argv: list[str] | None = None) -> int:
     failed = [c for c in cases if c.find("failure") is not None or c.find("error") is not None]
     skipped = [c for c in cases if c.find("skipped") is not None]
     executed = total - len(skipped)
-    quotas = dict(args.allow_skip)
+
+    if args.ledger is not None:
+        quotas, expected_skips, min_executed = _load_ledger(args.ledger)
+        exact = True
+        print(
+            f"台账 {args.ledger}：{len(quotas)} 条登记原因，"
+            f"期望 skip 总数 {expected_skips}，executed 下限 {min_executed}"
+        )
+    else:
+        quotas, expected_skips, min_executed, exact = dict(args.allow_skip), -1, args.min_executed, False
 
     print(f"junit: {total} 用例 / {executed} 执行出结论 / {len(skipped)} skip / {len(failed)} 失败")
 
@@ -87,33 +125,47 @@ def main(argv: list[str] | None = None) -> int:
     print("skip 原因分布：")
     if not reasons:
         print("  (无 skip)")
-    for reason, count in sorted(reasons.items(), key=lambda kv: -kv[1]):
+    for reason, count in sorted(reasons.items(), key=lambda kv: (-kv[1], kv[0])):
         if reason not in quotas:
             print(f"  [未登记] {count} 条: {reason}")
+        elif exact:
+            print(f"  [{'OK' if count == quotas[reason] else '漂移'}] {count}/{quotas[reason]} 条: {reason}")
         else:
-            flag = "OK" if count <= quotas[reason] else "超配额"
-            print(f"  [{flag}] {count}/{quotas[reason]} 条: {reason}")
+            print(f"  [{'OK' if count <= quotas[reason] else '超配额'}] {count}/{quotas[reason]} 条: {reason}")
 
     problems: list[str] = []
     if failed:
         names = ", ".join(f"{c.get('classname', '?')}::{c.get('name', '?')}" for c in failed[:5])
         problems.append(f"{len(failed)} 个用例失败/报错（junit 里有 failure/error 节点）：{names}")
-    if executed < args.min_executed:
+    if executed < min_executed:
         problems.append(
-            f"执行出结论的用例 {executed} < 下限 {args.min_executed} —— "
+            f"执行出结论的用例 {executed} < 下限 {min_executed} —— "
             f"总收集 {total}、skip {len(skipped)}：极可能是收集为空或整体被 skip"
         )
-    for reason, count in reasons.items():
+    if exact and len(skipped) != expected_skips:
+        problems.append(
+            f"skip 总数 {len(skipped)} ≠ 台账期望 {expected_skips}（"
+            f"{'新增未登记 skip' if len(skipped) > expected_skips else '已登记的 skip 消失：环境变化或用例被删'}）"
+            "—— 两种都是台账失真，要改台账而不是放宽门禁"
+        )
+    for reason, count in sorted(reasons.items()):
         if reason not in quotas:
-            problems.append(f"未登记的 skip 原因（新增 pytest.skip 需先加入 --allow-skip）：{reason}")
-        elif count > quotas[reason]:
+            problems.append(f"未登记的 skip 原因（新增 pytest.skip 需先入台账）：{reason}")
+        elif exact and count != quotas[reason]:
+            problems.append(f"skip 条数与台账不符：{count} ≠ {quotas[reason]} —— {reason}")
+        elif not exact and count > quotas[reason]:
             problems.append(f"skip 原因超出配额：{count} > {quotas[reason]} —— {reason}")
 
     if problems:
         for p in problems:
             print(f"::error::{p}")
+        if exact and reasons:
+            print("按本次实况更新台账的原因表（仍需人工核对归属，别直接粘贴了事）：")
+            for reason, count in sorted(reasons.items(), key=lambda kv: (-kv[1], kv[0])):
+                print(f'  {{"key": {json.dumps(reason, ensure_ascii=False)}, "count": {count}}},')
         return 1
-    print(f"[PASS] junit 门禁通过：{executed} 个用例真正执行出结论，skip 均在白名单配额内")
+    mode = "逐条与台账一致" if exact else "均在白名单配额内"
+    print(f"[PASS] junit 门禁通过：{executed} 个用例真正执行出结论，{len(skipped)} 条 skip {mode}")
     return 0
 
 

@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -130,3 +131,126 @@ def test_gate_fails_when_junit_missing(tmp_path: Path):
     r = _run("--junit", str(tmp_path / "nope.xml"), "--min-executed", "20")
     assert r.returncode == 1, f"缺 junit 应被拦截: {r.stdout}"
     assert "不存在" in r.stdout
+
+
+# ── --ledger 精确相等口径（主 test job 用的那套）──────────────────────
+def _ledger(tmp_path: Path, reasons: list[dict], total: int | None = None, min_executed: int = 1) -> str:
+    data = {
+        "total_skips_expected": total if total is not None else sum(r["count"] for r in reasons),
+        "min_executed": min_executed,
+        "reasons": reasons,
+    }
+    f = tmp_path / "ledger.json"
+    f.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    return str(f)
+
+
+R_A = {"key": "原生引擎栈不可用", "count": 2}
+R_B = {"key": "ComfyUI 不在线", "count": 1}
+
+
+def test_ledger_passes_on_exact_match(tmp_path: Path):
+    junit = _junit(
+        tmp_path,
+        [
+            ("test_p1", "pass"),
+            ("test_p2", "pass"),
+            ("test_s1", "skip:原生引擎栈不可用（缺 comfy_aimdo）"),
+            ("test_s2", "skip:原生引擎栈不可用（另一模块）"),
+            ("test_s3", "skip:ComfyUI 不在线，跳过前向路径集成测试"),
+        ],
+    )
+    r = _run("--junit", junit, "--ledger", _ledger(tmp_path, [R_A, R_B]))
+    assert r.returncode == 0, f"精确一致应 PASS: {r.stdout}"
+    assert "逐条与台账一致" in r.stdout
+
+
+def test_ledger_fails_when_skip_grew(tmp_path: Path):
+    """多一条 skip = 新增未登记，必须红。"""
+    junit = _junit(
+        tmp_path,
+        [
+            ("test_p1", "pass"),
+            ("test_s1", "skip:原生引擎栈不可用"),
+            ("test_s2", "skip:原生引擎栈不可用"),
+            ("test_s3", "skip:原生引擎栈不可用"),
+            ("test_s4", "skip:ComfyUI 不在线"),
+        ],
+    )
+    r = _run("--junit", junit, "--ledger", _ledger(tmp_path, [R_A, R_B]))
+    assert r.returncode == 1, f"skip 变多应被拦: {r.stdout}"
+    assert "skip 总数 4 ≠ 台账期望 3" in r.stdout
+
+
+def test_ledger_fails_when_skip_shrank(tmp_path: Path):
+    """少一条 skip 同样红：已登记的 skip 悄悄消失也是台账失真（双向防漂移）。"""
+    junit = _junit(
+        tmp_path,
+        [
+            ("test_p1", "pass"),
+            ("test_p2", "pass"),
+            ("test_p3", "pass"),
+            ("test_s1", "skip:原生引擎栈不可用"),
+            ("test_s2", "skip:ComfyUI 不在线"),
+        ],
+    )
+    r = _run("--junit", junit, "--ledger", _ledger(tmp_path, [R_A, R_B]))
+    assert r.returncode == 1, f"skip 变少也应被拦: {r.stdout}"
+    assert "skip 总数 2 ≠ 台账期望 3" in r.stdout
+    assert "已登记的 skip 消失" in r.stdout
+
+
+def test_ledger_fails_on_per_key_drift_with_same_total(tmp_path: Path):
+    """总数刚好抵消（A 少一条、B 多一条）也要红——只看总数会被抹平。"""
+    junit = _junit(
+        tmp_path,
+        [
+            ("test_p1", "pass"),
+            ("test_s1", "skip:原生引擎栈不可用"),
+            ("test_s2", "skip:ComfyUI 不在线"),
+            ("test_s3", "skip:ComfyUI 不在线"),
+        ],
+    )
+    r = _run("--junit", junit, "--ledger", _ledger(tmp_path, [R_A, R_B]))
+    assert r.returncode == 1, f"逐条漂移应被拦: {r.stdout}"
+    assert "条数与台账不符" in r.stdout
+
+
+def test_ledger_fails_on_unregistered_reason(tmp_path: Path):
+    junit = _junit(
+        tmp_path,
+        [
+            ("test_p1", "pass"),
+            ("test_p2", "pass"),
+            ("test_s1", "skip:原生引擎栈不可用"),
+            ("test_s2", "skip:原生引擎栈不可用"),
+            ("test_s3", "skip:冒出来的新理由"),
+        ],
+    )
+    r = _run("--junit", junit, "--ledger", _ledger(tmp_path, [R_A, R_B]))
+    assert r.returncode == 1, f"未登记原因应被拦: {r.stdout}"
+    assert "未登记的 skip 原因" in r.stdout
+    assert '"count": 1' in r.stdout  # 失败时打印可直接粘的更新表
+
+
+def test_ledger_rejects_self_inconsistent_totals(tmp_path: Path):
+    """台账自己前后矛盾（总数 ≠ 逐条之和）时不许静默按某一个跑。"""
+    junit = _junit(tmp_path, [("test_p1", "pass"), ("test_s1", "skip:原生引擎栈不可用")])
+    r = _run("--junit", junit, "--ledger", _ledger(tmp_path, [R_A], total=99))
+    assert r.returncode != 0, f"自相矛盾台账应拒跑: {r.stdout}{r.stderr}"
+    assert "自相矛盾" in (r.stdout + r.stderr)
+
+
+def test_ledger_enforces_min_executed(tmp_path: Path):
+    junit = _junit(
+        tmp_path,
+        [
+            ("test_p1", "pass"),
+            ("test_s1", "skip:原生引擎栈不可用"),
+            ("test_s2", "skip:原生引擎栈不可用"),
+            ("test_s3", "skip:ComfyUI 不在线"),
+        ],
+    )
+    r = _run("--junit", junit, "--ledger", _ledger(tmp_path, [R_A, R_B], min_executed=50))
+    assert r.returncode == 1, f"executed 不足应红: {r.stdout}"
+    assert "执行出结论的用例 1 < 下限 50" in r.stdout

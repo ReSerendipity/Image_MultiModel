@@ -119,6 +119,17 @@ jobs:
             --junitxml=test-junit.xml \
             -n auto \
             -v
+      - name: Junit skip-quota gate
+        if: always()
+        # 台账见 .github/ci_skip_ledger.json：精确相等语义，双向防漂移。
+        # 刻意只挂 3.12 这一格 —— 3.13 的 totals 与 3.12 相同（09-25 夜间实测
+        # 884 passed / 170 skipped），但它的逐原因分布一次都没取到（PR 事件下
+        # 3.13 按 #98 设计直接 skipped，push/夜间产物尚未产出过），拿推测的台账
+        # 上闸就是赌博。等一次真实产物再单独接 test-313。
+        run: |
+          python scripts/check_junit_results.py \
+            --junit test-junit.xml \
+            --ledger .github/ci_skip_ledger.json
       - name: Coverage Gate (>= 65%, target 75%)
         if: always()
         run: |

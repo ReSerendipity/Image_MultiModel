@@ -1,0 +1,56 @@
+{
+  "_comment": "CI skip 台账：Test + Coverage (Python 3.12) 的 junit skip 分布基线。语义是精确相等——条数变多=新增未登记 skip，变少=登记过的 skip 悄悄消失，两者都必须走红 PR 改台账，不许把门禁放宽成 warning。",
+  "source": {
+    "event": "pull_request #102",
+    "run_id": 36130556510,
+    "job_id": 108611235224,
+    "artifact": "junit-python-3.12 (id 10861868201)",
+    "head": "35c768b",
+    "collected_utc": "2026-09-25"
+  },
+  "cross_check": "夜间 9 轮（09-17..09-25）skip 恒为 170、极差 0；09-25 夜间 3.12 与 3.13 均为 884 passed / 170 skipped（totals 相同，3.13 的逐原因分布尚未取得，故本 PR 只给 3.12 上门禁）",
+  "total_skips_expected": 170,
+  "min_executed": 850,
+  "reasons": [
+    {
+      "key": "原生引擎栈不可用",
+      "count": 150,
+      "note": "tests/test_native_*.py + test_generate_routes.py + test_preprocessors.py。文案说「缺 PyTorch 或 comfy_aimdo」，但 runner 是按 requirements.txt 全量装的、torch 在位，真实驱动是 comfy_aimdo（ComfyUI 原生栈）不可导入 —— 属维护期红线（不装 Comfy/GPU 栈），不是文案 bug；若哪天有人改这条 message，门禁会红并逼一次台账更新。"
+    },
+    {
+      "key": "ComfyUI 不在线",
+      "count": 11,
+      "note": "tests/integration/test_forward_batch_and_cancel.py(6) + test_forward_path_api.py(5)，需要活的 ComfyUI 服务端，CI 无。"
+    },
+    {
+      "key": "清单签名私钥",
+      "count": 4,
+      "note": "tests/test_manifest_signing.py —— data/.manifest_signing_key 仅签发机持有、不入库，真实签名路径只在签发机上验。"
+    },
+    {
+      "key": ".venv 不存在",
+      "count": 1,
+      "note": "依赖本地虚拟环境的用例（clean_launch 侧）。"
+    },
+    {
+      "key": "icacls 语义",
+      "count": 1,
+      "note": "Windows-only 语义用例，ubuntu runner 上必然 skip。"
+    },
+    {
+      "key": "真实 SeedVR2",
+      "count": 1,
+      "note": "需 GPU + 大权重的真实推理，维护期明确不跑。"
+    },
+    {
+      "key": "真实 8B",
+      "count": 1,
+      "note": "同上：真实 8B 推理过重。"
+    },
+    {
+      "key": "data/cache",
+      "count": 1,
+      "note": "缩略图缓存目录无可用 PNG（需真实产物）。"
+    }
+  ]
+}
