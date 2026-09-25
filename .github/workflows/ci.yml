@@ -108,11 +108,15 @@ jobs:
           python scripts/check_marker_usage.py
       - name: Run tests with coverage (parallel)
         # 测试失败必须阻断 CI（对应测试体系评估 P0-1：移除 `|| true`，使覆盖率红线真正生效）
+        # --junitxml：pytest 汇总行只有 "N passed, M skipped"，xdist 的 SKIPPED 行又只给
+        # 节点 ID、不含 skip 原因（实测 job 107976134486）；原因只存在于 junit 的
+        # <skipped message=…> 里，skip 配额门禁必须靠它，故这里落一份 XML。
         run: |
           python -m pytest \
             --cov=app/integrated_app \
             --cov-report=xml \
             --cov-report=term-missing \
+            --junitxml=test-junit.xml \
             -n auto \
             -v
       - name: Coverage Gate (>= 65%, target 75%)
@@ -138,6 +142,13 @@ jobs:
         with:
           file: ./coverage.xml
           fail_ci_if_error: false
+      - name: Upload junit results (skip 配额台账数据源)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-python-3.12
+          path: test-junit.xml
+          if-no-files-found: error
 
 
   test-313:
@@ -180,11 +191,15 @@ jobs:
           python scripts/check_marker_usage.py
       - name: Run tests with coverage (parallel)
         # 测试失败必须阻断 CI（对应测试体系评估 P0-1：移除 `|| true`，使覆盖率红线真正生效）
+        # --junitxml：pytest 汇总行只有 "N passed, M skipped"，xdist 的 SKIPPED 行又只给
+        # 节点 ID、不含 skip 原因（实测 job 107976134486）；原因只存在于 junit 的
+        # <skipped message=…> 里，skip 配额门禁必须靠它，故这里落一份 XML。
         run: |
           python -m pytest \
             --cov=app/integrated_app \
             --cov-report=xml \
             --cov-report=term-missing \
+            --junitxml=test-junit.xml \
             -n auto \
             -v
       - name: Coverage Gate (>= 65%, target 75%)
@@ -210,6 +225,13 @@ jobs:
         with:
           file: ./coverage.xml
           fail_ci_if_error: false
+      - name: Upload junit results (skip 配额台账数据源)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-python-3.13
+          path: test-junit.xml
+          if-no-files-found: error
 
   sast:
     name: SAST - pip-audit
@@ -662,8 +684,13 @@ jobs:
     runs-on: ubuntu-24.04  # P0-1 第一步：required context 所在 job 钉死镜像，见 on: 注释
     timeout-minutes: 15
     env:
-      # 锁里的 torch/torchvision 用 +cpu 本地变体，仅发布在 PyTorch CPU 源，
-      # 不给这个索引解析器会因找不到版本而误红（口径同 security.yml 的 pip-audit）。
+      # 历史遗留理由（2026-09-25 订正）：曾有一段时间锁里是 torchvision==0.28.0+cpu，
+      # 该本地变体只发布在 PyTorch CPU 源，不给这个索引解析器会找不到版本。
+      # 但当前锁里【已经没有任何 +cpu 针】：torch==2.14.0 / torchvision==0.29.0 /
+      # torchaudio==2.11.0 全是纯 PyPI 针。最后一次含 +cpu 的锁变更是 5a18b59，
+      # 其后 b709767 / 8134705 / cd1eb0f / 7fa3cc8 四次都去掉了（security.yml 的
+      # pip-audit 同源注释同样待订正）。
+      # env 保留不删：删它改变 pip 的候选索引集，属行为变更而非注释订正。
       PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
     steps:
       - uses: actions/checkout@v4
